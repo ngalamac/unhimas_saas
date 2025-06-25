@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 
 export const Calendar: React.FC = () => {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 5)); // June 2025
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [activeView, setActiveView] = useState('Month');
 
   const monthNames = [
@@ -54,7 +54,18 @@ export const Calendar: React.FC = () => {
     });
   };
 
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
   const days = getDaysInMonth(currentDate);
+  const today = new Date();
+  const isToday = (day: number, isCurrentMonth: boolean) => {
+    return isCurrentMonth && 
+           day === today.getDate() && 
+           currentDate.getMonth() === today.getMonth() && 
+           currentDate.getFullYear() === today.getFullYear();
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -73,7 +84,10 @@ export const Calendar: React.FC = () => {
           >
             <ChevronRight className="w-5 h-5" />
           </button>
-          <button className="px-3 py-1 bg-gray-100 rounded text-sm">
+          <button 
+            onClick={goToToday}
+            className="px-3 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200"
+          >
             Today
           </button>
         </div>
@@ -116,11 +130,11 @@ export const Calendar: React.FC = () => {
             key={index}
             className={`p-3 h-20 border border-gray-100 ${
               day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-            } ${day.date === 1 && day.isCurrentMonth ? 'bg-yellow-50' : ''}`}
+            } ${isToday(day.date, day.isCurrentMonth) ? 'bg-blue-50 border-blue-200' : ''}`}
           >
             <div className={`text-sm ${
               day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-            }`}>
+            } ${isToday(day.date, day.isCurrentMonth) ? 'font-bold text-blue-600' : ''}`}>
               {day.date}
             </div>
           </div>

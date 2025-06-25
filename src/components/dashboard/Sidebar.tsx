@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Home, Building2, QrCode, Shield, DollarSign, CreditCard, GraduationCap, Calculator, UserPlus, FileText, Users, MessageSquare, Car as IdCard, Settings, ChevronRight, ChevronDown, MapPin, Eye, Plus, BookOpen, Calendar, Mail, BarChart3, UserCheck, School } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface SidebarItem {
   id: string;
@@ -8,6 +9,7 @@ interface SidebarItem {
   icon: React.ReactNode;
   hasSubmenu?: boolean;
   submenuItems?: { id: string; label: string; icon: React.ReactNode }[];
+  requiredPermissions?: string[];
 }
 
 interface SidebarProps {
@@ -18,6 +20,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const { currentPage, setCurrentPage, setBreadcrumb } = useNavigation();
+  const { user, hasPermission } = useAuth();
 
   const toggleExpanded = (itemId: string) => {
     setExpandedItems(prev => 
@@ -43,6 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'All Branches', 
       icon: <Building2 className="w-4 h-4" />, 
       hasSubmenu: true,
+      requiredPermissions: ['branches', 'all'],
       submenuItems: [
         { id: 'view-branches', label: 'View Branches', icon: <Eye className="w-3 h-3" /> },
         { id: 'create-branch', label: 'Create Branch', icon: <Plus className="w-3 h-3" /> },
@@ -52,18 +56,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     { 
       id: 'qr-attendance', 
       label: 'QR Attendance', 
-      icon: <QrCode className="w-4 h-4" /> 
+      icon: <QrCode className="w-4 h-4" />,
+      requiredPermissions: ['attendance', 'all']
     },
     { 
       id: 'two-factor-auth', 
       label: 'Two Factor Authentication', 
-      icon: <Shield className="w-4 h-4" /> 
+      icon: <Shield className="w-4 h-4" />,
+      requiredPermissions: ['all']
     },
     { 
       id: 'fees-management', 
       label: 'Powerful Fees Management', 
       icon: <DollarSign className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['fees', 'all'],
       submenuItems: [
         { id: 'fee-structure', label: 'Fee Structure', icon: <Calculator className="w-3 h-3" /> },
         { id: 'discounts', label: 'Discounts & Fines', icon: <DollarSign className="w-3 h-3" /> },
@@ -76,6 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'Register Payments', 
       icon: <CreditCard className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['payments', 'all'],
       submenuItems: [
         { id: 'online-payments', label: 'Online Payments', icon: <CreditCard className="w-3 h-3" /> },
         { id: 'offline-payments', label: 'Offline Payments', icon: <Calculator className="w-3 h-3" /> },
@@ -87,6 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'Multi-Type Grading System', 
       icon: <GraduationCap className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['grades', 'all'],
       submenuItems: [
         { id: 'exam-types', label: 'Exam Types (Mark/GPA)', icon: <FileText className="w-3 h-3" /> },
         { id: 'mark-distribution', label: 'Mark Distribution', icon: <BarChart3 className="w-3 h-3" /> },
@@ -98,6 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'Office Accounting', 
       icon: <Calculator className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['accounting', 'all'],
       submenuItems: [
         { id: 'expenses', label: 'Record Expenses', icon: <DollarSign className="w-3 h-3" /> },
         { id: 'income', label: 'Record Income', icon: <DollarSign className="w-3 h-3" /> },
@@ -109,6 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'Admissions', 
       icon: <UserPlus className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['students', 'all'],
       submenuItems: [
         { id: 'admission-applications', label: 'Admission Applications', icon: <FileText className="w-3 h-3" /> },
         { id: 'admission-payments', label: 'Admission Payments', icon: <CreditCard className="w-3 h-3" /> },
@@ -120,6 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'Student Management', 
       icon: <Users className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['students', 'department_students', 'all'],
       submenuItems: [
         { id: 'all-students', label: 'All Students', icon: <Users className="w-3 h-3" /> },
         { id: 'student-registration', label: 'Student Registration', icon: <UserPlus className="w-3 h-3" /> },
@@ -132,6 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'Programs & Departments', 
       icon: <School className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['programs', 'department_courses', 'all'],
       submenuItems: [
         { id: 'programs', label: 'Programs (HND/Bachelor/Masters)', icon: <GraduationCap className="w-3 h-3" /> },
         { id: 'departments', label: 'Departments', icon: <Building2 className="w-3 h-3" /> },
@@ -145,6 +158,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'Progress Report Card', 
       icon: <FileText className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['grades', 'academic_reports', 'all'],
       submenuItems: [
         { id: 'semester-results', label: 'Semester Results', icon: <FileText className="w-3 h-3" /> },
         { id: 'transcript', label: 'Transcript Generation', icon: <GraduationCap className="w-3 h-3" /> },
@@ -156,6 +170,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'Role Permission', 
       icon: <Shield className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['all'],
       submenuItems: [
         { id: 'user-roles', label: 'User Roles', icon: <Users className="w-3 h-3" /> },
         { id: 'permissions', label: 'Manage Permissions', icon: <Shield className="w-3 h-3" /> },
@@ -167,6 +182,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'Schedule Email/SMS', 
       icon: <MessageSquare className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['announcements', 'all'],
       submenuItems: [
         { id: 'bulk-messaging', label: 'Bulk Messaging', icon: <MessageSquare className="w-3 h-3" /> },
         { id: 'user-groups', label: 'User Groups', icon: <Users className="w-3 h-3" /> },
@@ -179,6 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'School ID Card Management', 
       icon: <IdCard className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['all'],
       submenuItems: [
         { id: 'student-id', label: 'Student ID Cards', icon: <IdCard className="w-3 h-3" /> },
         { id: 'employee-id', label: 'Employee ID Cards', icon: <IdCard className="w-3 h-3" /> },
@@ -192,6 +209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'Data Analysis & Reports', 
       icon: <BarChart3 className="w-4 h-4" />,
       hasSubmenu: true,
+      requiredPermissions: ['reports', 'financial_reports', 'academic_reports', 'all'],
       submenuItems: [
         { id: 'student-analytics', label: 'Student Analytics', icon: <BarChart3 className="w-3 h-3" /> },
         { id: 'financial-reports', label: 'Financial Reports', icon: <DollarSign className="w-3 h-3" /> },
@@ -202,9 +220,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     { 
       id: 'settings', 
       label: 'Settings', 
-      icon: <Settings className="w-4 h-4" /> 
+      icon: <Settings className="w-4 h-4" />,
+      requiredPermissions: ['all']
     }
   ];
+
+  // Filter sidebar items based on user permissions
+  const filteredSidebarItems = sidebarItems.filter(item => {
+    if (!item.requiredPermissions) return true;
+    return item.requiredPermissions.some(permission => hasPermission(permission));
+  });
 
   return (
     <>
@@ -227,7 +252,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
             <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
               <GraduationCap className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-gray-800">UNHIMAS</span>
+            <div>
+              <span className="font-bold text-gray-800">UNHIMAS</span>
+              <div className="text-xs text-gray-500">{user?.role}</div>
+            </div>
           </div>
         </div>
 
@@ -236,7 +264,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Main</h3>
           
           <div className="space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
-            {sidebarItems.map((item) => (
+            {filteredSidebarItems.map((item) => (
               <div key={item.id}>
                 <button
                   onClick={() => {

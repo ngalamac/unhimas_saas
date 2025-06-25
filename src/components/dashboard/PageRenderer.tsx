@@ -19,6 +19,9 @@ import { StudentAnalyticsPage } from '../pages/analytics/StudentAnalyticsPage';
 import { FinancialReportsPage } from '../pages/analytics/FinancialReportsPage';
 import { AdmissionApplicationsPage } from '../pages/admissions/AdmissionApplicationsPage';
 import { IDCardManagementPage } from '../pages/cards/IDCardManagementPage';
+import { RolePermissionPage } from '../pages/roles/RolePermissionPage';
+import { TwoFactorAuthPage } from '../pages/security/TwoFactorAuthPage';
+import { OfficeAccountingPage } from '../pages/accounting/OfficeAccountingPage';
 
 export const PageRenderer: React.FC = () => {
   const { currentPage } = useNavigation();
@@ -41,6 +44,10 @@ export const PageRenderer: React.FC = () => {
       case 'qr-attendance':
         return <QRAttendancePage />;
       
+      // Security
+      case 'two-factor-auth':
+        return <TwoFactorAuthPage />;
+      
       // Fees
       case 'fee-structure':
         return <FeeStructurePage />;
@@ -56,6 +63,12 @@ export const PageRenderer: React.FC = () => {
         return <CoursesPage />;
       case 'exam-types':
         return <GradingSystemPage />;
+      
+      // Accounting
+      case 'expenses':
+      case 'income':
+      case 'fee-collection':
+        return <OfficeAccountingPage />;
       
       // Communication
       case 'bulk-messaging':
@@ -76,6 +89,12 @@ export const PageRenderer: React.FC = () => {
       // ID Cards
       case 'student-id':
         return <IDCardManagementPage />;
+      
+      // Roles & Permissions
+      case 'user-roles':
+      case 'permissions':
+      case 'role-assignment':
+        return <RolePermissionPage />;
       
       default:
         return null;
