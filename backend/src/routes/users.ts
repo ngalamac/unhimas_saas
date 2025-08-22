@@ -17,10 +17,16 @@ router.get('/', async (req, res) => {
 router.put('/:id/permissions', async (req, res) => {
   try {
     const { permissions } = req.body;
+    console.log('USER PERMISSIONS UPDATE: Received for user', req.params.id, permissions);
     const user = await User.findByIdAndUpdate(req.params.id, { permissions }, { new: true });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) {
+      console.log('USER PERMISSIONS UPDATE: User not found for id', req.params.id);
+      return res.status(404).json({ error: 'User not found' });
+    }
+    console.log('USER PERMISSIONS UPDATE: Saved for user', user.email, user.permissions);
     res.json(user);
   } catch (err) {
+    console.log('USER PERMISSIONS UPDATE: Error', err);
     res.status(400).json({ error: 'Failed to update permissions' });
   }
 });

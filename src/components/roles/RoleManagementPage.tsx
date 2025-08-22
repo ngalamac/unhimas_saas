@@ -190,23 +190,26 @@ const RoleManagementPage: React.FC = () => {
               <td className="py-2 px-4 border-b">{user.name}</td>
               <td className="py-2 px-4 border-b">{user.email}</td>
               <td className="py-2 px-4 border-b">{user.type}</td>
-              {Object.keys(features).map((feature) => (
-                <td key={feature} className="py-2 px-4 border-b text-center">
-                  <div className="flex justify-center space-x-1">
-                    {features[feature].map((action: string) => (
-                      <label key={action} className="flex flex-col items-center">
-                        <input
-                          type="checkbox"
-                          checked={user.type === 'SuperAdmin' ? true : user.permissions?.[feature]?.[action] || false}
-                          disabled={user.type === 'SuperAdmin'}
-                          onChange={e => handleUserPermissionChange(user._id, feature, action, e.target.checked)}
-                        />
-                        <span className="text-xs">{action.charAt(0).toUpperCase()}</span>
-                      </label>
-                    ))}
-                  </div>
-                </td>
-              ))}
+              {Object.keys(features).map((feature) => {
+                const normalizedFeature = feature.toLowerCase();
+                return (
+                  <td key={feature} className="py-2 px-4 border-b text-center">
+                    <div className="flex justify-center space-x-1">
+                      {features[feature].map((action: string) => (
+                        <label key={action} className="flex flex-col items-center">
+                          <input
+                            type="checkbox"
+                            checked={user.type === 'SuperAdmin' ? true : user.permissions?.[normalizedFeature]?.[action] || false}
+                            disabled={user.type === 'SuperAdmin'}
+                            onChange={e => handleUserPermissionChange(user._id, feature, action, e.target.checked)}
+                          />
+                          <span className="text-xs">{action.charAt(0).toUpperCase()}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </td>
+                );
+              })}
               <td className="py-2 px-4 border-b text-center">
                 {user.type !== 'SuperAdmin' && (
                   <button onClick={() => handleDeleteUser(user._id)} className="bg-red-500 text-white px-2 py-1 rounded text-xs">Delete</button>

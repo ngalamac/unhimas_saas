@@ -71,12 +71,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return false;
         }
         // Only include features with at least one action set to true
+        // Extract granular permissions: 'feature:action' for all actions set to true
         const featurePermissions = Object.entries(data.user.permissions || {})
-          .filter(([feature, actions]) => {
-            if (!actions || typeof actions !== 'object') return false;
-            return Object.values(actions).some(v => v === true);
-          })
-          .map(([feature]) => feature.toLowerCase());
+          .flatMap(([feature, actions]) => {
+            if (!actions || typeof actions !== 'object') return [];
+            return Object.entries(actions)
+              .filter(([action, value]) => value === true)
+              .map(([action]) => `${feature.toLowerCase()}:${action.toLowerCase()}`);
+          });
+        console.log('LOGIN: Raw permissions from backend:', data.user.permissions);
+        console.log('LOGIN: Extracted featurePermissions:', featurePermissions);
         setUser({
           id: data.user._id,
           username: data.user.name,
@@ -90,7 +94,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
         setIsAuthenticated(true);
         localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        // Do NOT use localStorage user for permissions anymore
         return true;
       }
       return false;
