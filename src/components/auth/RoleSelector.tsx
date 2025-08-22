@@ -19,7 +19,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({ selectedRole, onRole
   const roles: Role[] = [
     { name: 'SuperAdmin', active: true },
     { name: 'Admin', active: false },
-    { name: 'Lecturer', active: false },
+    { name: 'Registrar', active: false },
     { name: 'Accountant', active: false },
     { name: 'Dean of Studies', active: false },
     { name: 'Head Of Department', active: false }

@@ -19,9 +19,9 @@ import { StudentAnalyticsPage } from '../pages/analytics/StudentAnalyticsPage';
 import { FinancialReportsPage } from '../pages/analytics/FinancialReportsPage';
 import { AdmissionApplicationsPage } from '../pages/admissions/AdmissionApplicationsPage';
 import { IDCardManagementPage } from '../pages/cards/IDCardManagementPage';
-import { RolePermissionPage } from '../pages/roles/RolePermissionPage';
+import RoleManagementPage from '../roles/RoleManagementPage';
 import { TwoFactorAuthPage } from '../pages/security/TwoFactorAuthPage';
-import { OfficeAccountingPage } from '../pages/accounting/OfficeAccountingPage';
+import AccountingPage from '../accounting/AccountingPage';
 
 export const PageRenderer: React.FC = () => {
   const { currentPage } = useNavigation();
@@ -65,10 +65,8 @@ export const PageRenderer: React.FC = () => {
         return <GradingSystemPage />;
       
       // Accounting
-      case 'expenses':
-      case 'income':
-      case 'fee-collection':
-        return <OfficeAccountingPage />;
+      case 'accounting':
+        return <AccountingPage />;
       
       // Communication
       case 'bulk-messaging':
@@ -91,10 +89,8 @@ export const PageRenderer: React.FC = () => {
         return <IDCardManagementPage />;
       
       // Roles & Permissions
-      case 'user-roles':
-      case 'permissions':
-      case 'role-assignment':
-        return <RolePermissionPage />;
+      case 'role-management':
+        return <RoleManagementPage />;
       
       default:
         return null;

@@ -58,29 +58,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const login = async (username: string, password: string, role: string): Promise<boolean> => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock authentication - accept any credentials for demo
-    if (username && password) {
-      const mockUser: User = {
-        id: '1',
-        username,
-        email: `${username}@unhimas.edu.cm`,
-        role,
-        firstName: getFirstName(role),
-        lastName: 'User',
-        permissions: getRolePermissions(role),
-        department: getDepartment(role),
-        employeeId: `EMP-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
-      };
-      
-      setUser(mockUser);
-      setIsAuthenticated(true);
-      return true;
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: username, password }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token && data.user) {
+        // Optionally check role match
+        if (role && data.user.type !== role) {
+          return false;
+        }
+        // Only include features with at least one action set to true
+        const featurePermissions = Object.entries(data.user.permissions || {})
+          .filter(([feature, actions]) => {
+            if (!actions || typeof actions !== 'object') return false;
+            return Object.values(actions).some(v => v === true);
+          })
+          .map(([feature]) => feature.toLowerCase());
+        setUser({
+          id: data.user._id,
+          username: data.user.name,
+          email: data.user.email,
+          role: data.user.type,
+          firstName: data.user.name.split(' ')[0],
+          lastName: data.user.name.split(' ')[1] || '',
+          permissions: featurePermissions,
+          department: data.user.department || '',
+          employeeId: data.user.employeeId || '',
+        });
+        setIsAuthenticated(true);
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        return true;
+      }
+      return false;
+    } catch (err) {
+      return false;
     }
-    
-    return false;
   };
 
   const logout = () => {

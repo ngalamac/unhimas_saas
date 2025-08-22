@@ -102,17 +102,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         { id: 'ca-exam-setup', label: 'CA & Exam Setup', icon: <Settings className="w-3 h-3" /> }
       ]
     },
-    { 
-      id: 'office-accounting', 
-      label: 'Office Accounting', 
+    {
+      id: 'accounting',
+      label: 'Accounting',
       icon: <Calculator className="w-4 h-4" />,
-      hasSubmenu: true,
-      requiredPermissions: ['accounting', 'all'],
-      submenuItems: [
-        { id: 'expenses', label: 'Record Expenses', icon: <DollarSign className="w-3 h-3" /> },
-        { id: 'income', label: 'Record Income', icon: <DollarSign className="w-3 h-3" /> },
-        { id: 'fee-collection', label: 'Fee Collection Link', icon: <CreditCard className="w-3 h-3" /> }
-      ]
+      requiredPermissions: ['accounting', 'all']
     },
     { 
       id: 'admissions', 
@@ -166,16 +160,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       ]
     },
     { 
-      id: 'role-permission', 
-      label: 'Role Permission', 
+      id: 'role-management', 
+      label: 'Role Management', 
       icon: <Shield className="w-4 h-4" />,
-      hasSubmenu: true,
-      requiredPermissions: ['all'],
-      submenuItems: [
-        { id: 'user-roles', label: 'User Roles', icon: <Users className="w-3 h-3" /> },
-        { id: 'permissions', label: 'Manage Permissions', icon: <Shield className="w-3 h-3" /> },
-        { id: 'role-assignment', label: 'Role Assignment', icon: <UserCheck className="w-3 h-3" /> }
-      ]
+      requiredPermissions: ['all']
     },
     { 
       id: 'schedule-communication', 
@@ -225,10 +213,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     }
   ];
 
-  // Filter sidebar items based on user permissions
+  // Filter sidebar items based on user's permissions object
+  const getUserFeaturePermissions = () => {
+    if (!user) return [];
+    // For SuperAdmin, show all
+    if (user.permissions && (user.permissions.includes?.('all') || user.role === 'SuperAdmin')) return Object.keys(sidebarItems);
+    // For other users, get features from permissions object
+    if (user.permissions && typeof user.permissions === 'object') {
+      return Object.keys(user.permissions);
+    }
+    return [];
+  };
+
+  const userFeatures = getUserFeaturePermissions();
+
   const filteredSidebarItems = sidebarItems.filter(item => {
     if (!item.requiredPermissions) return true;
-    return item.requiredPermissions.some(permission => hasPermission(permission));
+    // If user is SuperAdmin, show all
+    if (user && (user.permissions.includes?.('all') || user.role === 'SuperAdmin')) return true;
+    // Otherwise, show if any requiredPermission matches a user feature
+    return item.requiredPermissions.some(permission => userFeatures.includes(permission));
   });
 
   return (
