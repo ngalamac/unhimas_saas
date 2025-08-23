@@ -35,8 +35,13 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(() => {
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return !!localStorage.getItem('token');
+  });
 
   const getRolePermissions = (role: string): string[] => {
     switch (role) {
@@ -94,6 +99,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
         setIsAuthenticated(true);
         localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify({
+          id: data.user._id,
+          username: data.user.name,
+          email: data.user.email,
+          role: data.user.type,
+          firstName: data.user.name.split(' ')[0],
+          lastName: data.user.name.split(' ')[1] || '',
+          permissions: featurePermissions,
+          department: data.user.department || '',
+          employeeId: data.user.employeeId || '',
+        }));
         // Do NOT use localStorage user for permissions anymore
         return true;
       }
@@ -104,8 +120,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
+  setUser(null);
+  setIsAuthenticated(false);
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
   };
 
   const hasPermission = (permission: string): boolean => {

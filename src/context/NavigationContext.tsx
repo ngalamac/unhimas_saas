@@ -22,8 +22,23 @@ interface NavigationProviderProps {
 }
 
 export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children }) => {
-  const [currentPage, setCurrentPage] = useState('dashboard');
-  const [breadcrumb, setBreadcrumb] = useState(['Dashboard']);
+  const [currentPage, setCurrentPageState] = useState(() => {
+    return localStorage.getItem('currentPage') || 'dashboard';
+  });
+  const [breadcrumb, setBreadcrumbState] = useState(() => {
+    const stored = localStorage.getItem('breadcrumb');
+    return stored ? JSON.parse(stored) : ['Dashboard'];
+  });
+
+  const setCurrentPage = (page: string) => {
+    setCurrentPageState(page);
+    localStorage.setItem('currentPage', page);
+  };
+
+  const setBreadcrumb = (breadcrumbArr: string[]) => {
+    setBreadcrumbState(breadcrumbArr);
+    localStorage.setItem('breadcrumb', JSON.stringify(breadcrumbArr));
+  };
 
   return (
     <NavigationContext.Provider value={{ currentPage, setCurrentPage, breadcrumb, setBreadcrumb }}>

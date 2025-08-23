@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { LoginPage } from './pages/LoginPage';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import PasswordResetPage from './pages/PasswordResetPage';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -25,6 +26,14 @@ function AppRoutes() {
           element={
             <PublicRoute>
               <LoginPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/password-reset" 
+          element={
+            <PublicRoute>
+              <PasswordResetPage />
             </PublicRoute>
           } 
         />

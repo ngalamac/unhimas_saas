@@ -22,6 +22,7 @@ import { IDCardManagementPage } from '../pages/cards/IDCardManagementPage';
 import RoleManagementPage from '../roles/RoleManagementPage';
 import { TwoFactorAuthPage } from '../pages/security/TwoFactorAuthPage';
 import AccountingPage from '../accounting/AccountingPage';
+import SettingsPage from './SettingsPage';
 
 export const PageRenderer: React.FC = () => {
   const { currentPage } = useNavigation();
@@ -91,6 +92,8 @@ export const PageRenderer: React.FC = () => {
       // Roles & Permissions
       case 'role-management':
         return <RoleManagementPage />;
+       case 'settings':
+         return <SettingsPage />;
       
       default:
         return null;

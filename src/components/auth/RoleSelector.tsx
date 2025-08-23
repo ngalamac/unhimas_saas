@@ -40,9 +40,9 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({ selectedRole, onRole
                 <button
                   key={roleIndex}
                   onClick={() => onRoleSelect(role.name)}
-                  className={`px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 text-xs font-medium rounded transition-colors ${
+                  className={`px-2 sm:px-3 lg:px-4 py-1.5 sm:py-2 text-xs font-semibold rounded transition-colors outline-none focus:ring-2 focus:ring-[#a02c2c] ${
                     role.name === selectedRole
-                      ? 'bg-gray-900 text-white'
+                      ? 'bg-[#a02c2c] text-white border-2 border-[#a02c2c] shadow-lg scale-105'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white'
                   }`}
                 >

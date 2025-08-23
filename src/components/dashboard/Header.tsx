@@ -22,9 +22,17 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
+  const confirmLogout = () => {
     logout();
+    setShowLogoutModal(false);
     navigate('/login');
+  };
+  const cancelLogout = () => {
+    setShowLogoutModal(false);
   };
 
   return (
@@ -97,6 +105,19 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
           </div>
         </div>
       </div>
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full text-gray-900 relative flex flex-col items-center">
+            <h2 className="text-xl font-bold mb-4 text-center text-[#a02c2c]">Confirm Logout</h2>
+            <p className="mb-6 text-sm text-center">Are you sure you want to logout?</p>
+            <div className="flex space-x-4">
+              <button onClick={confirmLogout} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold shadow">Logout</button>
+              <button onClick={cancelLogout} className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-900 rounded-lg font-semibold shadow">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

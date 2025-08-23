@@ -54,6 +54,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const handleNavigation = (pageId: string, breadcrumbPath: string[]) => {
     setCurrentPage(pageId);
     setBreadcrumb(breadcrumbPath);
+    // If settings is clicked, navigate to SettingsPage
+    if (pageId === 'settings') {
+      window.location.hash = '#/settings';
+    }
   };
 
   // Sidebar items definition (always defined before filtering)
