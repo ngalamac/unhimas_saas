@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-// ...existing code...
+import unhimasLogo from '../../assets/unhimas-logo.png';
+import { User, Lock, Loader, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
 // Simple modal for login instructions
 const LoginHelpModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   if (!open) return null;
@@ -13,7 +17,7 @@ const LoginHelpModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
           <li>Select your role (e.g., SuperAdmin, Admin, Accountant, etc.) before filling the form.</li>
           <li>Enter your assigned username and password in the fields provided.</li>
           <li>If you do not have login credentials, please contact the school management office.</li>
-          <li>If you forget your password, use the "Lose Your Password?" link or contact management.</li>
+          <li>If you forget your password, use the "Forgot Password?" link or contact management.</li>
           <li>For security, do not share your password with anyone.</li>
           <li>If you encounter any issues, reach out to management for assistance.</li>
         </ul>
@@ -23,20 +27,16 @@ const LoginHelpModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open
     </div>
   );
 };
-import unhimasLogo from '../../assets/unhimas-logo.png';
-import { User, Lock, Loader } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 interface LoginFormProps {
   selectedRole: string;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ selectedRole }) => {
-// ...existing code...
   const [showHelp, setShowHelp] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -66,7 +66,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ selectedRole }) => {
   return (
     <div className="flex flex-col items-center justify-center w-full">
       <h2 className="text-lg font-semibold text-[#a02c2c] mb-6">Login</h2>
-  <form onSubmit={handleSubmit} className="w-full max-w-xs sm:max-w-sm space-y-4 sm:space-y-5 lg:space-y-6 bg-white rounded-xl shadow-2xl p-8 drop-shadow-2xl">
+      <form onSubmit={handleSubmit} className="w-full max-w-xs sm:max-w-sm space-y-4 sm:space-y-5 lg:space-y-6 bg-white rounded-xl shadow-2xl p-8 drop-shadow-2xl">
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-sm text-red-600">{error}</p>
@@ -85,18 +85,26 @@ export const LoginForm: React.FC<LoginFormProps> = ({ selectedRole }) => {
             disabled={isLoading}
           />
         </div>
-        {/* Password field */}
+        {/* Password field with eye icon */}
         <div className="relative">
           <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
           <input
-            type="password"
+            type={showPassword ? "text" : "password"}
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 sm:pl-12 pr-4 py-2.5 sm:py-3 text-sm sm:text-base text-white placeholder-gray-400 focus:outline-none focus:border-red-500 transition-colors"
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 sm:pl-12 pr-10 py-2.5 sm:py-3 text-sm sm:text-base text-white placeholder-gray-400 focus:outline-none focus:border-red-500 transition-colors"
             required
             disabled={isLoading}
           />
+          <button
+            type="button"
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-700 focus:outline-none"
+            onClick={() => setShowPassword((prev) => !prev)}
+            tabIndex={-1}
+          >
+            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </button>
         </div>
         {/* Remember me and forgot password */}
         <div className="flex items-center justify-between">
@@ -108,7 +116,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ selectedRole }) => {
               className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-500 bg-gray-800 border-gray-600 rounded focus:ring-red-500"
               disabled={isLoading}
             />
-            <span className="text-xs sm:text-sm text-gray-300">Remember</span>
+            <span className="text-xs sm:text-sm text-gray-300">Keep me Logged in</span>
           </label>
           <button
             type="button"
