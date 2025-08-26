@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Building2, QrCode, Shield, DollarSign, CreditCard, GraduationCap, Calculator, UserPlus, FileText, Users, MessageSquare, Car as IdCard, Settings, ChevronRight, ChevronDown, MapPin, Eye, Plus, BookOpen, Calendar, Mail, BarChart3, UserCheck, School } from 'lucide-react';
+import { Home, Building2, QrCode, Shield, DollarSign, CreditCard, GraduationCap, Calculator, UserPlus, FileText, Users, MessageSquare, Car as IdCard, Settings, ChevronRight, ChevronLeft, ChevronDown, Eye, Plus, BookOpen, Calendar, Mail, BarChart3, UserCheck, School } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -15,9 +15,12 @@ interface SidebarItem {
 interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
+  minimized?: boolean;
+  onMinimize?: () => void;
+  onRestore?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle, minimized = false, onMinimize, onRestore }) => {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const { currentPage, setCurrentPage, setBreadcrumb } = useNavigation();
   const { user } = useAuth();
@@ -147,24 +150,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         />
       )}
       {/* Sidebar */}
-      <div className={`fixed left-0 top-0 h-full bg-white shadow-lg z-50 transition-transform duration-300 ${
+      <div className={`fixed left-0 top-0 h-full bg-white dark:bg-darkbg shadow-lg z-50 transition-transform duration-300 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
-      } lg:translate-x-0 lg:static lg:z-auto w-64`}>
+      } lg:translate-x-0 lg:static lg:z-auto ${minimized ? 'w-20' : 'w-64'} dark:text-white`}>
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+  <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
               <GraduationCap className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <span className="font-bold text-gray-800">UNHIMAS</span>
-              <div className="text-xs text-gray-500">{user?.role}</div>
-            </div>
+            {!minimized && (
+              <div>
+                <span className="font-bold text-gray-800 dark:text-white">UNHIMAS</span>
+                <div className="text-xs text-gray-500 dark:text-gray-300">{user?.role}</div>
+              </div>
+            )}
           </div>
+          <button
+            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+            onClick={minimized ? onRestore : onMinimize}
+            title={minimized ? 'Expand Sidebar' : 'Minimize Sidebar'}
+          >
+            {minimized ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+          </button>
         </div>
         {/* Main Section */}
         <div className="p-4">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Main</h3>
+          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wide mb-3">Main</h3>
           <div className="space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
             {filteredSidebarItems.map((item) => (
               <div key={item.id}>
@@ -178,22 +190,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors ${
                     currentPage === item.id 
-                      ? 'bg-orange-100 text-orange-600 font-medium' 
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-300 font-medium' 
+                      : 'text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
                     {item.icon}
-                    <span>{item.label}</span>
+                    {!minimized && <span>{item.label}</span>}
                   </div>
-                  {item.hasSubmenu && (
+                  {item.hasSubmenu && !minimized && (
                     expandedItems.includes(item.id) 
                       ? <ChevronDown className="w-4 h-4" />
                       : <ChevronRight className="w-4 h-4" />
                   )}
                 </button>
                 {/* Submenu */}
-                {item.hasSubmenu && expandedItems.includes(item.id) && item.submenuItems && (
+                {!minimized && item.hasSubmenu && expandedItems.includes(item.id) && item.submenuItems && (
                   <div className="ml-6 mt-1 space-y-1">
                     {item.submenuItems.map((subItem) => (
                       <button
@@ -201,8 +213,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                         onClick={() => handleNavigation(subItem.id, [item.label, subItem.label])}
                         className={`w-full flex items-center space-x-2 px-3 py-1.5 text-xs rounded transition-colors ${
                           currentPage === subItem.id
-                            ? 'bg-orange-100 text-orange-600 font-medium'
-                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                            ? 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-300 font-medium'
+                            : 'text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-white'
                         }`}
                       >
                         {subItem.icon}

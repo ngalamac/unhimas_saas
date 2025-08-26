@@ -87,7 +87,7 @@ export const DashboardStats: React.FC = () => {
       {/* Blue Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, index) => (
-          <div key={index} className={`${stat.color} rounded-lg p-6 text-white`}>
+          <div key={index} className={`${stat.color} rounded-lg p-6 text-white dark:bg-darkbg dark:text-white dark:border-gray-700`}>
             <div className="flex items-center justify-between mb-4">
               {stat.icon}
               <div className="text-right">
@@ -105,7 +105,7 @@ export const DashboardStats: React.FC = () => {
       {/* Red Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {redStats.map((stat, index) => (
-          <div key={index} className={`${stat.color} rounded-lg p-6 text-white`}>
+          <div key={index} className={`${stat.color} rounded-lg p-6 text-white dark:bg-darkbg dark:text-white dark:border-gray-700`}>
             <div className="flex items-center justify-between mb-4">
               {stat.icon}
               <div className="text-right">

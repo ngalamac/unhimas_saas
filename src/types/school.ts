@@ -71,18 +71,18 @@ export interface Employee {
   employeeId: string;
 }
 
-export interface Grade {
-  id: string;
-  studentId: string;
-  courseId: string;
-  caScore: number; // 30%
-  examScore: number; // 70%
-  totalScore: number; // out of 100
-  grade: string; // A, B, C, D, F
-  gpa: number; // out of 4.0
-  semester: number;
-  academicYear: string;
-  batch: string;
+export interface Branch {
+  _id: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  manager: { name: string; email: string; phone: string } | string;
+  isActive?: boolean;
+  establishedDate: string;
+  studentCount?: number;
+  staffCount?: number;
+}
   recordedDate: string;
   recordedBy: string;
 }
@@ -117,13 +117,14 @@ export interface Payment {
 }
 
 export interface Branch {
-  id: string;
+  _id?: string;
+  id?: string;
   name: string;
   address: string;
   phoneNumber: string;
   email: string;
   manager: Employee;
-  isActive: boolean;
+  isActive?: boolean;
   establishedDate: string;
   studentCount: number;
   staffCount: number;

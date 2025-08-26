@@ -7,6 +7,8 @@ type User = {
   name: string;
   email: string;
   type: string;
+  role?: string;
+  branches?: string[];
   permissions: UserPermissions;
 };
 // ...existing code...
@@ -132,11 +134,21 @@ const RoleManagementPage: React.FC = () => {
     }
   };
 
-  const filteredUsers = users.filter(
+  // Only show users in the same branch and never show superadmin for branch manager
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  let filteredUsers = users.filter(
     (user) =>
       user.name.toLowerCase().includes(search.toLowerCase()) ||
       user.email.toLowerCase().includes(search.toLowerCase())
   );
+  if (currentUser.role === 'branch_manager' || currentUser.type === 'branch_manager') {
+    filteredUsers = filteredUsers.filter(
+      (user) =>
+        (user.role || user.type) !== 'superadmin' &&
+        Array.isArray(user.branches) && Array.isArray(currentUser.branches) &&
+        user.branches.some((b: string) => currentUser.branches.includes(b))
+    );
+  }
 
   return (
     <div className="p-6">

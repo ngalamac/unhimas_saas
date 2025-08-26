@@ -15,7 +15,7 @@ export const WelcomeSection: React.FC = () => {
       </div>
 
       <div className="relative z-10 flex flex-col items-center justify-center h-full text-center min-h-[200px] lg:min-h-[400px]">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6 lg:mb-8">WELCOME TO</h1>
+          {/* Welcome message removed to prevent duplicate */}
         
         {/* Logo */}
         <div className="w-16 h-16 sm:w-18 sm:h-18 lg:w-20 lg:h-20 bg-white/20 rounded-lg flex items-center justify-center mb-4 sm:mb-6 lg:mb-8 border-2 border-red-400">

@@ -36,7 +36,7 @@ router.post('/reset-password', async (req, res) => {
       return res.status(404).json({ error: 'This email is not found in our records.' });
     }
     // Protected accounts
-    if (user.type === 'SuperAdmin' || user.type === 'Admin') {
+  if (user.role === 'superadmin' || user.role === 'branch_manager') {
       // Generic error, do not reveal if email exists or is protected
       return res.status(403).json({ error: "Can't process your request due to technical reasons." });
     }
@@ -66,7 +66,7 @@ router.post('/panel-reset-password', async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
-    if (!user || (user.type !== 'SuperAdmin' && user.type !== 'Admin')) {
+  if (!user || (user.role !== 'superadmin' && user.role !== 'branch_manager')) {
       return res.status(404).json({ error: 'User not found or not authorized.' });
     }
     // Generate JWT token (expires in 15 min)
@@ -105,7 +105,7 @@ router.post('/update-password', async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
     // Prevent superadmin and admin from updating password via public reset
-    if (user.type === 'SuperAdmin' || user.type === 'Admin') {
+  if (user.role === 'superadmin' || user.role === 'branch_manager') {
       return res.status(403).json({ error: 'SuperAdmin and Admin must change their password via the SuperAdmin panel.' });
     }
     // Strong password policy
@@ -128,13 +128,13 @@ router.post('/update-password', async (req, res) => {
 // Register user
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, type, permissions } = req.body;
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ error: 'Email already exists' });
-    const hashed = await bcrypt.hash(password, 10);
-    const user = new User({ name, email, password: hashed, type, permissions });
-    await user.save();
-    res.status(201).json({ message: 'User registered successfully' });
+  const { name, email, password, role, permissions } = req.body;
+  const existing = await User.findOne({ email });
+  if (existing) return res.status(400).json({ error: 'Email already exists' });
+  const hashed = await bcrypt.hash(password, 10);
+  const user = new User({ name, email, password: hashed, role, permissions });
+  await user.save();
+  res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Registration failed' });
   }
@@ -148,7 +148,7 @@ router.post('/login', async (req, res) => {
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: user._id, type: user.type }, JWT_SECRET, { expiresIn: '1d' });
+  const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ token, user });
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });

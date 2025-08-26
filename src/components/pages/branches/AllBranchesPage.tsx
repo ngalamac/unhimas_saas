@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
 import { Building2, MapPin, Phone, Mail, Eye, Edit, Trash2, Plus, Search, Filter, Users, ToggleLeft, ToggleRight } from 'lucide-react';
-import { mockBranches } from '../../../data/mockData';
+// import { mockBranches } from '../../../data/mockData';
 import { Branch } from '../../../types/school';
 
 export const AllBranchesPage: React.FC = () => {
-  const [branches, setBranches] = useState<Branch[]>(mockBranches);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  React.useEffect(() => {
+    fetch('/api/users/branches')
+      .then(res => res.json())
+      .then(data => {
+        // Ensure _id is present and map manager if needed
+        setBranches(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setBranches([]));
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -13,12 +22,12 @@ export const AllBranchesPage: React.FC = () => {
   const [branchToEdit, setBranchToEdit] = useState<Branch | null>(null);
 
   const filteredBranches = branches.filter(branch => {
-    const matchesSearch = branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         branch.address.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = branch.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         branch.address?.toLowerCase().includes(searchTerm.toLowerCase());
+    const isActive = branch.isActive !== undefined ? branch.isActive : true;
     const matchesStatus = !filterStatus || 
-                         (filterStatus === 'active' && branch.isActive) ||
-                         (filterStatus === 'inactive' && !branch.isActive);
-    
+                         (filterStatus === 'active' && isActive) ||
+                         (filterStatus === 'inactive' && !isActive);
     return matchesSearch && matchesStatus;
   });
 
@@ -31,9 +40,14 @@ export const AllBranchesPage: React.FC = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (branchToDelete) {
-      setBranches(prev => prev.filter(b => b.id !== branchToDelete));
+      try {
+        const res = await fetch(`/api/users/branches/${branchToDelete}`, { method: 'DELETE' });
+        if (res.ok) {
+          setBranches(prev => prev.filter(b => b._id !== branchToDelete));
+        }
+      } catch {}
       setShowDeleteModal(false);
       setBranchToDelete(null);
     }
@@ -44,16 +58,23 @@ export const AllBranchesPage: React.FC = () => {
     setShowEditModal(true);
   };
 
-  const toggleBranchStatus = (branchId: string) => {
-    setBranches(prev => prev.map(branch => 
-      branch.id === branchId 
-        ? { ...branch, isActive: !branch.isActive }
-        : branch
-    ));
+  const toggleBranchStatus = async (branchId: string) => {
+    try {
+      const res = await fetch(`/api/users/branches/${branchId}/toggle-active`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setBranches(prev => prev.map(branch => branch._id === branchId ? updated : branch));
+      }
+    } catch (err) {
+      // Optionally show error
+    }
   };
 
   const handleViewDetails = (branchId: string) => {
-    const branch = branches.find(b => b.id === branchId);
+  const branch = branches.find(b => b._id === branchId);
     alert(`Viewing details for ${branch?.name}`);
   };
 
@@ -124,7 +145,7 @@ export const AllBranchesPage: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Students</p>
-              <p className="text-xl font-bold text-gray-900">{branches.reduce((sum, b) => sum + b.studentCount, 0)}</p>
+              <p className="text-xl font-bold text-gray-900">{branches.reduce((sum, b) => sum + (b.studentCount ?? 0), 0)}</p>
             </div>
           </div>
         </div>
@@ -166,7 +187,7 @@ export const AllBranchesPage: React.FC = () => {
       {/* Branches Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredBranches.map((branch) => (
-          <div key={branch.id} className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          <div key={branch._id} className="bg-white rounded-lg shadow-sm border overflow-hidden">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
@@ -175,13 +196,13 @@ export const AllBranchesPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">{branch.name}</h3>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(branch.isActive)}`}>
-                      {branch.isActive ? 'Active' : 'Inactive'}
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(branch.isActive ?? true)}`}>
+                      {(branch.isActive ?? true) ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                 </div>
                 <button
-                  onClick={() => toggleBranchStatus(branch.id)}
+                  onClick={() => toggleBranchStatus(branch._id)}
                   className="text-gray-400 hover:text-gray-600"
                   title={branch.isActive ? 'Deactivate Branch' : 'Activate Branch'}
                 >
@@ -200,7 +221,7 @@ export const AllBranchesPage: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
                   <Phone className="w-4 h-4" />
-                  <span>{branch.phoneNumber}</span>
+                  <span>{branch.phone}</span>
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
                   <Mail className="w-4 h-4" />
@@ -211,11 +232,11 @@ export const AllBranchesPage: React.FC = () => {
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
-                    <p className="text-2xl font-bold text-blue-600">{branch.studentCount}</p>
+                    <p className="text-2xl font-bold text-blue-600">{typeof branch.studentCount === 'number' ? branch.studentCount : 0}</p>
                     <p className="text-xs text-gray-600">Students</p>
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-green-600">{branch.staffCount}</p>
+                    <p className="text-2xl font-bold text-green-600">{typeof branch.staffCount === 'number' ? branch.staffCount : 0}</p>
                     <p className="text-xs text-gray-600">Staff</p>
                   </div>
                 </div>
@@ -226,13 +247,13 @@ export const AllBranchesPage: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-600">Manager</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {branch.manager.firstName} {branch.manager.lastName}
+                      {branch.manager && typeof branch.manager === 'object' ? branch.manager.name : branch.manager ? branch.manager : 'Manager'}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-600">Established</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {new Date(branch.establishedDate).getFullYear()}
+                      {branch.establishedDate ? new Date(branch.establishedDate).getFullYear() : 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -243,7 +264,7 @@ export const AllBranchesPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <button 
-                    onClick={() => handleViewDetails(branch.id)}
+                    onClick={() => handleViewDetails(branch._id)}
                     className="text-blue-600 hover:text-blue-900" 
                     title="View Details"
                   >
@@ -257,7 +278,7 @@ export const AllBranchesPage: React.FC = () => {
                     <Edit className="w-4 h-4" />
                   </button>
                   <button 
-                    onClick={() => handleDeleteBranch(branch.id)}
+                    onClick={() => handleDeleteBranch(branch._id)}
                     className="text-red-600 hover:text-red-900" 
                     title="Delete Branch"
                   >
@@ -265,7 +286,7 @@ export const AllBranchesPage: React.FC = () => {
                   </button>
                 </div>
                 <button 
-                  onClick={() => handleManageData(branch.id)}
+                  onClick={() => handleManageData(branch._id)}
                   className="text-sm text-blue-600 hover:text-blue-900 font-medium flex items-center space-x-1"
                 >
                   <Building2 className="w-3 h-3" />

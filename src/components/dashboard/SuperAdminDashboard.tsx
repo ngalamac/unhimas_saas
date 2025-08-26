@@ -1,4 +1,6 @@
 import React from 'react';
+import BranchWelcomeSwitcher from './BranchWelcomeSwitcher';
+import { useAuth } from '../../context/AuthContext';
 import { DashboardStats } from './DashboardStats';
 import { Charts } from './Charts';
 import { BottomCharts } from './BottomCharts';
@@ -6,6 +8,7 @@ import { Calendar } from './Calendar';
 import { AlertTriangle } from 'lucide-react';
 
 export const SuperAdminDashboard: React.FC = () => {
+  const { user } = useAuth();
   const getCurrentDate = () => {
     return new Date().toLocaleDateString('en-US', {
       weekday: 'long',
@@ -25,6 +28,8 @@ export const SuperAdminDashboard: React.FC = () => {
 
   return (
     <>
+      {/* Branch Welcome & Switcher */}
+      {user && <BranchWelcomeSwitcher userId={user.id || user._id} />}
       {/* Page Title */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-2">

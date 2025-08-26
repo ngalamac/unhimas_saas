@@ -1,14 +1,23 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../../context/AuthContext';
 import { Save, Building2 } from 'lucide-react';
-import { mockEmployees } from '../../../data/mockData';
 
 export const CreateBranchPage: React.FC = () => {
+  const { user } = useAuth();
+  const currentUserId = user?.id;
+  const [managers, setManagers] = useState<any[]>([]);
+  React.useEffect(() => {
+    fetch('/api/users?role=branch_manager')
+      .then(res => res.json())
+      .then(data => setManagers(data))
+      .catch(() => setManagers([]));
+  }, []);
   const [formData, setFormData] = useState({
     name: '',
     address: '',
-    phoneNumber: '',
+    phone: '',
     email: '',
-    managerId: '',
+    managerName: '',
     establishedDate: ''
   });
 
@@ -20,10 +29,47 @@ export const CreateBranchPage: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Branch creation data:', formData);
-    // Handle form submission
+    setLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/users/branches', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          address: formData.address,
+          phone: formData.phone,
+          email: formData.email,
+          managerName: formData.managerName,
+          establishedDate: formData.establishedDate,
+          creatorId: currentUserId,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage('Branch created successfully!');
+        setFormData({
+          name: '',
+          address: '',
+          phone: '',
+          email: '',
+          managerName: '',
+          establishedDate: ''
+        });
+      } else {
+        setMessage((data.error ? data.error : 'Failed to create branch') + (data.details ? `: ${data.details}` : ''));
+      }
+    } catch (err) {
+      setMessage('Network error');
+    }
+    setLoading(false);
   };
 
   return (
@@ -35,6 +81,11 @@ export const CreateBranchPage: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-2xl">
+        {message && (
+          <div className={`mb-4 p-2 rounded ${message.includes('success') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            {message}
+          </div>
+        )}
         {/* Branch Information */}
         <div className="bg-white p-6 rounded-lg shadow-sm border space-y-4">
           <div className="flex items-center space-x-3 mb-4">
@@ -75,8 +126,8 @@ export const CreateBranchPage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
               <input
                 type="tel"
-                name="phoneNumber"
-                value={formData.phoneNumber}
+                name="phone"
+                value={formData.phone}
                 onChange={handleInputChange}
                 placeholder="+237 2XX XXX XXX"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -101,16 +152,16 @@ export const CreateBranchPage: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Branch Manager *</label>
               <select
-                name="managerId"
-                value={formData.managerId}
+                name="managerName"
+                value={formData.managerName}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               >
                 <option value="">Select Manager</option>
-                {mockEmployees.map(employee => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.firstName} {employee.lastName} - {employee.role}
+                {managers.map(manager => (
+                  <option key={manager._id} value={manager.name}>
+                    {manager.name}
                   </option>
                 ))}
               </select>
@@ -139,10 +190,11 @@ export const CreateBranchPage: React.FC = () => {
           </button>
           <button
             type="submit"
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            className={`bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={loading}
           >
             <Save className="w-4 h-4" />
-            <span>Create Branch</span>
+            <span>{loading ? 'Creating...' : 'Create Branch'}</span>
           </button>
         </div>
       </form>

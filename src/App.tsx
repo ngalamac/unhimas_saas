@@ -2,7 +2,10 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
+import { AdminDashboard } from './components/dashboard/AdminDashboard';
+import { RoleDashboard } from './components/dashboard/RoleDashboard';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { NavigationProvider } from './context/NavigationContext';
 import PasswordResetPage from './pages/PasswordResetPage';
 
 // Protected Route Component
@@ -41,7 +44,13 @@ function AppRoutes() {
           path="/dashboard/*" 
           element={
             <ProtectedRoute>
-              <SuperAdminDashboard />
+              {/* Only render the dashboard for the current user's role */}
+              {(() => {
+                const { user } = useAuth();
+                if (user?.role === 'superadmin') return <SuperAdminDashboard />;
+                if (user?.role === 'admin') return <AdminDashboard />;
+                return <RoleDashboard />;
+              })()}
             </ProtectedRoute>
           } 
         />
@@ -55,7 +64,9 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <NavigationProvider>
+        <AppRoutes />
+      </NavigationProvider>
     </AuthProvider>
   );
 }
