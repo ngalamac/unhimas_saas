@@ -1,16 +1,62 @@
 import React, { useState } from 'react';
 import { Building2, MapPin, Phone, Mail, Eye, Edit, Trash2, Plus, Search, Filter, Users, ToggleLeft, ToggleRight } from 'lucide-react';
-import { mockBranches } from '../../../data/mockData';
 import { Branch } from '../../../types/school';
+import { getBranches, updateBranch, deleteBranch } from '../../../api/branches';
 
 export const AllBranchesPage: React.FC = () => {
-  const [branches, setBranches] = useState<Branch[]>(mockBranches);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  // Fetch branches from API (extracted so it can be reused)
+  const fetchBranches = async () => {
+    try {
+      const data = await getBranches();
+      setBranches(Array.isArray(data) ? data : []);
+    } catch {
+      setBranches([]);
+    }
+  };
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [managers, setManagers] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    fetchBranches();
+    // fetch potential branch managers (Admins)
+    const fetchManagers = async () => {
+      try {
+        const res = await fetch('/api/users?type=Admin');
+        const data = await res.json();
+        setManagers(Array.isArray(data) ? data : []);
+      } catch {
+        setManagers([]);
+      }
+    };
+    fetchManagers();
+
+    // Listen for branch creation events so we can refresh the list and highlight the new item
+    const handler = async (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail) {
+        // optimistic insert
+        setBranches(prev => [detail, ...prev]);
+        const createdId = detail._id || detail.id;
+        const el = document.getElementById(`branch-${createdId}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightId(createdId);
+        window.setTimeout(() => setHighlightId(null), 4000);
+      }
+      // re-sync with server
+      await fetchBranches();
+    };
+    window.addEventListener('branch:created', handler as EventListener);
+    return () => window.removeEventListener('branch:created', handler as EventListener);
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [branchToEdit, setBranchToEdit] = useState<Branch | null>(null);
+  const [editForm, setEditForm] = useState<any>(null);
+  const [editStatus, setEditStatus] = useState<{ status: 'idle' | 'loading' | 'success' | 'error'; message: string }>({ status: 'idle', message: '' });
 
   const filteredBranches = branches.filter(branch => {
     const matchesSearch = branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -31,9 +77,12 @@ export const AllBranchesPage: React.FC = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (branchToDelete) {
-      setBranches(prev => prev.filter(b => b.id !== branchToDelete));
+      try {
+  await deleteBranch(branchToDelete);
+  setBranches(prev => prev.filter(b => (b as any)._id !== branchToDelete));
+      } catch {}
       setShowDeleteModal(false);
       setBranchToDelete(null);
     }
@@ -41,24 +90,38 @@ export const AllBranchesPage: React.FC = () => {
 
   const handleEditBranch = (branch: Branch) => {
     setBranchToEdit(branch);
+    // initialize editable form from branch (allow _id access)
+    const b: any = branch as any;
+    setEditForm({
+      name: b.name || '',
+      address: b.address || '',
+      phoneNumber: b.phoneNumber || '',
+      email: b.email || '',
+      studentCount: b.studentCount || 0,
+      staffCount: b.staffCount || 0,
+  isActive: b.isActive || false,
+  managerId: (b.manager && ((b.manager._id) || (b.manager.id))) || '',
+  establishedDate: b.establishedDate ? new Date(b.establishedDate).toISOString().slice(0,10) : '',
+    });
     setShowEditModal(true);
   };
 
-  const toggleBranchStatus = (branchId: string) => {
-    setBranches(prev => prev.map(branch => 
-      branch.id === branchId 
-        ? { ...branch, isActive: !branch.isActive }
-        : branch
-    ));
+  const toggleBranchStatus = async (branchId: string) => {
+    const branch = branches.find(b => (b as any)._id === branchId);
+    if (!branch) return;
+    try {
+      const updated = await updateBranch(branchId, { isActive: !branch.isActive });
+      setBranches(prev => prev.map(b => (b as any)._id === branchId ? updated : b));
+    } catch {}
   };
 
   const handleViewDetails = (branchId: string) => {
-    const branch = branches.find(b => b.id === branchId);
+    const branch = branches.find(b => (b as any)._id === branchId);
     alert(`Viewing details for ${branch?.name}`);
   };
 
   const handleManageData = (branchId: string) => {
-    const branch = branches.find(b => b.id === branchId);
+    const branch = branches.find(b => (b as any)._id === branchId);
     alert(`Managing data for ${branch?.name}`);
   };
 
@@ -166,7 +229,7 @@ export const AllBranchesPage: React.FC = () => {
       {/* Branches Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredBranches.map((branch) => (
-          <div key={branch.id} className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          <div id={`branch-${(branch as any)._id}`} key={(branch as any)._id} className={`bg-white rounded-lg shadow-sm border overflow-hidden ${highlightId === (branch as any)._id ? 'ring-2 ring-blue-400' : ''}`}>
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
@@ -181,7 +244,7 @@ export const AllBranchesPage: React.FC = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => toggleBranchStatus(branch.id)}
+                  onClick={() => toggleBranchStatus((branch as any)._id)}
                   className="text-gray-400 hover:text-gray-600"
                   title={branch.isActive ? 'Deactivate Branch' : 'Activate Branch'}
                 >
@@ -226,7 +289,12 @@ export const AllBranchesPage: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-600">Manager</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {branch.manager.firstName} {branch.manager.lastName}
+                      {(() => {
+                        const mgr: any = branch.manager as any;
+                        if (mgr?.firstName) return `${mgr.firstName} ${mgr.lastName || ''}`;
+                        if (mgr?.name) return mgr.name;
+                        return '—';
+                      })()}
                     </p>
                   </div>
                   <div className="text-right">
@@ -243,7 +311,7 @@ export const AllBranchesPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <button 
-                    onClick={() => handleViewDetails(branch.id)}
+                    onClick={() => handleViewDetails((branch as any)._id)}
                     className="text-blue-600 hover:text-blue-900" 
                     title="View Details"
                   >
@@ -257,7 +325,7 @@ export const AllBranchesPage: React.FC = () => {
                     <Edit className="w-4 h-4" />
                   </button>
                   <button 
-                    onClick={() => handleDeleteBranch(branch.id)}
+                    onClick={() => handleDeleteBranch((branch as any)._id)}
                     className="text-red-600 hover:text-red-900" 
                     title="Delete Branch"
                   >
@@ -265,7 +333,7 @@ export const AllBranchesPage: React.FC = () => {
                   </button>
                 </div>
                 <button 
-                  onClick={() => handleManageData(branch.id)}
+                  onClick={() => handleManageData((branch as any)._id)}
                   className="text-sm text-blue-600 hover:text-blue-900 font-medium flex items-center space-x-1"
                 >
                   <Building2 className="w-3 h-3" />
@@ -317,14 +385,16 @@ export const AllBranchesPage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Branch Name</label>
                 <input
                   type="text"
-                  defaultValue={branchToEdit.name}
+                  value={editForm?.name || ''}
+                  onChange={(e) => setEditForm((s: any) => ({ ...s, name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                 <textarea
-                  defaultValue={branchToEdit.address}
+                  value={editForm?.address || ''}
+                  onChange={(e) => setEditForm((s: any) => ({ ...s, address: e.target.value }))}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -334,7 +404,8 @@ export const AllBranchesPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
                   <input
                     type="tel"
-                    defaultValue={branchToEdit.phoneNumber}
+                    value={editForm?.phoneNumber || ''}
+                    onChange={(e) => setEditForm((s: any) => ({ ...s, phoneNumber: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -342,7 +413,8 @@ export const AllBranchesPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                   <input
                     type="email"
-                    defaultValue={branchToEdit.email}
+                    value={editForm?.email || ''}
+                    onChange={(e) => setEditForm((s: any) => ({ ...s, email: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -352,7 +424,8 @@ export const AllBranchesPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Student Count</label>
                   <input
                     type="number"
-                    defaultValue={branchToEdit.studentCount}
+                    value={editForm?.studentCount || 0}
+                    onChange={(e) => setEditForm((s: any) => ({ ...s, studentCount: Number(e.target.value) }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -360,7 +433,34 @@ export const AllBranchesPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Staff Count</label>
                   <input
                     type="number"
-                    defaultValue={branchToEdit.staffCount}
+                    value={editForm?.staffCount || 0}
+                    onChange={(e) => setEditForm((s: any) => ({ ...s, staffCount: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Branch Manager</label>
+                  <select
+                    value={editForm?.managerId || ''}
+                    onChange={(e) => setEditForm((s: any) => ({ ...s, managerId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Keep current</option>
+                    {managers.map(m => (
+                      <option key={(m as any)._id || (m as any).id} value={(m as any)._id || (m as any).id}>
+                        {(m as any).firstName ? `${(m as any).firstName} ${(m as any).lastName || ''}` : (m as any).name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Established Date</label>
+                  <input
+                    type="date"
+                    value={editForm?.establishedDate || ''}
+                    onChange={(e) => setEditForm((s: any) => ({ ...s, establishedDate: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -368,7 +468,8 @@ export const AllBranchesPage: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                 <select
-                  defaultValue={branchToEdit.isActive ? 'active' : 'inactive'}
+                  value={editForm?.isActive ? 'active' : 'inactive'}
+                  onChange={(e) => setEditForm((s: any) => ({ ...s, isActive: e.target.value === 'active' }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="active">Active</option>
@@ -384,14 +485,60 @@ export const AllBranchesPage: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  alert('Branch updated successfully!');
-                  setShowEditModal(false);
+                onClick={async () => {
+                  if (!branchToEdit) return;
+                  setEditStatus({ status: 'loading', message: 'Saving changes...' });
+                  try {
+                    // Build payload: backend expects `manager` (id) not `managerId`
+                    const payload: any = { ...editForm };
+                    if (payload.managerId) {
+                      payload.manager = payload.managerId;
+                    }
+                    delete payload.managerId;
+                    const res = await fetch(`/api/branches/${(branchToEdit as any)._id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                      const updated = await res.json();
+                      setBranches(prev => prev.map(b => (b as any)._id === (branchToEdit as any)._id ? updated : b));
+                      setEditStatus({ status: 'success', message: 'Branch updated successfully.' });
+                      setShowEditModal(false);
+                    } else {
+                      const err = await res.json().catch(() => ({}));
+                      setEditStatus({ status: 'error', message: err.error || 'Failed to update branch' });
+                    }
+                  } catch {
+                    setEditStatus({ status: 'error', message: 'Network error updating branch' });
+                  }
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Save Changes
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit status modal */}
+      {editStatus.status !== 'idle' && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {editStatus.status === 'loading' ? 'Saving...' : editStatus.status === 'success' ? 'Saved' : 'Error'}
+              </h3>
+              <p className="text-gray-600 mb-4">{editStatus.message}</p>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setEditStatus({ status: 'idle', message: '' })}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  OK
+                </button>
+              </div>
             </div>
           </div>
         </div>

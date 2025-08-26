@@ -1,11 +1,16 @@
 import React from 'react';
-import { Users, GraduationCap, Building2, CreditCard, TrendingUp, AlertCircle } from 'lucide-react';
+import { Users, GraduationCap, Building2, CreditCard, AlertCircle } from 'lucide-react';
 import { mockStudents, mockBranches, mockPayments, getCurrentBatchData } from '../../data/mockData';
+import { useBranch } from '../../context/BranchContext';
 
 export const AdminDashboard: React.FC = () => {
   const currentBatch = getCurrentBatchData();
-  const totalStudents = mockStudents.length;
-  const activeBranches = mockBranches.filter(b => b.isActive).length;
+  const { managedBranches, currentBranch, setCurrentBranchById } = useBranch();
+  const isManagerViewingUnassigned = currentBranch && managedBranches.length > 0 && !managedBranches.find(b => (b as any)._id === (currentBranch as any)._id || (b as any).id === (currentBranch as any).id);
+
+  // If the user is a branch manager (Admin) with managedBranches, scope the numbers to the currentBranch
+  const totalStudents = currentBranch ? currentBranch.studentCount : mockStudents.length;
+  const activeBranches = managedBranches.length > 0 ? managedBranches.filter(b => b.isActive).length : mockBranches.filter(b => b.isActive).length;
   const totalRevenue = mockPayments
     .filter(p => p.status === 'Completed')
     .reduce((sum, p) => sum + p.amount, 0);
@@ -57,6 +62,29 @@ export const AdminDashboard: React.FC = () => {
           <div className="text-xs text-gray-500">{new Date().toLocaleTimeString()}</div>
         </div>
       </div>
+
+      {/* Branch switcher for managers */}
+      {managedBranches.length > 0 && (
+        <div className="mb-4 flex items-center space-x-4">
+          <label className="text-sm text-gray-700">Viewing branch:</label>
+          <select
+            value={(currentBranch as any)?._id || (currentBranch as any)?.id || ''}
+            onChange={(e) => setCurrentBranchById(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            {managedBranches.map(b => (
+              <option key={(b as any)._id || (b as any).id} value={(b as any)._id || (b as any).id}>{b.name}</option>
+            ))}
+          </select>
+          <div className="text-sm text-gray-600">{currentBranch ? `Currently: ${currentBranch.name}` : 'No branch selected'}</div>
+        </div>
+      )}
+
+      {isManagerViewingUnassigned && (
+        <div className="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-300 text-yellow-800">
+          You are viewing a branch you are not assigned to. Some actions may be read-only.
+        </div>
+      )}
 
       {/* Admin Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
@@ -213,7 +241,7 @@ export const AdminDashboard: React.FC = () => {
               <div className="space-y-1 text-sm text-gray-600">
                 <div>Students: {branch.studentCount}</div>
                 <div>Staff: {branch.staffCount}</div>
-                <div>Manager: {branch.manager.firstName} {branch.manager.lastName}</div>
+                <div>Manager: {((branch.manager as any)?.firstName ? `${(branch.manager as any).firstName} ${(branch.manager as any).lastName || ''}` : ((branch.manager as any).name || '—'))}</div>
               </div>
             </div>
           ))}

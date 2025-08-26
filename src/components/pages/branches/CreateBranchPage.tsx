@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { createBranch } from '../../../api/branches';
+import { Branch } from '../../../types/school';
 import { Save, Building2 } from 'lucide-react';
-import { mockEmployees } from '../../../data/mockData';
 
 export const CreateBranchPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -11,6 +12,21 @@ export const CreateBranchPage: React.FC = () => {
     managerId: '',
     establishedDate: ''
   });
+  const [managers, setManagers] = useState<any[]>([]);
+
+  // Fetch managers (admins) from API
+  React.useEffect(() => {
+    const fetchManagers = async () => {
+      try {
+        const res = await fetch('/api/users?type=Admin');
+        const data = await res.json();
+        setManagers(Array.isArray(data) ? data : []);
+      } catch {
+        setManagers([]);
+      }
+    };
+    fetchManagers();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -20,11 +36,29 @@ export const CreateBranchPage: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Branch creation data:', formData);
-    // Handle form submission
+    setCreateStatus({ status: 'loading', message: 'Creating branch...' });
+    try {
+      const created: Branch = await createBranch({
+        name: formData.name,
+        address: formData.address,
+        phoneNumber: formData.phoneNumber,
+        email: formData.email,
+        manager: { id: formData.managerId, _id: formData.managerId, name: '' } as any,
+        establishedDate: formData.establishedDate,
+      });
+      try { window.dispatchEvent(new CustomEvent('branch:created', { detail: created })); } catch {}
+      setCreateStatus({ status: 'success', message: 'Branch created successfully.' });
+      setFormData({ name: '', address: '', phoneNumber: '', email: '', managerId: '', establishedDate: '' });
+    } catch (err: any) {
+      const message = err?.message || 'Failed to create branch';
+      setCreateStatus({ status: 'error', message });
+    }
   };
+
+  // Create status modal state
+  const [createStatus, setCreateStatus] = React.useState<{ status: 'idle' | 'loading' | 'success' | 'error'; message: string }>({ status: 'idle', message: '' });
 
   return (
     <div className="p-6">
@@ -108,9 +142,9 @@ export const CreateBranchPage: React.FC = () => {
                 required
               >
                 <option value="">Select Manager</option>
-                {mockEmployees.map(employee => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.firstName} {employee.lastName} - {employee.role}
+                {managers.map(manager => (
+                  <option key={manager._id} value={manager._id}>
+                    {manager.firstName || manager.name} {manager.lastName || ''} - {manager.type || manager.role}
                   </option>
                 ))}
               </select>
@@ -146,6 +180,32 @@ export const CreateBranchPage: React.FC = () => {
           </button>
         </div>
       </form>
+
+        {/* Create status modal */}
+        {createStatus.status !== 'idle' && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {createStatus.status === 'loading'
+                    ? 'Creating...'
+                    : createStatus.status === 'success'
+                    ? 'Success'
+                    : 'Error'}
+                </h3>
+                <p className="text-gray-600 mb-4">{createStatus.message}</p>
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setCreateStatus({ status: 'idle', message: '' })}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { LoginPage } from './pages/LoginPage';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { BranchProvider } from './context/BranchContext';
 import PasswordResetPage from './pages/PasswordResetPage';
 
 // Protected Route Component
@@ -55,7 +56,9 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <BranchProvider>
+        <AppRoutes />
+      </BranchProvider>
     </AuthProvider>
   );
 }

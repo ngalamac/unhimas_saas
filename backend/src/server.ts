@@ -4,6 +4,7 @@ import cors from 'cors';
 import transactionsRouter from './routes/transactions';
 import authRouter from './routes/auth';
 import usersRouter from './routes/users';
+import branchesRouter from './routes/branches';
 
 const app = express();
 app.use(cors());
@@ -27,6 +28,7 @@ mongoose.connect(MONGO_URI)
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/branches', branchesRouter);
 
 // Seed default Super Admin if not present
 import User from './models/User';

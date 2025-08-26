@@ -59,6 +59,7 @@ export interface Course {
 
 export interface Employee {
   id: string;
+  _id?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -118,11 +119,12 @@ export interface Payment {
 
 export interface Branch {
   id: string;
+  _id?: string;
   name: string;
   address: string;
   phoneNumber: string;
   email: string;
-  manager: Employee;
+  manager: Employee | { _id?: string; id?: string; name?: string };
   isActive: boolean;
   establishedDate: string;
   studentCount: number;
