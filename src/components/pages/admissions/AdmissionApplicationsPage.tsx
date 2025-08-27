@@ -152,7 +152,7 @@ export const AdmissionApplicationsPage: React.FC = () => {
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
                         <span className="text-sm font-medium text-gray-700">
-                          {application.applicantName.split(' ').map(n => n[0]).join('')}
+                          {(application.applicantName || '').split(' ').map(n => n?.[0] || '').join('')}
                         </span>
                       </div>
                       <div className="ml-4">

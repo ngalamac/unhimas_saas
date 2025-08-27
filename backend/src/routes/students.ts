@@ -23,26 +23,175 @@ router.get('/', authMiddleware, async (req: AuthRequest, res) => {
     const pageSize = Math.max(1, Math.min(100, Number(req.query.limit || 10)));
     const skip = (page - 1) * pageSize;
 
-    // Build base query
+    // Build base query with filters
     const query: any = {};
-    // If user is not SuperAdmin, require branch query param to scope results
+    // branch scoping
     if (!(req.user && req.user.type === 'SuperAdmin')) {
       const branchId = String(req.query.branch || '');
       if (!branchId) return res.status(400).json({ message: 'branch query parameter is required' });
       query.branch = branchId;
     } else {
-      // SuperAdmin may optionally pass branch to filter
       if (req.query.branch) query.branch = String(req.query.branch);
     }
 
-    const [total, data] = await Promise.all([
+    // optional filters: search, program, status
+    const search = String(req.query.search || '').trim();
+    if (search) {
+      const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      query.$or = [
+        { firstName: re },
+        { lastName: re },
+        { email: re },
+        { studentId: re }
+      ];
+    }
+    if (req.query.program) {
+      query.program = String(req.query.program);
+    }
+    if (req.query.status) {
+      query.tuitionStatus = String(req.query.status);
+    }
+
+    const [total, data, paidCount, partialCount, unpaidCount] = await Promise.all([
       Student.countDocuments(query),
-      Student.find(query).populate('program department').skip(skip).limit(pageSize).sort({ createdAt: -1 })
+      Student.find(query).populate('program department').skip(skip).limit(pageSize).sort({ createdAt: -1 }),
+      Student.countDocuments({ ...query, tuitionStatus: 'Paid' }),
+      Student.countDocuments({ ...query, tuitionStatus: 'Partial' }),
+      Student.countDocuments({ ...query, tuitionStatus: 'Unpaid' }),
     ]);
 
-    return res.json({ data, total, page, pageSize });
+    const aggregates = { paid: paidCount, partial: partialCount, unpaid: unpaidCount };
+    return res.json({ data, total, page, pageSize, aggregates });
   } catch (e) {
     return res.status(500).json({ message: 'Failed to fetch students' });
+  }
+});
+
+// Export students in various formats
+router.get('/export', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const format = String(req.query.format || 'csv').toLowerCase();
+    // build same query logic as above
+    const query: any = {};
+    if (!(req.user && req.user.type === 'SuperAdmin')) {
+      const branchId = String(req.query.branch || '');
+      if (!branchId) return res.status(400).json({ message: 'branch query parameter is required' });
+      query.branch = branchId;
+    } else {
+      if (req.query.branch) query.branch = String(req.query.branch);
+    }
+    const search = String(req.query.search || '').trim();
+    if (search) {
+      const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      query.$or = [
+        { firstName: re },
+        { lastName: re },
+        { email: re },
+        { studentId: re }
+      ];
+    }
+    if (req.query.program) query.program = String(req.query.program);
+    if (req.query.status) query.tuitionStatus = String(req.query.status);
+
+    const rows = await Student.find(query).populate('program department').sort({ createdAt: -1 });
+
+    if (format === 'xlsx') {
+      const ExcelJS = require('exceljs');
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Students');
+      ws.addRow(['StudentId', 'FirstName', 'LastName', 'Email', 'Phone', 'Program', 'Department', 'Level', 'Session', 'TuitionStatus']);
+      for (const s of rows) {
+        const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
+        const dept = (s.department && (s.department as any).name) ? (s.department as any).name : String(s.department || '');
+        ws.addRow([s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String(s.level || ''), String(s.session || ''), String(s.tuitionStatus || '')]);
+      }
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="students-export.xlsx"');
+      await wb.xlsx.write(res);
+      return res.end();
+    }
+
+    if (format === 'pdf') {
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ size: 'A4', margin: 30 });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="students-export.pdf"');
+      doc.pipe(res);
+
+      const margin = 30;
+      const pageWidth = doc.page.width - margin * 2;
+      // columns: StudentId, Name, Email, Phone, Program, Status
+      const cols = [50, 150, 150, 80, 80, 25];
+      const colX: number[] = [];
+      let x = margin;
+      for (const w of cols) {
+        colX.push(x);
+        x += w;
+      }
+
+      const rowHeight = 18;
+      let y = margin;
+
+      function drawHeader() {
+        doc.fontSize(14).font('Helvetica-Bold').text('Students Export', margin, y, { align: 'left' });
+        y += 20;
+        // header background
+        doc.fontSize(10).font('Helvetica-Bold');
+        const headerLabels = ['StudentId', 'Name', 'Email', 'Phone', 'Program', 'Status'];
+        for (let i = 0; i < headerLabels.length; i++) {
+          const hx = colX[i];
+          const hw = cols[i];
+          doc.rect(hx, y, hw, rowHeight).fill('#f3f4f6');
+          doc.fillColor('#000').text(headerLabels[i], hx + 4, y + 4, { width: hw - 8, ellipsis: true });
+        }
+        y += rowHeight;
+      }
+
+      function newPage() {
+        doc.addPage();
+        y = margin;
+        drawHeader();
+      }
+
+      drawHeader();
+
+      doc.font('Helvetica').fontSize(9).fillColor('#000');
+      for (const s of rows) {
+        if (y + rowHeight > doc.page.height - margin) {
+          newPage();
+        }
+        const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
+        const status = String(s.tuitionStatus || '');
+
+        const values = [s.studentId || '', `${s.firstName || ''} ${s.lastName || ''}`, s.email || '', s.phoneNumber || '', prog, status];
+        for (let i = 0; i < values.length; i++) {
+          const vx = colX[i];
+          const vw = cols[i];
+          doc.fillColor('#000').text(String(values[i]), vx + 4, y + 4, { width: vw - 8, continued: false });
+        }
+        y += rowHeight;
+      }
+
+      doc.end();
+      return;
+    }
+
+    // default CSV
+    const header = ['StudentId', 'FirstName', 'LastName', 'Email', 'Phone', 'Program', 'Department', 'Level', 'Session', 'TuitionStatus'];
+    const lines = [header.join(',')];
+    for (const s of rows) {
+      const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
+      const dept = (s.department && (s.department as any).name) ? (s.department as any).name : String(s.department || '');
+      const fields = [s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String(s.level || ''), String(s.session || ''), String(s.tuitionStatus || '')];
+      const esc = fields.map(f => `"${String(f).replace(/"/g, '""')}"`);
+      lines.push(esc.join(','));
+    }
+    const csv = lines.join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="students-export.csv"');
+    return res.send(csv);
+  } catch (e) {
+    return res.status(500).json({ message: 'Failed to export students' });
   }
 });
 

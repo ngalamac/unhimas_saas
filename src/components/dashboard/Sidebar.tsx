@@ -114,17 +114,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     } else {
       // Strip numeric prefixes from user permissions
       const normalizedUserPerms = userPermissions.map(p => {
-        const parts = p.split(":");
+        const parts = (p || '').split(":");
         if (parts.length === 3) {
           // Format: N:module:action
-          return `${parts[1]}:${parts[2]}`;
+          const a = parts[1] || '';
+          const b = parts[2] || '';
+          return `${a}:${b}`;
         } else if (parts.length === 2) {
           // Format: module:action
-          return p;
+          return p || '';
         } else {
-          return p;
+          return p || '';
         }
-      }).map(p => p.toLowerCase());
+      }).map(p => (p || '').toLowerCase());
 
       items = sidebarItems.filter(item => {
         if (!sidebarPermissionMap[item.id] || sidebarPermissionMap[item.id].length === 0) {

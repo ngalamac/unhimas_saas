@@ -85,13 +85,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               .map(([action]) => `${feature.toLowerCase()}:${action.toLowerCase()}`);
           });
   // permissions logged removed to reduce console noise in production/dev
+        // Defensive name parsing in case name is missing or single-token
+        const fullName = typeof data.user.name === 'string' ? data.user.name.trim() : '';
+        const nameParts = fullName ? fullName.split(/\s+/) : [];
         setUser({
           id: data.user._id,
-          username: data.user.name,
-          email: data.user.email,
-          role: data.user.type,
-          firstName: data.user.name.split(' ')[0],
-          lastName: data.user.name.split(' ')[1] || '',
+          username: data.user.name || '',
+          email: data.user.email || '',
+          role: data.user.type || '',
+          firstName: nameParts[0] || '',
+          lastName: nameParts[1] || '',
           permissions: featurePermissions,
           department: data.user.department || '',
           employeeId: data.user.employeeId || '',
@@ -100,11 +103,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify({
           id: data.user._id,
-          username: data.user.name,
-          email: data.user.email,
-          role: data.user.type,
-          firstName: data.user.name.split(' ')[0],
-          lastName: data.user.name.split(' ')[1] || '',
+          username: data.user.name || '',
+          email: data.user.email || '',
+          role: data.user.type || '',
+          firstName: nameParts[0] || '',
+          lastName: nameParts[1] || '',
           permissions: featurePermissions,
           department: data.user.department || '',
           employeeId: data.user.employeeId || '',

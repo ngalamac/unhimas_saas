@@ -7,18 +7,42 @@ export interface StudentsPage {
   total: number;
   page: number;
   pageSize: number;
+  aggregates?: { paid: number; partial: number; unpaid: number };
 }
-
-export async function getStudents(branchId?: string, page = 1, limit = 10): Promise<StudentsPage> {
+export async function getStudents(branchId?: string, page = 1, limit = 10, filters?: { search?: string; program?: string; status?: string }): Promise<StudentsPage> {
   const token = localStorage.getItem('token');
   const headers: Record<string,string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  else console.warn('[getStudents] no auth token found in localStorage; requests may be unauthorized');
   const params = new URLSearchParams();
   params.set('page', String(page));
   params.set('limit', String(limit));
   if (branchId) params.set('branch', branchId);
+  if (filters?.search) params.set('search', filters.search);
+  if (filters?.program) params.set('program', filters.program);
+  if (filters?.status) params.set('status', filters.status);
   const url = `${BASE}?${params.toString()}`;
   const res = await fetch(url, { headers });
+  if (!res.ok) {
+    if (res.status === 401) {
+      // Invalid or expired token - clear stored auth and navigate to login
+      try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch (e) {}
+      try { window.location.hash = '#/login'; } catch (e) {}
+    }
+    // try parse json error, fallback to text
+    try {
+      const err = await res.clone().json();
+      const message = err?.message || JSON.stringify(err);
+      const e: any = new Error(message);
+      e.status = res.status;
+      throw e;
+    } catch (e) {
+      const txt = await res.clone().text();
+      const err = new Error(txt || `Request failed with status ${res.status}`) as any;
+      err.status = res.status;
+      throw err;
+    }
+  }
   return res.json();
 }
 

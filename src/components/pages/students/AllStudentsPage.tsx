@@ -18,15 +18,21 @@ export const AllStudentsPage: React.FC = () => {
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
+   const [aggregates, setAggregates] = useState<{ paid:number; partial:number; unpaid:number } | null>(null);
+
+  // Pagination state (declare before effects that use them)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const filteredStudents = students.filter(student => {
-    const matchesSearch = student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.studentId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesProgram = !filterProgram || (typeof student.program !== 'string' && (student.program?.type === filterProgram));
-    const matchesStatus = !filterStatus || student.tuitionStatus === filterStatus;
-    
+    const fn = (student.firstName || '').toLowerCase();
+    const ln = (student.lastName || '').toLowerCase();
+    const em = (student.email || '').toLowerCase();
+    const sid = (student.studentId || '').toLowerCase();
+    const matchesSearch = fn.includes(searchTerm.toLowerCase()) || ln.includes(searchTerm.toLowerCase()) || em.includes(searchTerm.toLowerCase()) || sid.includes(searchTerm.toLowerCase());
+    const matchesProgram = !filterProgram || (typeof student.program === 'string' ? student.program === filterProgram : (student.program?.type === filterProgram));
+    const matchesStatus = !filterStatus || (student.tuitionStatus || '') === filterStatus;
+
     return matchesSearch && matchesProgram && matchesStatus;
   });
 
@@ -36,11 +42,12 @@ export const AllStudentsPage: React.FC = () => {
     let mounted = true;
     setLoading(true);
     const branchId = currentBranch ? ((currentBranch as any)._id || (currentBranch as any).id) : undefined;
-    getStudents(branchId, page, pageSize)
+    getStudents(branchId, page, pageSize, { search: searchTerm, program: filterProgram, status: filterStatus })
       .then((res) => {
         if (!mounted) return;
         setStudents(Array.isArray(res.data) ? res.data : []);
         setTotal(Number(res.total) || 0);
+        if (res.aggregates) setAggregates(res.aggregates);
         setError(null);
       })
       .catch((err) => {
@@ -56,29 +63,45 @@ export const AllStudentsPage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [currentBranch, page, pageSize]);
+  }, [currentBranch, page, pageSize, searchTerm, filterProgram, filterStatus]);
 
   const refresh = () => {
   setLoading(true);
   setError(null);
   const branchId = currentBranch ? ((currentBranch as any)._id || (currentBranch as any).id) : undefined;
-  getStudents(branchId, page, pageSize)
+     getStudents(branchId, page, pageSize, { search: searchTerm, program: filterProgram, status: filterStatus })
       .then((res) => {
         setStudents(Array.isArray(res.data) ? res.data : []);
         setTotal(Number(res.total) || 0);
+       if (res.aggregates) setAggregates(res.aggregates);
       })
       .catch((err) => setError(err?.message || 'Failed to load students'))
       .finally(() => setLoading(false));
   };
 
   // Pagination
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const paginated = filteredStudents; // server returns only current page of students already
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages]);
 
   const { setCurrentPage } = useNavigation();
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const triggerExport = (format: 'csv' | 'xlsx' | 'pdf') => {
+    const branchId = currentBranch ? ((currentBranch as any)._id || (currentBranch as any).id) : undefined;
+    const params = new URLSearchParams();
+    params.set('format', format);
+    params.set('page', String(page));
+    params.set('limit', String(pageSize));
+    if (branchId) params.set('branch', branchId);
+    if (searchTerm) params.set('search', searchTerm);
+    if (filterProgram) params.set('program', filterProgram);
+    if (filterStatus) params.set('status', filterStatus);
+    const url = `/api/students/export?${params.toString()}`;
+    // open in new tab to trigger download
+    window.open(url, '_blank');
+    setExportOpen(false);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -156,11 +179,20 @@ export const AllStudentsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">All Students</h1>
           <p className="text-gray-600">Manage and view all registered students</p>
         </div>
-        <div className="flex space-x-3">
-          <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
-            <Download className="w-4 h-4" />
-            <span>Export</span>
-          </button>
+        <div className="flex space-x-3 relative">
+          <div className="relative">
+            <button onClick={() => setExportOpen(o => !o)} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
+              <Download className="w-4 h-4" />
+              <span>Export</span>
+            </button>
+            {exportOpen && (
+              <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-md z-50">
+                <button onClick={() => triggerExport('csv')} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download CSV</button>
+                <button onClick={() => triggerExport('xlsx')} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download Excel</button>
+                <button onClick={() => triggerExport('pdf')} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download PDF</button>
+              </div>
+            )}
+          </div>
           <button onClick={() => setCurrentPage('student-registration')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
             <Plus className="w-4 h-4" />
             <span>Add New Student</span>
@@ -188,7 +220,7 @@ export const AllStudentsPage: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Fees Paid</p>
-              <p className="text-xl font-bold text-gray-900">{students.filter(s => s.tuitionStatus === 'Paid').length}</p>
+              <p className="text-xl font-bold text-gray-900">{aggregates ? aggregates.paid : students.filter(s => s.tuitionStatus === 'Paid').length}</p>
             </div>
           </div>
         </div>
@@ -199,7 +231,7 @@ export const AllStudentsPage: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Partial Payment</p>
-              <p className="text-xl font-bold text-gray-900">{students.filter(s => s.tuitionStatus === 'Partial').length}</p>
+              <p className="text-xl font-bold text-gray-900">{aggregates ? aggregates.partial : students.filter(s => s.tuitionStatus === 'Partial').length}</p>
             </div>
           </div>
         </div>
@@ -210,7 +242,7 @@ export const AllStudentsPage: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Unpaid</p>
-              <p className="text-xl font-bold text-gray-900">{students.filter(s => s.tuitionStatus === 'Unpaid').length}</p>
+              <p className="text-xl font-bold text-gray-900">{aggregates ? aggregates.unpaid : students.filter(s => s.tuitionStatus === 'Unpaid').length}</p>
             </div>
           </div>
         </div>
@@ -330,21 +362,21 @@ export const AllStudentsPage: React.FC = () => {
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
                         <span className="text-sm font-medium text-gray-700">
-                          {student.firstName[0]}{student.lastName[0]}
+                          {(student.firstName?.[0] || '')}{(student.lastName?.[0] || '')}
                         </span>
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {student.firstName} {student.lastName}
+                          {student.firstName || ''} {student.lastName || ''}
                         </div>
-                        <div className="text-sm text-gray-500">{student.email}</div>
-                        <div className="text-xs text-gray-400">{student.studentId}</div>
+                        <div className="text-sm text-gray-500">{student.email || ''}</div>
+                        <div className="text-xs text-gray-400">{student.studentId || ''}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{typeof student.program === 'string' ? student.program : student.program?.type}</div>
-                    <div className="text-sm text-gray-500">{typeof student.department === 'string' ? student.department : student.department?.name}</div>
+                    <div className="text-sm text-gray-900">{typeof student.program === 'string' ? student.program : (student.program?.type || '')}</div>
+                    <div className="text-sm text-gray-500">{typeof student.department === 'string' ? student.department : (student.department?.name || '')}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     Level {student.level}
@@ -360,7 +392,7 @@ export const AllStudentsPage: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
                       <button 
-                        onClick={() => alert(`Viewing details for ${student.firstName} ${student.lastName}`)}
+                        onClick={() => alert(`Viewing details for ${student.firstName || ''} ${student.lastName || ''}`)}
                         className="text-blue-600 hover:text-blue-900" 
                         title="View Details"
                       >
