@@ -19,6 +19,13 @@ function validateCameroonPhone(phone?: string) {
 
 router.get('/', authMiddleware, async (req: AuthRequest, res) => {
   try {
+    try {
+      // Debug log: show who is requesting and what query args they sent
+      // eslint-disable-next-line no-console
+      console.debug('[students] GET request', { query: req.query, user: req.user });
+    } catch (e) {
+      // ignore logging errors
+    }
     const page = Math.max(1, Number(req.query.page || 1));
     const pageSize = Math.max(1, Math.min(100, Number(req.query.limit || 10)));
     const skip = (page - 1) * pageSize;
@@ -103,7 +110,7 @@ router.get('/export', authMiddleware, async (req: AuthRequest, res) => {
       for (const s of rows) {
         const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
         const dept = (s.department && (s.department as any).name) ? (s.department as any).name : String(s.department || '');
-        ws.addRow([s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String(s.level || ''), String(s.session || ''), String(s.tuitionStatus || '')]);
+  ws.addRow([s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String((s as any).level || ''), String((s as any).session || ''), String((s as any).tuitionStatus || '')]);
       }
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', 'attachment; filename="students-export.xlsx"');
@@ -161,7 +168,7 @@ router.get('/export', authMiddleware, async (req: AuthRequest, res) => {
           newPage();
         }
         const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
-        const status = String(s.tuitionStatus || '');
+  const status = String((s as any).tuitionStatus || '');
 
         const values = [s.studentId || '', `${s.firstName || ''} ${s.lastName || ''}`, s.email || '', s.phoneNumber || '', prog, status];
         for (let i = 0; i < values.length; i++) {
@@ -182,7 +189,7 @@ router.get('/export', authMiddleware, async (req: AuthRequest, res) => {
     for (const s of rows) {
       const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
       const dept = (s.department && (s.department as any).name) ? (s.department as any).name : String(s.department || '');
-      const fields = [s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String(s.level || ''), String(s.session || ''), String(s.tuitionStatus || '')];
+  const fields = [s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String((s as any).level || ''), String((s as any).session || ''), String((s as any).tuitionStatus || '')];
       const esc = fields.map(f => `"${String(f).replace(/"/g, '""')}"`);
       lines.push(esc.join(','));
     }

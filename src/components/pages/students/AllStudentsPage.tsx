@@ -347,8 +347,8 @@ export const AllStudentsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {paginated.map((student) => (
-                <tr key={student.id} className="hover:bg-gray-50">
+              {paginated.map((student, i) => (
+                <tr key={(student as any)._id || student.id || student.studentId || i} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                       <input
                       type="checkbox"

@@ -1,6 +1,8 @@
 import { Student } from '../types/school';
 
-const BASE = '/api/students';
+// Use explicit backend origin during development to avoid missing dev proxy setups.
+const DEV_BACKEND = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.DEV) ? 'http://localhost:5000' : '';
+const BASE = `${DEV_BACKEND}/api/students`;
 
 export interface StudentsPage {
   data: Student[];
@@ -22,6 +24,8 @@ export async function getStudents(branchId?: string, page = 1, limit = 10, filte
   if (filters?.program) params.set('program', filters.program);
   if (filters?.status) params.set('status', filters.status);
   const url = `${BASE}?${params.toString()}`;
+  // Debug: log request URL and headers to help diagnose empty results / auth issues
+  try { console.debug('[getStudents] request', { url, headers }); } catch (e) {}
   const res = await fetch(url, { headers });
   if (!res.ok) {
     if (res.status === 401) {
