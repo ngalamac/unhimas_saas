@@ -251,7 +251,7 @@ export const StudentRegistrationPage: React.FC = () => {
     };
     (async () => {
   try {
-        if (selectedFile) {
+          if (selectedFile) {
           setUploading(true);
           const form = new FormData();
           form.append('file', selectedFile);
@@ -277,7 +277,16 @@ export const StudentRegistrationPage: React.FC = () => {
             const txt = await resp.text();
             throw new Error(`Upload returned unexpected response: ${txt.slice(0, 200)}`);
           }
-          payload.profilePicture = body.url;
+          // backend now returns { id, url } where id is GridFS id; prefer id-based fetch path so file is served from DB
+          const returnedUrl = body?.url as string | undefined;
+          const returnedId = body?.id as string | undefined;
+          if (returnedId) {
+            const devBackend = (import.meta as any)?.env?.DEV ? 'http://localhost:5000' : '';
+            payload.profilePicture = `${devBackend || window.location.origin}/api/uploads/file/${returnedId}`;
+          } else if (returnedUrl) {
+            // fallback to returned url (may already be absolute)
+            payload.profilePicture = returnedUrl.startsWith('/') ? `${window.location.origin}${returnedUrl}` : returnedUrl;
+          }
         }
 
         // ensure phone number includes selected country code in international format

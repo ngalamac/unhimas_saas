@@ -1,48 +1,67 @@
 import express, { Request } from 'express';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
-import { FileFilterCallback } from 'multer';
+import mongoose from 'mongoose';
+import stream from 'stream';
 
 const router = express.Router();
 
-// Use process.cwd() so path is correct when running from backend folder (ts-node)
-const uploadDir = path.resolve(process.cwd(), 'public', 'uploads');
-// ensure uploadDir exists
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+// Use memory storage for multer and stream into MongoDB GridFSBucket so files are stored in DB
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-const storage = multer.diskStorage({
-  destination: (_req: Request, _file: Express.Multer.File, cb: (err: any, dest: string) => void) => {
-    try {
-      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    } catch (err) {
-      cb(err as any, uploadDir);
-    }
-  },
-  filename: (_req: Request, file: Express.Multer.File, cb: (err: any, name: string) => void) => {
-    const ext = path.extname(file.originalname) || '.png';
-    const name = `${Date.now()}-${Math.random().toString(36).slice(2,8)}${ext}`;
-    cb(null, name);
+// Single file upload for profile images -> store in GridFS
+router.post('/profile', upload.single('file'), async (req: Request & { file?: Express.Multer.File }, res) => {
+  if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+  try {
+    const db = mongoose.connection.db;
+    if (!db) return res.status(500).json({ message: 'Database not initialized' });
+    const bucket = new mongoose.mongo.GridFSBucket(db, { bucketName: 'uploads' });
+    const ext = path.extname(req.file.originalname) || '.png';
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2,8)}${ext}`;
+    const uploadStream = bucket.openUploadStream(filename, { contentType: req.file.mimetype, metadata: { originalname: req.file.originalname } });
+    const bufferStream = new stream.PassThrough();
+    bufferStream.end(req.file.buffer);
+    bufferStream.pipe(uploadStream);
+    uploadStream.on('error', (err: any) => {
+      return res.status(500).json({ message: 'Upload error', error: err?.message });
+    });
+    uploadStream.on('finish', () => {
+      const id = uploadStream.id.toString();
+      const relative = `/api/uploads/file/${id}`;
+      const host = req.get('host') || 'localhost:5000';
+      const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'http';
+      const url = `${protocol}://${host}${relative}`;
+      return res.json({ id, url });
+    });
+  } catch (e: any) {
+    return res.status(500).json({ message: 'Upload error', error: e?.message });
   }
 });
 
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
-
-// Single file upload for profile images
-router.post('/profile', upload.single('file'), (req: Request & { file?: Express.Multer.File }, res) => {
-  if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-  // return accessible URL (server should serve /uploads)
-  const url = `/uploads/${req.file.filename}`;
-  res.json({ url });
+// Stream a file from GridFS by id
+router.get('/file/:id', async (req: Request, res) => {
+  try {
+    const db = mongoose.connection.db;
+    if (!db) return res.status(500).json({ message: 'Database not initialized' });
+    const bucket = new mongoose.mongo.GridFSBucket(db, { bucketName: 'uploads' });
+    const filesColl = db.collection('uploads.files');
+    const id = new mongoose.Types.ObjectId(req.params.id);
+    const fileDoc = await filesColl.findOne({ _id: id });
+    if (!fileDoc) return res.status(404).json({ message: 'Not found' });
+    if (fileDoc.contentType) res.setHeader('Content-Type', fileDoc.contentType);
+    const downloadStream = bucket.openDownloadStream(id);
+    downloadStream.on('error', () => res.status(500).end());
+    downloadStream.pipe(res);
+  } catch (e: any) {
+    return res.status(400).json({ message: 'Invalid file id', error: e?.message });
+  }
 });
 
-// multer error handler for payload too large
+// multer / generic error handler
 router.use((err: any, _req: any, res: any, _next: any) => {
   if (err && err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({ message: 'File too large. Max size is 5MB.' });
   }
-  // forward other errors
   return res.status(500).json({ message: 'Upload error', error: err?.message });
 });
 

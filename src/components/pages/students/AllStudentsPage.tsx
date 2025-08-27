@@ -38,6 +38,21 @@ export const AllStudentsPage: React.FC = () => {
 
   const { currentBranch } = useBranch();
 
+  // helper to resolve profile picture URLs that may be returned as relative paths by the backend
+  const resolveProfileUrl = (url?: string) => {
+    if (!url) return '';
+    // already absolute
+    if (/^https?:\/\//i.test(url)) return url;
+    // relative path like /uploads/xxx - prefix with dev backend origin if provided, else use window origin
+    const devBackend = (import.meta as any)?.env?.DEV ? 'http://localhost:5000' : '';
+    const base = devBackend || window.location.origin;
+    // If url looks like /api/uploads/file/:id or /uploads/..., normalize
+    if (url.startsWith('/api/uploads/file/') || url.startsWith('/uploads/')) {
+      return `${base}${url}`;
+    }
+    return url.startsWith('/') ? `${base}${url}` : `${base}/${url}`;
+  };
+
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -342,6 +357,8 @@ export const AllStudentsPage: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Session</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tuition Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -360,10 +377,13 @@ export const AllStudentsPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-700">
-                          {(student.firstName?.[0] || '')}{(student.lastName?.[0] || '')}
-                        </span>
+                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
+                        {student.profilePicture ? (
+                          // show profile picture (object-cover to keep square)
+                          <img src={resolveProfileUrl(student.profilePicture as string)} alt={`${student.firstName || ''} ${student.lastName || ''}`} className="w-10 h-10 object-cover rounded-full" />
+                        ) : (
+                          <span className="text-sm font-medium text-gray-700">{(student.firstName?.[0] || '')}{(student.lastName?.[0] || '')}</span>
+                        )}
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
@@ -383,6 +403,12 @@ export const AllStudentsPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {student.session}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    { (student.phoneNumber || (student as any).phone || '') }
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    { typeof student.branch === 'string' ? student.branch : ((student.branch as any)?.name || (student.branch as any)?._id || '') }
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(student.tuitionStatus)}`}>
