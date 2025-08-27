@@ -84,8 +84,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               .filter(([action, value]) => value === true)
               .map(([action]) => `${feature.toLowerCase()}:${action.toLowerCase()}`);
           });
-        console.log('LOGIN: Raw permissions from backend:', data.user.permissions);
-        console.log('LOGIN: Extracted featurePermissions:', featurePermissions);
+  // permissions logged removed to reduce console noise in production/dev
         setUser({
           id: data.user._id,
           username: data.user.name,

@@ -135,6 +135,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       });
     }
     setFilteredSidebarItems(items);
+    // Auto-expand students menu for SuperAdmin or when viewing student pages
+    if (user?.role === 'SuperAdmin') {
+      setExpandedItems(prev => prev.includes('students') ? prev : [...prev, 'students']);
+    } else if (['all-students', 'student-registration', 'student-details'].includes((window.location.hash || '').replace('#/', ''))) {
+      setExpandedItems(prev => prev.includes('students') ? prev : [...prev, 'students']);
+    }
   }, [user, userPermissions.length]);
 
   return (

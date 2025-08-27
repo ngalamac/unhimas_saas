@@ -1,5 +1,5 @@
 export interface Student {
-  id: string;
+  id?: string;
   firstName: string;
   lastName: string;
   nationalIdName: string;
@@ -11,8 +11,8 @@ export interface Student {
   address: string;
   phoneNumber: string;
   email: string;
-  program: Program;
-  department: Department;
+  program: Program | string;
+  department: Department | string;
   session: 'Day' | 'Evening';
   level: number;
   batch: string; // Academic year batch (e.g., "2024-2025")
@@ -23,38 +23,48 @@ export interface Student {
 }
 
 export interface Program {
-  id: string;
+  id?: string;
+  _id?: string;
   name: string;
-  type: 'HND' | 'Bachelor' | 'Masters';
-  duration: number; // in years
-  semestersPerYear: number;
-  courses: Course[];
-  hod?: Employee;
-  isActive: boolean;
-  createdDate: string;
+  type: 'Undergraduate' | 'Postgraduate' | string;
+  subType?: string; // HND, Diploma, Degree etc
+  duration?: number; // in years
+  semestersPerYear?: number;
+  departments?: Department[] | string[];
+  hod?: Employee | string;
+  isActive?: boolean;
+  createdDate?: string;
 }
 
 export interface Department {
-  id: string;
+  id?: string;
+  _id?: string;
   name: string;
-  code: string;
-  hod?: Employee;
-  programs: Program[];
-  isActive: boolean;
-  createdDate: string;
+  code?: string;
+  hod?: Employee | string;
+  program?: Program | string;
+  isActive?: boolean;
+  createdDate?: string;
 }
 
 export interface Course {
-  id: string;
-  name: string;
-  code: string;
-  creditValue: number;
-  lecturer?: Employee;
-  department: Department;
-  semester: number;
-  level: number;
-  isActive: boolean;
-  batch: string; // Academic year
+  id?: string;
+  _id?: string;
+  name?: string;
+  title?: string;
+  code?: string;
+  credit?: number;
+  creditValue?: number; // legacy alias
+  unit?: number;
+  lecturer?: Employee | string;
+  department?: Department | string;
+  program?: Program | string;
+  semester?: number;
+  level?: number;
+  isActive?: boolean;
+  batch?: string; // Academic year
+  caWeight?: number;
+  examWeight?: number;
 }
 
 export interface Employee {

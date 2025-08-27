@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -19,38 +19,20 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 function AppRoutes() {
-  return (
-    <Router>
-      <Routes>
-        <Route 
-          path="/login" 
-          element={
-            <PublicRoute>
-              <LoginPage />
-            </PublicRoute>
-          } 
-        />
-        <Route 
-          path="/password-reset" 
-          element={
-            <PublicRoute>
-              <PasswordResetPage />
-            </PublicRoute>
-          } 
-        />
-        <Route 
-          path="/dashboard/*" 
-          element={
-            <ProtectedRoute>
-              <SuperAdminDashboard />
-            </ProtectedRoute>
-          } 
-        />
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </Router>
-  );
+  const router = createBrowserRouter([
+    { path: '/login', element: <PublicRoute><LoginPage /></PublicRoute> },
+    { path: '/password-reset', element: <PublicRoute><PasswordResetPage /></PublicRoute> },
+    { path: '/dashboard/*', element: <ProtectedRoute><SuperAdminDashboard /></ProtectedRoute> },
+    { path: '/', element: <Navigate to="/login" replace /> },
+    { path: '*', element: <Navigate to="/login" replace /> }
+  ], {
+    // Opt-in to React Router v7 future behaviors to silence splat warning
+    future: {
+      v7_relativeSplatPath: true
+    }
+  });
+
+  return <RouterProvider router={router} />;
 }
 
 function App() {

@@ -21,13 +21,7 @@ export const BulkMessagingPage: React.FC = () => {
   ];
 
   const handleSendMessage = () => {
-    console.log('Sending message:', {
-      type: messageType,
-      audience: targetAudience,
-      message,
-      scheduleDate,
-      scheduleTime
-    });
+  // Sending message handler -- logging removed to reduce console noise
   };
 
   return (

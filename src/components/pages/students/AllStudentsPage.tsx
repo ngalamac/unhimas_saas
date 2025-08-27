@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Eye, Edit, Trash2, Download, Plus, Users, UserPlus, Mail, Phone, CreditCard } from 'lucide-react';
-import { mockStudents } from '../../../data/mockData';
+import { getStudents } from '../../../api/students';
+import { useBranch } from '../../../context/BranchContext';
 import { Student } from '../../../types/school';
+import { useNavigation } from '../../../context/NavigationContext';
 
 export const AllStudentsPage: React.FC = () => {
-  const [students, setStudents] = useState<Student[]>(mockStudents);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProgram, setFilterProgram] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -19,11 +24,61 @@ export const AllStudentsPage: React.FC = () => {
                          student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          student.studentId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesProgram = !filterProgram || student.program.type === filterProgram;
+    const matchesProgram = !filterProgram || (typeof student.program !== 'string' && (student.program?.type === filterProgram));
     const matchesStatus = !filterStatus || student.tuitionStatus === filterStatus;
     
     return matchesSearch && matchesProgram && matchesStatus;
   });
+
+  const { currentBranch } = useBranch();
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    const branchId = currentBranch ? ((currentBranch as any)._id || (currentBranch as any).id) : undefined;
+    getStudents(branchId, page, pageSize)
+      .then((res) => {
+        if (!mounted) return;
+        setStudents(Array.isArray(res.data) ? res.data : []);
+        setTotal(Number(res.total) || 0);
+        setError(null);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err?.message || 'Failed to load students');
+        setStudents([]);
+        setTotal(0);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [currentBranch, page, pageSize]);
+
+  const refresh = () => {
+  setLoading(true);
+  setError(null);
+  const branchId = currentBranch ? ((currentBranch as any)._id || (currentBranch as any).id) : undefined;
+  getStudents(branchId, page, pageSize)
+      .then((res) => {
+        setStudents(Array.isArray(res.data) ? res.data : []);
+        setTotal(Number(res.total) || 0);
+      })
+      .catch((err) => setError(err?.message || 'Failed to load students'))
+      .finally(() => setLoading(false));
+  };
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const paginated = filteredStudents; // server returns only current page of students already
+  useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages]);
+
+  const { setCurrentPage } = useNavigation();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -38,11 +93,12 @@ export const AllStudentsPage: React.FC = () => {
     if (selectedStudents.length === filteredStudents.length) {
       setSelectedStudents([]);
     } else {
-      setSelectedStudents(filteredStudents.map(s => s.id));
+  setSelectedStudents(filteredStudents.map(s => s.id).filter((id): id is string => Boolean(id)));
     }
   };
 
-  const handleSelectStudent = (studentId: string) => {
+  const handleSelectStudent = (studentId?: string) => {
+    if (!studentId) return;
     setSelectedStudents(prev => 
       prev.includes(studentId) 
         ? prev.filter(id => id !== studentId)
@@ -50,7 +106,8 @@ export const AllStudentsPage: React.FC = () => {
     );
   };
 
-  const handleDeleteStudent = (studentId: string) => {
+  const handleDeleteStudent = (studentId?: string) => {
+    if (!studentId) return;
     setStudentToDelete(studentId);
     setShowDeleteModal(true);
   };
@@ -69,21 +126,24 @@ export const AllStudentsPage: React.FC = () => {
   };
 
   const handleBulkDelete = () => {
-    setStudents(prev => prev.filter(s => !selectedStudents.includes(s.id)));
+  setStudents(prev => prev.filter(s => !selectedStudents.includes(s.id || '')));
     setSelectedStudents([]);
   };
 
-  const handleSendEmail = (studentId: string) => {
+  const handleSendEmail = (studentId?: string) => {
+    if (!studentId) return;
     const student = students.find(s => s.id === studentId);
     alert(`Sending email to ${student?.firstName} ${student?.lastName} at ${student?.email}`);
   };
 
-  const handleSendSMS = (studentId: string) => {
+  const handleSendSMS = (studentId?: string) => {
+    if (!studentId) return;
     const student = students.find(s => s.id === studentId);
     alert(`Sending SMS to ${student?.firstName} ${student?.lastName} at ${student?.phoneNumber}`);
   };
 
-  const handleViewPayments = (studentId: string) => {
+  const handleViewPayments = (studentId?: string) => {
+    if (!studentId) return;
     const student = students.find(s => s.id === studentId);
     alert(`Viewing payment history for ${student?.firstName} ${student?.lastName}`);
   };
@@ -101,7 +161,7 @@ export const AllStudentsPage: React.FC = () => {
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+          <button onClick={() => setCurrentPage('student-registration')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
             <Plus className="w-4 h-4" />
             <span>Add New Student</span>
           </button>
@@ -117,7 +177,7 @@ export const AllStudentsPage: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Students</p>
-              <p className="text-xl font-bold text-gray-900">{students.length}</p>
+              <p className="text-xl font-bold text-gray-900">{total}</p>
             </div>
           </div>
         </div>
@@ -219,6 +279,19 @@ export const AllStudentsPage: React.FC = () => {
         )}
       </div>
 
+      {/* Loading / Error */}
+      {loading && (
+        <div className="mb-4 p-4 bg-blue-50 text-blue-700 rounded-lg">Loading students...</div>
+      )}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg flex items-center justify-between">
+          <div>{error}</div>
+          <div>
+            <button onClick={refresh} className="ml-4 px-3 py-1 bg-red-600 text-white rounded">Retry</button>
+          </div>
+        </div>
+      )}
+
       {/* Students Table */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
@@ -242,13 +315,14 @@ export const AllStudentsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredStudents.map((student) => (
+              {paginated.map((student) => (
                 <tr key={student.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <input
+                      <input
                       type="checkbox"
-                      checked={selectedStudents.includes(student.id)}
+                      checked={Boolean(student.id) && selectedStudents.includes(student.id as string)}
                       onChange={() => handleSelectStudent(student.id)}
+                      disabled={!student.id}
                       className="rounded border-gray-300"
                     />
                   </td>
@@ -269,8 +343,8 @@ export const AllStudentsPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{student.program.type}</div>
-                    <div className="text-sm text-gray-500">{student.department.name}</div>
+                    <div className="text-sm text-gray-900">{typeof student.program === 'string' ? student.program : student.program?.type}</div>
+                    <div className="text-sm text-gray-500">{typeof student.department === 'string' ? student.department : student.department?.name}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     Level {student.level}
@@ -303,6 +377,7 @@ export const AllStudentsPage: React.FC = () => {
                         onClick={() => handleSendEmail(student.id)}
                         className="text-purple-600 hover:text-purple-900" 
                         title="Send Email"
+                        disabled={!student.id}
                       >
                         <Mail className="w-4 h-4" />
                       </button>
@@ -310,6 +385,7 @@ export const AllStudentsPage: React.FC = () => {
                         onClick={() => handleSendSMS(student.id)}
                         className="text-orange-600 hover:text-orange-900" 
                         title="Send SMS"
+                        disabled={!student.id}
                       >
                         <Phone className="w-4 h-4" />
                       </button>
@@ -317,6 +393,7 @@ export const AllStudentsPage: React.FC = () => {
                         onClick={() => handleViewPayments(student.id)}
                         className="text-indigo-600 hover:text-indigo-900" 
                         title="View Payments"
+                        disabled={!student.id}
                       >
                         <CreditCard className="w-4 h-4" />
                       </button>
@@ -324,6 +401,7 @@ export const AllStudentsPage: React.FC = () => {
                         onClick={() => handleDeleteStudent(student.id)}
                         className="text-red-600 hover:text-red-900" 
                         title="Delete Student"
+                        disabled={!student.id}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -339,13 +417,17 @@ export const AllStudentsPage: React.FC = () => {
       {/* Pagination */}
       <div className="flex items-center justify-between mt-6">
         <div className="text-sm text-gray-700">
-          Showing {filteredStudents.length} of {students.length} students
+          Showing {paginated.length} of {filteredStudents.length} students (total {students.length})
         </div>
         <div className="flex items-center space-x-2">
-          <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Previous</button>
-          <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm">1</button>
-          <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">2</button>
-          <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Next</button>
+          <button onClick={() => setPage(p => Math.max(1, p-1))} className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Previous</button>
+          <div className="px-3 py-1 border border-gray-300 rounded text-sm bg-white">{page} / {totalPages}</div>
+          <button onClick={() => setPage(p => Math.min(totalPages, p+1))} className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Next</button>
+          <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="px-2 py-1 border border-gray-300 rounded">
+            <option value={5}>5 / page</option>
+            <option value={10}>10 / page</option>
+            <option value={25}>25 / page</option>
+          </select>
         </div>
       </div>
 
