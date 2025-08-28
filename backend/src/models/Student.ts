@@ -19,6 +19,9 @@ export interface IStudent extends Document {
   program: mongoose.Types.ObjectId;
   department: mongoose.Types.ObjectId;
   profilePicture?: string; // URL or path
+  level?: string | number;
+  session?: string;
+  tuitionStatus?: string;
   guardian: IGuardian;
   studentId?: string;
   identityHash?: string;
@@ -44,6 +47,9 @@ const StudentSchema: Schema = new Schema({
   program: { type: Schema.Types.ObjectId, ref: 'Program' },
   department: { type: Schema.Types.ObjectId, ref: 'Department' },
   profilePicture: { type: String },
+  level: { type: Schema.Types.Mixed },
+  session: { type: String },
+  tuitionStatus: { type: String },
   identityHash: { type: String, index: { unique: true, sparse: true } },
   branch: { type: Schema.Types.ObjectId, ref: 'Branch' },
   guardian: { type: GuardianSchema, required: true },

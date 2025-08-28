@@ -1,7 +1,7 @@
 import express from 'express';
 import Student from '../models/Student';
-// Use require to avoid TS module resolution issues in some environments
-const BranchModel: any = require('../models/Branch').default || require('../models/Branch');
+import BranchModel from '../models/BranchModel';
+import mongoose from 'mongoose';
 import authMiddleware, { AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
@@ -19,13 +19,6 @@ function validateCameroonPhone(phone?: string) {
 
 router.get('/', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    try {
-      // Debug log: show who is requesting and what query args they sent
-      // eslint-disable-next-line no-console
-      console.debug('[students] GET request', { query: req.query, user: req.user });
-    } catch (e) {
-      // ignore logging errors
-    }
     const page = Math.max(1, Number(req.query.page || 1));
     const pageSize = Math.max(1, Math.min(100, Number(req.query.limit || 10)));
     const skip = (page - 1) * pageSize;
@@ -61,7 +54,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res) => {
 
     const [total, data, paidCount, partialCount, unpaidCount] = await Promise.all([
       Student.countDocuments(query),
-      Student.find(query).populate('program department').skip(skip).limit(pageSize).sort({ createdAt: -1 }),
+  Student.find(query).populate('program department branch').skip(skip).limit(pageSize).sort({ createdAt: -1 }),
       Student.countDocuments({ ...query, tuitionStatus: 'Paid' }),
       Student.countDocuments({ ...query, tuitionStatus: 'Partial' }),
       Student.countDocuments({ ...query, tuitionStatus: 'Unpaid' }),
@@ -100,7 +93,7 @@ router.get('/export', authMiddleware, async (req: AuthRequest, res) => {
     if (req.query.program) query.program = String(req.query.program);
     if (req.query.status) query.tuitionStatus = String(req.query.status);
 
-    const rows = await Student.find(query).populate('program department').sort({ createdAt: -1 });
+  const rows = await Student.find(query).populate('program department branch').sort({ createdAt: -1 });
 
     if (format === 'xlsx') {
       const ExcelJS = require('exceljs');
@@ -110,7 +103,7 @@ router.get('/export', authMiddleware, async (req: AuthRequest, res) => {
       for (const s of rows) {
         const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
         const dept = (s.department && (s.department as any).name) ? (s.department as any).name : String(s.department || '');
-  ws.addRow([s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String((s as any).level || ''), String((s as any).session || ''), String((s as any).tuitionStatus || '')]);
+        ws.addRow([s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String(s.level || ''), String(s.session || ''), String(s.tuitionStatus || '')]);
       }
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', 'attachment; filename="students-export.xlsx"');
@@ -168,7 +161,7 @@ router.get('/export', authMiddleware, async (req: AuthRequest, res) => {
           newPage();
         }
         const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
-  const status = String((s as any).tuitionStatus || '');
+        const status = String(s.tuitionStatus || '');
 
         const values = [s.studentId || '', `${s.firstName || ''} ${s.lastName || ''}`, s.email || '', s.phoneNumber || '', prog, status];
         for (let i = 0; i < values.length; i++) {
@@ -189,7 +182,7 @@ router.get('/export', authMiddleware, async (req: AuthRequest, res) => {
     for (const s of rows) {
       const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
       const dept = (s.department && (s.department as any).name) ? (s.department as any).name : String(s.department || '');
-  const fields = [s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String((s as any).level || ''), String((s as any).session || ''), String((s as any).tuitionStatus || '')];
+      const fields = [s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String(s.level || ''), String(s.session || ''), String(s.tuitionStatus || '')];
       const esc = fields.map(f => `"${String(f).replace(/"/g, '""')}"`);
       lines.push(esc.join(','));
     }
@@ -235,9 +228,45 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
   // branch is required to attribute student to a branch
   const { branch } = req.body;
   if (!branch) return res.status(400).json({ message: 'branch is required and must be a valid branch id' });
+  // debug: log incoming branch value to help diagnose validation failures
+  try {
+    // eslint-disable-next-line no-console
+    console.log('[students] Incoming branch raw:', branch, 'type:', typeof branch, 'len:', (branch && String(branch).length) || 0);
+    const asStr = String(branch || '');
+    // eslint-disable-next-line no-console
+    console.log('[students] branch matches 24-hex?', /^[0-9a-fA-F]{24}$/.test(asStr));
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[students] Error while logging incoming branch value', e);
+  }
+  // normalize/coerce branch value into a candidate ObjectId string
+  let branchCandidate = '';
+  if (typeof branch === 'string') branchCandidate = branch;
+  else if (branch && typeof branch === 'object') {
+    // accept nested ids
+    branchCandidate = String((branch as any)._id || (branch as any).id || branch);
+  } else {
+    branchCandidate = String(branch || '');
+  }
+
+  // if branchCandidate is not a valid ObjectId, try to extract a 24-hex substring
+  if (!mongoose.Types.ObjectId.isValid(branchCandidate)) {
+    const m = String(branchCandidate).match(/[0-9a-fA-F]{24}/);
+    if (m) {
+      // eslint-disable-next-line no-console
+      console.log('[students] Coerced branch id from payload to', m[0]);
+      branchCandidate = m[0];
+    }
+  }
+
+  // quick sanity-check: ensure branch looks like a Mongo ObjectId
+  if (!mongoose.Types.ObjectId.isValid(String(branchCandidate))) {
+    return res.status(400).json({ message: 'Invalid branch id' });
+  }
+
   // validate branch exists
   try {
-  const b = await BranchModel.findById(branch);
+  const b = await BranchModel.findById(branchCandidate);
     if (!b) return res.status(400).json({ message: 'Provided branch does not exist' });
     // If the user is not SuperAdmin, ensure they are assigning to a branch they manage.
     if (req.user && req.user.type !== 'SuperAdmin') {
@@ -247,7 +276,10 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
       }
     }
   } catch (e) {
-    return res.status(400).json({ message: 'Invalid branch id' });
+  // Log the error to help diagnose why branch lookup failed
+  // eslint-disable-next-line no-console
+  console.error('[students] Branch lookup error for id=', branch, (e && (e as any).message) ? (e as any).message : String(e));
+  return res.status(400).json({ message: 'Invalid branch id' });
   }
   if (!validateCameroonPhone(phoneNumber)) {
     return res.status(400).json({ message: 'Phone number must be either a 9-digit local number (e.g. 652278121) or an international +237 number (e.g. +237652278121)' });

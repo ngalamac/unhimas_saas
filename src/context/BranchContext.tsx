@@ -27,17 +27,9 @@ export const BranchProvider: React.FC<Props> = ({ children }) => {
   const fetchManaged = async () => {
     if (!user) return;
     try {
-  const devOrigin = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.DEV) ? 'http://localhost:5000' : '';
-  const token = localStorage.getItem('token');
-  const headers: Record<string,string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${devOrigin}/api/branches`, { headers });
+      const res = await fetch('/api/branches');
       const data = await res.json();
-      if (!Array.isArray(data)) {
-        console.debug('[BranchContext] branches response not array', data);
-        return;
-      }
-      console.debug('[BranchContext] loaded branches', data.length);
+      if (!Array.isArray(data)) return;
       // filter branches where manager matches this user
       const assigned = data.filter((b: any) => {
         const mgr = b.manager || {};

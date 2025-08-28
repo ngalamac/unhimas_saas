@@ -27,11 +27,9 @@ router.post('/profile', upload.single('file'), async (req: Request & { file?: Ex
     });
     uploadStream.on('finish', () => {
       const id = uploadStream.id.toString();
+      // return relative URL; frontend will resolve to correct origin in development or production
       const relative = `/api/uploads/file/${id}`;
-      const host = req.get('host') || 'localhost:5000';
-      const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'http';
-      const url = `${protocol}://${host}${relative}`;
-      return res.json({ id, url });
+      return res.json({ id, url: relative });
     });
   } catch (e: any) {
     return res.status(500).json({ message: 'Upload error', error: e?.message });

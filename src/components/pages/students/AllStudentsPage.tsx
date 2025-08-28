@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Eye, Edit, Trash2, Download, Plus, Users, UserPlus, Mail, Phone, CreditCard } from 'lucide-react';
 import { getStudents } from '../../../api/students';
+import { getBranches } from '../../../api/branches';
 import { useBranch } from '../../../context/BranchContext';
 import { Student } from '../../../types/school';
 import { useNavigation } from '../../../context/NavigationContext';
@@ -19,6 +20,7 @@ export const AllStudentsPage: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
    const [aggregates, setAggregates] = useState<{ paid:number; partial:number; unpaid:number } | null>(null);
+  const [branchMap, setBranchMap] = useState<Record<string,string>>({});
 
   // Pagination state (declare before effects that use them)
   const [page, setPage] = useState(1);
@@ -56,6 +58,16 @@ export const AllStudentsPage: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     setLoading(true);
+    // load branches once so we can show branch names when student.branch is an id
+    getBranches().then(bs => {
+      if (!mounted) return;
+      const m: Record<string,string> = {};
+      bs.forEach(b => {
+        const id = (b as any)._id || (b as any).id || '';
+        if (id) m[id] = b.name;
+      });
+      setBranchMap(m);
+    }).catch(() => {});
     const branchId = currentBranch ? ((currentBranch as any)._id || (currentBranch as any).id) : undefined;
     getStudents(branchId, page, pageSize, { search: searchTerm, program: filterProgram, status: filterStatus })
       .then((res) => {
@@ -79,6 +91,32 @@ export const AllStudentsPage: React.FC = () => {
       mounted = false;
     };
   }, [currentBranch, page, pageSize, searchTerm, filterProgram, filterStatus]);
+
+  // Debug: log table column values for each student row whenever students list updates
+  useEffect(() => {
+    try {
+      students.forEach((s, idx) => {
+        const _s: any = s as any;
+        const row = {
+          idx,
+          student: `${_s.firstName || ''} ${_s.lastName || ''}`,
+          program: typeof _s.program === 'string' ? _s.program : (_s.program?.type || _s.program?.name || ''),
+          department: typeof _s.department === 'string' ? _s.department : (_s.department?.name || ''),
+          level: _s.level,
+          session: _s.session,
+          phone: _s.phoneNumber || _s.phone || '',
+          branch: typeof _s.branch === 'string' ? _s.branch : (_s.branch?.name || _s.branch?._id || ''),
+          tuitionStatus: _s.tuitionStatus,
+          profilePicture: _s.profilePicture || ''
+        };
+        // eslint-disable-next-line no-console
+        console.debug('[students-table-row]', row);
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('Error logging students table rows', e);
+    }
+  }, [students]);
 
   const refresh = () => {
   setLoading(true);
@@ -378,9 +416,9 @@ export const AllStudentsPage: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
-                        {student.profilePicture ? (
+                        { (student as any).profilePicture ? (
                           // show profile picture (object-cover to keep square)
-                          <img src={resolveProfileUrl(student.profilePicture as string)} alt={`${student.firstName || ''} ${student.lastName || ''}`} className="w-10 h-10 object-cover rounded-full" />
+                          <img src={resolveProfileUrl((student as any).profilePicture as string)} alt={`${student.firstName || ''} ${student.lastName || ''}`} className="w-10 h-10 object-cover rounded-full" />
                         ) : (
                           <span className="text-sm font-medium text-gray-700">{(student.firstName?.[0] || '')}{(student.lastName?.[0] || '')}</span>
                         )}
@@ -408,7 +446,7 @@ export const AllStudentsPage: React.FC = () => {
                     { (student.phoneNumber || (student as any).phone || '') }
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    { typeof student.branch === 'string' ? student.branch : ((student.branch as any)?.name || (student.branch as any)?._id || '') }
+                    { typeof (student as any).branch === 'string' ? (branchMap[(student as any).branch] || (student as any).branch) : ((student as any).branch?.name || (student as any).branch?._id || '') }
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(student.tuitionStatus)}`}>

@@ -78,14 +78,38 @@ export const StudentRegistrationPage: React.FC = () => {
   };
 
   useEffect(() => {
+    // restore draft if present
+    try {
+      const raw = localStorage.getItem('studentFormDraft');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          // shallow merge with defaults - only known keys will be kept
+          setFormData(prev => ({ ...prev, ...parsed.formData } as any));
+          if (parsed.thumbnail) setThumbnail(parsed.thumbnail as string);
+        }
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
     getPrograms().then(setPrograms).catch(() => {});
     getDepartments().then(setDepartments).catch(() => {});
-  getBranches().then(setBranches).catch(() => {});
-  // prefill branch when context provides currentBranch
-  if (currentBranch) {
-    setFormData(prev => ({ ...prev, branchId: (currentBranch as any)._id || (currentBranch as any).id || '' }));
-  }
+    getBranches().then(setBranches).catch(() => {});
+    // prefill branch from context only when no draft provided
+    if (!localStorage.getItem('studentFormDraft') && currentBranch) {
+      setFormData(prev => ({ ...prev, branchId: (currentBranch as any)._id || (currentBranch as any).id || '' }));
+    }
   }, []);
+
+  // persist draft whenever formData or thumbnail changes
+  useEffect(() => {
+    try {
+      const payload = { formData, thumbnail };
+      localStorage.setItem('studentFormDraft', JSON.stringify(payload));
+    } catch (e) {
+      // ignore storage errors
+    }
+  }, [formData, thumbnail]);
 
   const countryDefs: Record<string, { code: string; digitsPrefix: string; regex: RegExp; placeholder: string; label: string }> = {
     // Cameroon numbers: +237 followed by 9 digits (local format e.g. 6XX XXX XXX)
@@ -314,6 +338,32 @@ export const StudentRegistrationPage: React.FC = () => {
   // eslint-disable-next-line no-console
   console.log('Submitting student payload:', JSON.stringify(payload));
   await createStudent(payload as any);
+  // clear draft and reset form on success
+  try { localStorage.removeItem('studentFormDraft'); } catch (e) { /* ignore */ }
+  setFormData({
+    firstName: '',
+    lastName: '',
+    nationalIdName: '',
+    gender: '',
+    placeOfBirth: '',
+    dateOfBirth: '',
+    motherName: '',
+    fatherName: '',
+    address: '',
+    phoneNumber: '',
+    email: '',
+    programId: '',
+    departmentId: '',
+    session: '',
+    level: 1,
+    profilePicture: '',
+    guardianName: '',
+    guardianAddress: '',
+    guardianContact: ''
+  });
+  setThumbnail(null);
+  setSelectedFile(null);
+  setErrors({});
   setSubmitting(false);
   setModalMessage('Student created successfully');
   setShowSuccessModal(true);

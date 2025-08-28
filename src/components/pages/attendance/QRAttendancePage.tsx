@@ -172,7 +172,7 @@ export const QRAttendancePage: React.FC = () => {
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
                       <span className="text-xs font-medium text-gray-700">
-                        {(student?.firstName?.[0] || '')}{(student?.lastName?.[0] || '')}
+                        {student?.firstName[0]}{student?.lastName[0]}
                       </span>
                     </div>
                     <div>

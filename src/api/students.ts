@@ -66,7 +66,13 @@ export async function createStudent(payload: Partial<Student>) {
         throw new Error(txt || `Upload failed with status ${up.status}`);
       }
       const body = await up.json();
-      (payload as any).profilePicture = body.url;
+      // backend now returns relative url like /api/uploads/file/:id — resolve to absolute
+      const returned = body.url as string;
+      if (returned && !/^https?:\/\//i.test(returned)) {
+        (payload as any).profilePicture = `${DEV_BACKEND || window.location.origin}${returned}`;
+      } else {
+        (payload as any).profilePicture = returned;
+      }
     } catch (err) {
       console.error('Profile upload failed', err);
       throw err;
@@ -78,6 +84,10 @@ export async function createStudent(payload: Partial<Student>) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(BASE, { method: 'POST', headers, body: JSON.stringify(payload) });
   if (!res.ok) {
+    if (res.status === 401) {
+      try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch (e) {}
+      try { window.location.hash = '#/login'; } catch (e) {}
+    }
     // read error body safely using a clone so we don't consume the original stream
     try {
       const errJson = await res.clone().json();
