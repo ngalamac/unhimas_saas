@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import fetchClient from '../../../lib/fetchClient';
 import { Search, Filter, Eye, Edit, Trash2, Download, Plus, Users, UserPlus, Mail, Phone, CreditCard } from 'lucide-react';
-import { getStudents } from '../../../api/students';
+import { getStudents, deleteStudent } from '../../../api/students';
 import { getBranches } from '../../../api/branches';
 import { useBranch } from '../../../context/BranchContext';
 import { Student } from '../../../types/school';
@@ -19,6 +20,14 @@ export const AllStudentsPage: React.FC = () => {
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Student> | null>(null);
+  const [actionModal, setActionModal] = useState<any>({ open: false });
+  const [viewStudent, setViewStudent] = useState<Student | null>(null);
+  const [emailModal, setEmailModal] = useState<{ open: boolean; recipients: string[]; subject: string; body: string; loading?: boolean; templateSelected?: boolean }>({ open: false, recipients: [], subject: '', body: '', templateSelected: false });
+  const [emailContextStudent, setEmailContextStudent] = useState<Student | null>(null);
+  const [smsModal, setSmsModal] = useState<{ open: boolean; recipients: string[]; body: string; loading?: boolean }>({ open: false, recipients: [], body: '' });
+  const [pendingDeletes, setPendingDeletes] = useState<Record<string, { timer: number; student: Student }>>({});
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; studentIds: string[] }>>([]);
    const [aggregates, setAggregates] = useState<{ paid:number; partial:number; unpaid:number } | null>(null);
   const [branchMap, setBranchMap] = useState<Record<string,string>>({});
 
@@ -40,34 +49,38 @@ export const AllStudentsPage: React.FC = () => {
 
   const { currentBranch } = useBranch();
 
+  const getStudentId = (s: Student | any) => {
+    return (s && ((s.id as any) || (s._id as any) || (s.studentId as any))) || '';
+  };
+
   // helper to resolve profile picture URLs that may be returned as relative paths by the backend
   const resolveProfileUrl = (url?: string) => {
     if (!url) return '';
-    // already absolute
-    if (/^https?:\/\//i.test(url)) return url;
-    // relative path like /uploads/xxx - prefix with dev backend origin if provided, else use window origin
+    // If absolute, check if it points to the frontend or the wrong host and remap to backend
     const devBackend = (import.meta as any)?.env?.DEV ? 'http://localhost:5000' : '';
-    const base = devBackend || window.location.origin;
-    // If url looks like /api/uploads/file/:id or /uploads/..., normalize
-    if (url.startsWith('/api/uploads/file/') || url.startsWith('/uploads/')) {
-      return `${base}${url}`;
+    const backendOrigin = devBackend || window.location.origin;
+    if (/^https?:\/\//i.test(url)) {
+      try {
+        const parsed = new URL(url);
+        // if the path looks like our uploads endpoint but host is not the backend, remap to backend origin
+        if (parsed.pathname.startsWith('/api/uploads/file/') || parsed.pathname.startsWith('/uploads/')) {
+          if (!url.startsWith(backendOrigin)) {
+            return `${backendOrigin}${parsed.pathname}`;
+          }
+        }
+        return url;
+      } catch (e) {
+        return url;
+      }
     }
-    return url.startsWith('/') ? `${base}${url}` : `${base}/${url}`;
+    // if it's a relative path, prefix with backend origin
+    if (url.startsWith('/')) return `${backendOrigin}${url}`;
+    return `${backendOrigin}/${url}`;
   };
-
   useEffect(() => {
     let mounted = true;
     setLoading(true);
-    // load branches once so we can show branch names when student.branch is an id
-    getBranches().then(bs => {
-      if (!mounted) return;
-      const m: Record<string,string> = {};
-      bs.forEach(b => {
-        const id = (b as any)._id || (b as any).id || '';
-        if (id) m[id] = b.name;
-      });
-      setBranchMap(m);
-    }).catch(() => {});
+    setError(null);
     const branchId = currentBranch ? ((currentBranch as any)._id || (currentBranch as any).id) : undefined;
     getStudents(branchId, page, pageSize, { search: searchTerm, program: filterProgram, status: filterStatus })
       .then((res) => {
@@ -87,9 +100,7 @@ export const AllStudentsPage: React.FC = () => {
         if (!mounted) return;
         setLoading(false);
       });
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [currentBranch, page, pageSize, searchTerm, filterProgram, filterStatus]);
 
   // Debug: log table column values for each student row whenever students list updates
@@ -169,7 +180,7 @@ export const AllStudentsPage: React.FC = () => {
     if (selectedStudents.length === filteredStudents.length) {
       setSelectedStudents([]);
     } else {
-  setSelectedStudents(filteredStudents.map(s => s.id).filter((id): id is string => Boolean(id)));
+      setSelectedStudents(filteredStudents.map(s => getStudentId(s)).filter((id): id is string => Boolean(id)));
     }
   };
 
@@ -188,40 +199,135 @@ export const AllStudentsPage: React.FC = () => {
     setShowDeleteModal(true);
   };
 
+  // Schedule deletion with undo window (5s). Actual API delete will occur after timeout.
+  const scheduleDelete = (id: string, student: Student) => {
+    // remove from visible list immediately
+    setStudents(prev => prev.filter(s => s.id !== id));
+    setSelectedStudents(prev => prev.filter(sid => sid !== id));
+
+    const timer = window.setTimeout(async () => {
+      try {
+        await deleteStudent(id);
+      } catch (e) {
+        // if API delete fails, re-add the student to the list (best-effort)
+        setStudents(prev => [student, ...prev]);
+      } finally {
+        setPendingDeletes(prev => {
+          const copy = { ...prev };
+          delete copy[id];
+          return copy;
+        });
+        setToasts(prev => prev.filter(t => !t.studentIds.includes(id)));
+      }
+    }, 5000);
+
+    setPendingDeletes(prev => ({ ...prev, [id]: { timer, student } }));
+    // add a toast entry
+    const toastId = `del-${Date.now()}-${id}`;
+    setToasts(prev => [{ id: toastId, message: `Deleted ${student.firstName} ${student.lastName}`, studentIds: [id] }, ...prev]);
+  };
+
+  const cancelScheduledDelete = (id: string) => {
+    const p = (pendingDeletes as any)[id];
+    if (p) {
+      clearTimeout(p.timer as any);
+      setPendingDeletes(prev => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+      // restore student to list
+      setStudents(prev => [p.student, ...prev]);
+      // remove from toasts
+      setToasts(prev => prev.map(t => ({ ...t, studentIds: t.studentIds.filter(sid => sid !== id) })).filter(t => t.studentIds.length > 0));
+    }
+  };
+
   const confirmDelete = () => {
-    if (studentToDelete) {
-      setStudents(prev => prev.filter(s => s.id !== studentToDelete));
+    if (!studentToDelete) return;
+    const student = students.find(s => s.id === studentToDelete) || (pendingDeletes[studentToDelete] && pendingDeletes[studentToDelete].student) || null;
+    // if not found in current list, try to use previously captured student reference
+    const toSchedule = student || (studentToDelete ? { id: studentToDelete } as Student : null);
+    if (!toSchedule) {
       setShowDeleteModal(false);
       setStudentToDelete(null);
+      return;
     }
+    scheduleDelete(studentToDelete, toSchedule as Student);
+    setShowDeleteModal(false);
+    setStudentToDelete(null);
   };
 
   const handleEditStudent = (student: Student) => {
     setStudentToEdit(student);
+    // initialize editable form state
+    setEditForm({
+      firstName: student.firstName,
+      lastName: student.lastName,
+      email: student.email,
+      phoneNumber: student.phoneNumber,
+      level: (student as any).level,
+      session: student.session,
+      tuitionStatus: student.tuitionStatus,
+      guardian: (student as any).guardian || undefined,
+    });
     setShowEditModal(true);
   };
 
   const handleBulkDelete = () => {
-  setStudents(prev => prev.filter(s => !selectedStudents.includes(s.id || '')));
+    if (selectedStudents.length === 0) return;
+    const ids = [...selectedStudents];
+    ids.forEach(id => {
+      const student = students.find(s => s.id === id) || (pendingDeletes[id] && pendingDeletes[id].student);
+      if (student) scheduleDelete(id, student);
+      else {
+        // schedule with minimal info
+        scheduleDelete(id, { id } as Student);
+      }
+    });
     setSelectedStudents([]);
   };
 
-  const handleSendEmail = (studentId?: string) => {
-    if (!studentId) return;
-    const student = students.find(s => s.id === studentId);
-    alert(`Sending email to ${student?.firstName} ${student?.lastName} at ${student?.email}`);
+  const handleSendEmail = (studentParam?: string | Student) => {
+    let student: Student | undefined;
+    if (!studentParam) return;
+    if (typeof studentParam === 'string') {
+      student = students.find(s => getStudentId(s) === studentParam);
+    } else {
+      student = studentParam as Student;
+    }
+    if (!student) return;
+    setEmailContextStudent(student);
+    setEmailModal({ open: true, recipients: student.email ? [student.email] : [], subject: ``, body: ``, loading: false, templateSelected: false });
   };
 
-  const handleSendSMS = (studentId?: string) => {
-    if (!studentId) return;
-    const student = students.find(s => s.id === studentId);
-    alert(`Sending SMS to ${student?.firstName} ${student?.lastName} at ${student?.phoneNumber}`);
+  const handleSendSMS = (studentParam?: string | Student) => {
+    let student: Student | undefined;
+    if (!studentParam) return;
+    if (typeof studentParam === 'string') {
+      student = students.find(s => getStudentId(s) === studentParam);
+    } else {
+      student = studentParam as Student;
+    }
+    if (!student) return;
+    setSmsModal({ open: true, recipients: student.phoneNumber ? [student.phoneNumber] : [], body: `Hello ${student.firstName || ''}`, loading: false });
   };
 
   const handleViewPayments = (studentId?: string) => {
     if (!studentId) return;
     const student = students.find(s => s.id === studentId);
-    alert(`Viewing payment history for ${student?.firstName} ${student?.lastName}`);
+    if (!student) return;
+    setActionModal({
+      open: true,
+      title: 'Payment History',
+      content: `Open payment history for ${student.firstName} ${student.lastName}?`,
+      confirmLabel: 'Open',
+      onConfirm: () => {
+        setActionModal({ open: false });
+        try { localStorage.setItem('selectedStudentId', String(student.id || '')); } catch (e) {}
+        setCurrentPage('payment-history');
+      }
+    });
   };
 
   return (
@@ -355,7 +461,21 @@ export const AllStudentsPage: React.FC = () => {
               Delete Selected
             </button>
             <button className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
-              Send Email
+                <span onClick={() => {
+                  const recipients = selectedStudents.map(id => students.find(s => s.id === id)?.email).filter(Boolean) as string[];
+                  setEmailContextStudent(null);
+                  setEmailModal({ open: true, recipients, subject: ``, body: ``, loading: false, templateSelected: false });
+                }}>Send Email</span>
+            </button>
+            <button className="bg-teal-600 text-white px-3 py-1 rounded text-sm hover:bg-teal-700" onClick={() => {
+              const recipients = selectedStudents.map(id => students.find(s => s.id === id)?.phoneNumber || students.find(s => s.id === id)?.phone).filter(Boolean) as string[];
+              if (recipients.length === 0) {
+                setToasts(prev => [{ id: `sms-empty-${Date.now()}`, message: 'No phone numbers selected', studentIds: [] }, ...prev]);
+                return;
+              }
+              setSmsModal({ open: true, recipients, body: 'Hello', loading: false });
+            }}>
+              Send SMS
             </button>
             <button className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700">
               Export Selected
@@ -407,9 +527,9 @@ export const AllStudentsPage: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                       <input
                       type="checkbox"
-                      checked={Boolean(student.id) && selectedStudents.includes(student.id as string)}
-                      onChange={() => handleSelectStudent(student.id)}
-                      disabled={!student.id}
+                      checked={Boolean(getStudentId(student)) && selectedStudents.includes(getStudentId(student) as string)}
+                      onChange={() => handleSelectStudent(getStudentId(student))}
+                      disabled={!getStudentId(student)}
                       className="rounded border-gray-300"
                     />
                   </td>
@@ -455,9 +575,9 @@ export const AllStudentsPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
-                      <button 
-                        onClick={() => alert(`Viewing details for ${student.firstName || ''} ${student.lastName || ''}`)}
-                        className="text-blue-600 hover:text-blue-900" 
+                      <button
+                        onClick={() => setViewStudent(student)}
+                        className="text-blue-600 hover:text-blue-900"
                         title="View Details"
                       >
                         <Eye className="w-4 h-4" />
@@ -469,35 +589,35 @@ export const AllStudentsPage: React.FC = () => {
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button 
-                        onClick={() => handleSendEmail(student.id)}
-                        className="text-purple-600 hover:text-purple-900" 
+                      <button
+                        onClick={() => handleSendEmail(student)}
+                        className="text-purple-600 hover:text-purple-900"
                         title="Send Email"
-                        disabled={!student.id}
+                        disabled={!getStudentId(student)}
                       >
                         <Mail className="w-4 h-4" />
                       </button>
-                      <button 
-                        onClick={() => handleSendSMS(student.id)}
-                        className="text-orange-600 hover:text-orange-900" 
+                      <button
+                        onClick={() => handleSendSMS(student)}
+                        className="text-orange-600 hover:text-orange-900"
                         title="Send SMS"
-                        disabled={!student.id}
+                        disabled={!getStudentId(student)}
                       >
                         <Phone className="w-4 h-4" />
                       </button>
                       <button 
-                        onClick={() => handleViewPayments(student.id)}
+                        onClick={() => handleViewPayments(getStudentId(student))}
                         className="text-indigo-600 hover:text-indigo-900" 
                         title="View Payments"
-                        disabled={!student.id}
+                        disabled={!getStudentId(student)}
                       >
                         <CreditCard className="w-4 h-4" />
                       </button>
                       <button 
-                        onClick={() => handleDeleteStudent(student.id)}
+                        onClick={() => handleDeleteStudent(getStudentId(student))}
                         className="text-red-600 hover:text-red-900" 
                         title="Delete Student"
-                        disabled={!student.id}
+                        disabled={!getStudentId(student)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -555,8 +675,221 @@ export const AllStudentsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Generic Action Modal (Send Email / SMS / Open Payments) */}
+      {actionModal?.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{actionModal.title}</h3>
+              <p className="text-gray-600 mb-6">{actionModal.content}</p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => setActionModal({ open: false })}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { try { actionModal.onConfirm && actionModal.onConfirm(); } catch (e) { console.error(e); } }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  {actionModal.confirmLabel || 'OK'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Student Modal */}
+      {viewStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">{viewStudent.firstName} {viewStudent.lastName}</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center space-x-4">
+                <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200">
+                  { (viewStudent as any).profilePicture ? (
+                    <img src={resolveProfileUrl((viewStudent as any).profilePicture)} alt="profile" className="w-20 h-20 object-cover" />
+                  ) : (
+                    <div className="w-20 h-20 flex items-center justify-center text-xl font-bold text-gray-700">{(viewStudent.firstName?.[0]||'')}{(viewStudent.lastName?.[0]||'')}</div>
+                  )}
+                </div>
+                <div>
+                  <div className="text-sm text-gray-700">Email: {viewStudent.email || '—'}</div>
+                  <div className="text-sm text-gray-700">Phone: {viewStudent.phoneNumber || (viewStudent as any).phone || '—'}</div>
+                  <div className="text-sm text-gray-700">Program: {typeof viewStudent.program === 'string' ? viewStudent.program : (viewStudent.program?.type || '')}</div>
+                  <div className="text-sm text-gray-700">Branch: {typeof (viewStudent as any).branch === 'string' ? (branchMap[(viewStudent as any).branch] || (viewStudent as any).branch) : ((viewStudent as any).branch?.name || '')}</div>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold">Guardian</h4>
+                <div className="text-sm text-gray-700">{(viewStudent as any).guardian?.name || '—'}</div>
+                <div className="text-sm text-gray-700">{(viewStudent as any).guardian?.contact || '—'}</div>
+                <div className="text-sm text-gray-700">{(viewStudent as any).guardian?.address || '—'}</div>
+              </div>
+            </div>
+            <div className="p-6 border-t flex justify-end">
+              <button onClick={() => setViewStudent(null)} className="px-4 py-2 border rounded">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Composer Modal */}
+      {emailModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">Send Email</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-sm">To</label>
+                <input disabled={emailModal.loading} type="text" value={emailModal.recipients.join(', ')} readOnly className="w-full px-3 py-2 border rounded" />
+              </div>
+              {/* Template suggestions */}
+              <div>
+                <label className="text-sm font-medium">Choose template</label>
+                <div className="mt-2 flex space-x-2">
+                  <button onClick={() => {
+                    // Announcement sample
+                    const s = emailContextStudent;
+                    const subject = s ? `Announcement: Important update for ${s.firstName} ${s.lastName}` : 'Announcement';
+                    const body = s ? `Hello ${s.firstName} ${s.lastName},\n\nWe have an important announcement regarding campus activities. Please check the portal for details.\n\nRegards,\nUNHIMAS` : `Hello,\n\nWe have an important announcement regarding campus activities. Please check the portal for details.\n\nRegards,\nUNHIMAS`;
+                    setEmailModal(m => ({ ...m, subject, body, templateSelected: true }));
+                  }} className="px-3 py-1 border rounded bg-gray-50 hover:bg-gray-100">Announcement</button>
+                  <button onClick={() => {
+                    // Tuition reminder sample
+                    const s = emailContextStudent;
+                    const subject = s ? `Tuition Reminder for ${s.firstName} ${s.lastName}` : 'Tuition Reminder';
+                    const amount = (emailContextStudent as any)?.tuitionAmount || 'your outstanding balance';
+                    const body = s ? `Hello ${s.firstName} ${s.lastName},\n\nThis is a friendly reminder that your tuition balance of ${amount} is due. Please make payment before the deadline to avoid penalties.\n\nRegards,\nFinance Office` : `Hello,\n\nThis is a friendly reminder that your tuition balance is due. Please make payment before the deadline to avoid penalties.\n\nRegards,\nFinance Office`;
+                    setEmailModal(m => ({ ...m, subject, body, templateSelected: true }));
+                  }} className="px-3 py-1 border rounded bg-gray-50 hover:bg-gray-100">Tuition Reminder</button>
+                  <button onClick={() => {
+                    // Custom: leave empty but prefill greeting
+                    const s = emailContextStudent;
+                    const subject = s ? `Message for ${s.firstName} ${s.lastName}` : '';
+                    const body = s ? `Hello ${s.firstName} ${s.lastName},\n\n` : `Hello,\n\n`;
+                    setEmailModal(m => ({ ...m, subject, body, templateSelected: true }));
+                  }} className="px-3 py-1 border rounded bg-gray-50 hover:bg-gray-100">Custom</button>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm">Subject</label>
+                <input disabled={emailModal.loading} type="text" value={emailModal.subject} onChange={(e) => setEmailModal(m => ({ ...m, subject: e.target.value }))} className="w-full px-3 py-2 border rounded" />
+              </div>
+              <div>
+                <label className="text-sm">Message</label>
+                <textarea disabled={emailModal.loading} value={emailModal.body} onChange={(e) => setEmailModal(m => ({ ...m, body: e.target.value }))} className="w-full px-3 py-2 border rounded h-32" />
+              </div>
+            </div>
+              <div className="p-6 border-t flex justify-end space-x-3">
+              <button disabled={emailModal.loading} onClick={() => { setEmailModal({ open: false, recipients: [], subject: '', body: '' }); setEmailContextStudent(null); }} className="px-4 py-2 border rounded">Cancel</button>
+              <button disabled={emailModal.recipients.length === 0 || emailModal.loading} onClick={async () => {
+                setEmailModal(m => ({ ...(m || {}), loading: true } as any));
+                try {
+                  const res = await fetchClient.postJson('/api/communication/email', { to: emailModal.recipients.join(','), subject: emailModal.subject, text: emailModal.body });
+                  let data: any = {};
+                  try { data = await res.json(); } catch (er) { data = {}; }
+                  if (!res.ok) {
+                    setToasts(prev => [{ id: `email-err-${Date.now()}`, message: data?.message || `Email send failed (${res.status})`, studentIds: [] }, ...prev]);
+                    // keep modal open and allow retry
+                    setEmailModal(m => ({ ...(m || {}), loading: false } as any));
+                    return;
+                  } else {
+                    setToasts(prev => [{ id: `email-${Date.now()}`, message: data?.message || 'Email(s) queued', studentIds: emailModal.recipients.map(() => '') }, ...prev]);
+                    // close modal on success
+                    setEmailModal({ open: false, recipients: [], subject: '', body: '' });
+                    setEmailContextStudent(null);
+                    return;
+                  }
+                } catch (e: any) {
+                  setToasts(prev => [{ id: `email-err-${Date.now()}`, message: `Failed to send email: ${String(e?.message || e)}`, studentIds: [] }, ...prev]);
+                  setEmailModal(m => ({ ...(m || {}), loading: false } as any));
+                  return;
+                }
+              }} className="px-4 py-2 bg-blue-600 text-white rounded">
+                {emailModal.loading ? (
+                  <span className="flex items-center space-x-2">
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                    <span>Sending...</span>
+                  </span>
+                ) : 'Send'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SMS Composer Modal */}
+      {smsModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">Send SMS</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-sm">To</label>
+                <input disabled={smsModal.loading} type="text" value={smsModal.recipients.join(', ')} readOnly className="w-full px-3 py-2 border rounded" />
+              </div>
+              <div>
+                <label className="text-sm">Message</label>
+                <textarea disabled={smsModal.loading} value={smsModal.body} onChange={(e) => setSmsModal(m => ({ ...m, body: e.target.value }))} className="w-full px-3 py-2 border rounded h-28" />
+              </div>
+            </div>
+            <div className="p-6 border-t flex justify-end space-x-3">
+              <button onClick={() => setSmsModal({ open: false, recipients: [], body: '' })} className="px-4 py-2 border rounded">Cancel</button>
+              <button disabled={smsModal.recipients.length === 0 || smsModal.loading} onClick={async () => {
+                setSmsModal(m => ({ ...(m || {}), loading: true } as any));
+                try {
+                  const res = await fetchClient.postJson('/api/communication/sms', { to: smsModal.recipients.join(','), text: smsModal.body });
+                  let data: any = {};
+                  try { data = await res.json(); } catch (er) { data = {}; }
+                  if (!res.ok) {
+                    setToasts(prev => [{ id: `sms-err-${Date.now()}`, message: data?.message || `SMS send failed (${res.status})`, studentIds: [] }, ...prev]);
+                    setSmsModal(m => ({ ...(m || {}), loading: false } as any));
+                    return;
+                  } else {
+                    setToasts(prev => [{ id: `sms-${Date.now()}`, message: data?.message || 'SMS queued', studentIds: smsModal.recipients.map(() => '') }, ...prev]);
+                    setSmsModal({ open: false, recipients: [], body: '' });
+                    return;
+                  }
+                } catch (e: any) {
+                  setToasts(prev => [{ id: `sms-err-${Date.now()}`, message: `Failed to send SMS: ${String(e?.message || e)}`, studentIds: [] }, ...prev]);
+                  setSmsModal(m => ({ ...(m || {}), loading: false } as any));
+                  return;
+                }
+              }} className="px-4 py-2 bg-blue-600 text-white rounded">{smsModal.loading ? (
+                <span className="flex items-center space-x-2">
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                  <span>Sending...</span>
+                </span>
+              ) : 'Send'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Undo Toasters */}
+      <div className="fixed bottom-6 right-6 z-50 space-y-3">
+        {toasts.map(t => (
+          <div key={t.id} className="bg-gray-800 text-white px-4 py-3 rounded-lg shadow flex items-center space-x-4">
+            <div className="flex-1 text-sm">{t.message}</div>
+            <div className="flex items-center space-x-2">
+              <button onClick={() => { t.studentIds.forEach(id => cancelScheduledDelete(id)); }} className="px-3 py-1 bg-white text-gray-800 rounded">Undo</button>
+              <button onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))} className="px-2 py-1 text-sm text-gray-300">Dismiss</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Edit Student Modal */}
-      {showEditModal && studentToEdit && (
+      {showEditModal && studentToEdit && editForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
@@ -568,7 +901,8 @@ export const AllStudentsPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                   <input
                     type="text"
-                    defaultValue={studentToEdit.firstName}
+                    value={String(editForm.firstName || '')}
+                    onChange={(e) => setEditForm(f => ({ ...(f || {}), firstName: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -576,7 +910,8 @@ export const AllStudentsPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
                   <input
                     type="text"
-                    defaultValue={studentToEdit.lastName}
+                    value={String(editForm.lastName || '')}
+                    onChange={(e) => setEditForm(f => ({ ...(f || {}), lastName: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -584,7 +919,8 @@ export const AllStudentsPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                   <input
                     type="email"
-                    defaultValue={studentToEdit.email}
+                    value={String(editForm.email || '')}
+                    onChange={(e) => setEditForm(f => ({ ...(f || {}), email: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -592,26 +928,29 @@ export const AllStudentsPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
                   <input
                     type="tel"
-                    defaultValue={studentToEdit.phoneNumber}
+                    value={String(editForm.phoneNumber || '')}
+                    onChange={(e) => setEditForm(f => ({ ...(f || {}), phoneNumber: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Level</label>
                   <select
-                    defaultValue={studentToEdit.level}
+                    value={String(editForm.level || '')}
+                    onChange={(e) => setEditForm(f => ({ ...(f || {}), level: Number(e.target.value) }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value={1}>Level 1</option>
-                    <option value={2}>Level 2</option>
-                    <option value={3}>Level 3</option>
-                    <option value={4}>Level 4</option>
+                    <option value="1">Level 1</option>
+                    <option value="2">Level 2</option>
+                    <option value="3">Level 3</option>
+                    <option value="4">Level 4</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Tuition Status</label>
                   <select
-                    defaultValue={studentToEdit.tuitionStatus}
+                    value={String(editForm.tuitionStatus || '')}
+                    onChange={(e) => setEditForm(f => ({ ...(f || {}), tuitionStatus: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Paid">Paid</option>
@@ -623,15 +962,25 @@ export const AllStudentsPage: React.FC = () => {
             </div>
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
               <button
-                onClick={() => setShowEditModal(false)}
+                onClick={() => { setShowEditModal(false); setStudentToEdit(null); setEditForm(null); }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  alert('Student updated successfully!');
-                  setShowEditModal(false);
+                onClick={async () => {
+                  if (!studentToEdit || !editForm) return;
+                  try {
+                    const updated = await (await import('../../../api/students')).updateStudent(studentToEdit.id as string, editForm as any);
+                    // replace in local list
+                    setStudents(prev => prev.map(s => (s.id === (studentToEdit.id as string) ? (updated as Student) : s)));
+                    setToasts(prev => [{ id: `upd-${Date.now()}`, message: 'Student updated', studentIds: [studentToEdit.id as string] }, ...prev]);
+                    setShowEditModal(false);
+                    setStudentToEdit(null);
+                    setEditForm(null);
+                  } catch (e: any) {
+                    setToasts(prev => [{ id: `upd-err-${Date.now()}`, message: `Update failed: ${String(e?.message || e)}`, studentIds: [studentToEdit.id as string] }, ...prev]);
+                  }
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >

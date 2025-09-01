@@ -10,6 +10,7 @@ import departmentsRouter from './routes/departments';
 import coursesRouter from './routes/courses';
 import studentsRouter from './routes/students';
 import uploadsRouter from './routes/uploads';
+import communicationRouter from './routes/communication';
 import path from 'path';
 
 const app = express();
@@ -65,6 +66,7 @@ app.use('/api/students', studentsRouter);
 const uploadsPath = path.join(__dirname, '../public');
 app.use('/uploads', express.static(path.join(uploadsPath, 'uploads')));
 app.use('/api/uploads', uploadsRouter);
+app.use('/api/communication', communicationRouter);
 
 // Global error handler to return JSON for unexpected errors (avoid HTML error pages)
 app.use((err: any, _req: any, res: any, _next: any) => {

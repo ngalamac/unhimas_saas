@@ -122,5 +122,16 @@ export async function updateStudent(id: string, payload: Partial<Student>) {
 }
 
 export async function deleteStudent(id: string) {
-  await fetch(`${BASE}/${id}`, { method: 'DELETE' });
+  const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    try {
+      const err = await res.json().catch(() => ({}));
+      const message = err?.message || `Failed to delete student (status ${res.status})`;
+      const e: any = new Error(message);
+      e.status = res.status;
+      throw e;
+    } catch (e) {
+      throw e;
+    }
+  }
 }

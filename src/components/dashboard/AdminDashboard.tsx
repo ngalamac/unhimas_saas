@@ -34,9 +34,12 @@ export const AdminDashboard: React.FC = () => {
     setResetLoading(true);
     setResetMsg('');
     try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string,string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch('/api/auth/panel-reset-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ email: adminEmail }),
       });
       const data = await res.json();
