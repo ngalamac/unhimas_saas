@@ -1,0 +1,20 @@
+{
+  "name": "UNHIMAS School Management",
+  "short_name": "UNHIMAS",
+  "start_url": "/",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "/src/assets/unhimas-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/src/assets/unhimas-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a"
+}

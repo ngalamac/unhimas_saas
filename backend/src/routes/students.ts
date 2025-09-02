@@ -3,6 +3,7 @@ import Student from '../models/Student';
 import BranchModel from '../models/BranchModel';
 import mongoose from 'mongoose';
 import authMiddleware, { AuthRequest } from '../middleware/auth';
+import { emitEvent } from '../lib/events';
 
 const router = express.Router();
 
@@ -68,10 +69,132 @@ router.get('/', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 // Export students in various formats
+// helper to send export in requested format using the provided rows
+async function sendExport(rows: any[], format: string, res: any) {
+  try {
+    if (format === 'xlsx') {
+      try {
+        const ExcelJS = require('exceljs');
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Students');
+        ws.addRow(['StudentId', 'FirstName', 'LastName', 'Email', 'Phone', 'Program', 'Department', 'Level', 'Session', 'TuitionStatus']);
+        for (const s of rows) {
+          const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
+          const dept = (s.department && (s.department as any).name) ? (s.department as any).name : String(s.department || '');
+          ws.addRow([s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String(s.level || ''), String(s.session || ''), String(s.tuitionStatus || '')]);
+        }
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="students-export.xlsx"');
+        await wb.xlsx.write(res);
+        return res.end();
+      } catch (e) {
+  console.error('[students/export] xlsx generation error', e && ((e as any).stack || e));
+        throw e;
+      }
+    }
+
+    if (format === 'pdf') {
+      try {
+        const PDFDocument = require('pdfkit');
+        const doc = new PDFDocument({ size: 'A4', margin: 30 });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="students-export.pdf"');
+        doc.pipe(res);
+
+        const margin = 30;
+        const cols = [50, 150, 150, 80, 80, 25];
+        const colX: number[] = [];
+        let x = margin;
+        for (const w of cols) { colX.push(x); x += w; }
+
+        const rowHeight = 18;
+        let y = margin;
+
+        function drawHeader() {
+          doc.fontSize(14).font('Helvetica-Bold').text('Students Export', margin, y, { align: 'left' });
+          y += 20;
+          doc.fontSize(10).font('Helvetica-Bold');
+          const headerLabels = ['StudentId', 'Name', 'Email', 'Phone', 'Program', 'Status'];
+          for (let i = 0; i < headerLabels.length; i++) {
+            const hx = colX[i];
+            const hw = cols[i];
+            doc.rect(hx, y, hw, rowHeight).fill('#f3f4f6');
+            doc.fillColor('#000').text(headerLabels[i], hx + 4, y + 4, { width: hw - 8, ellipsis: true });
+          }
+          y += rowHeight;
+        }
+
+        function newPage() { doc.addPage(); y = margin; drawHeader(); }
+        drawHeader();
+
+        doc.font('Helvetica').fontSize(9).fillColor('#000');
+        for (const s of rows) {
+          if (y + rowHeight > doc.page.height - margin) newPage();
+          const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
+          const status = String(s.tuitionStatus || '');
+          const values = [s.studentId || '', `${s.firstName || ''} ${s.lastName || ''}`, s.email || '', s.phoneNumber || '', prog, status];
+          for (let i = 0; i < values.length; i++) {
+            const vx = colX[i]; const vw = cols[i];
+            doc.fillColor('#000').text(String(values[i]), vx + 4, y + 4, { width: vw - 8, continued: false });
+          }
+          y += rowHeight;
+        }
+
+        doc.end();
+        return;
+      } catch (e) {
+  console.error('[students/export] pdf generation error', e && ((e as any).stack || e));
+        throw e;
+      }
+    }
+
+    // default CSV
+    try {
+      const header = ['StudentId', 'FirstName', 'LastName', 'Email', 'Phone', 'Program', 'Department', 'Level', 'Session', 'TuitionStatus'];
+      const lines = [header.join(',')];
+      for (const s of rows) {
+        const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
+        const dept = (s.department && (s.department as any).name) ? (s.department as any).name : String(s.department || '');
+        const fields = [s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String(s.level || ''), String(s.session || ''), String(s.tuitionStatus || '')];
+        const esc = fields.map(f => `"${String(f).replace(/"/g, '""')}"`);
+        lines.push(esc.join(','));
+      }
+      const csv = lines.join('\n');
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="students-export.csv"');
+      return res.send(csv);
+    } catch (e) {
+  console.error('[students/export] csv generation error', e && ((e as any).stack || e));
+      throw e;
+    }
+  } catch (outerErr) {
+    // Try CSV fallback when non-CSV formats fail to provide a usable file
+    try {
+      console.warn('[students/export] Export failed for format, attempting CSV fallback', (outerErr as any)?.message || outerErr);
+      const header = ['StudentId', 'FirstName', 'LastName', 'Email', 'Phone', 'Program', 'Department', 'Level', 'Session', 'TuitionStatus'];
+      const lines = [header.join(',')];
+      for (const s of rows) {
+        const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
+        const dept = (s.department && (s.department as any).name) ? (s.department as any).name : String(s.department || '');
+        const fields = [s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String(s.level || ''), String(s.session || ''), String(s.tuitionStatus || '')];
+        const esc = fields.map(f => `"${String(f).replace(/"/g, '""')}"`);
+        lines.push(esc.join(','));
+      }
+      const csv = lines.join('\n');
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="students-export-fallback.csv"');
+      return res.send(csv);
+    } catch (fallbackErr) {
+      console.error('[students/export] CSV fallback also failed', (fallbackErr as any)?.stack || fallbackErr);
+      throw outerErr;
+    }
+  }
+}
+
+// GET /export remains (keeps backward compatibility for direct links)
 router.get('/export', authMiddleware, async (req: AuthRequest, res) => {
   try {
     const format = String(req.query.format || 'csv').toLowerCase();
-    // build same query logic as above
     const query: any = {};
     if (!(req.user && req.user.type === 'SuperAdmin')) {
       const branchId = String(req.query.branch || '');
@@ -82,115 +205,73 @@ router.get('/export', authMiddleware, async (req: AuthRequest, res) => {
     }
     const search = String(req.query.search || '').trim();
     if (search) {
-      const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      query.$or = [
-        { firstName: re },
-        { lastName: re },
-        { email: re },
-        { studentId: re }
-      ];
+      const re = new RegExp(search.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'), 'i');
+      query.$or = [ { firstName: re }, { lastName: re }, { email: re }, { studentId: re } ];
     }
     if (req.query.program) query.program = String(req.query.program);
     if (req.query.status) query.tuitionStatus = String(req.query.status);
 
   const rows = await Student.find(query).populate('program department branch').sort({ createdAt: -1 });
-
-    if (format === 'xlsx') {
-      const ExcelJS = require('exceljs');
-      const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet('Students');
-      ws.addRow(['StudentId', 'FirstName', 'LastName', 'Email', 'Phone', 'Program', 'Department', 'Level', 'Session', 'TuitionStatus']);
-      for (const s of rows) {
-        const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
-        const dept = (s.department && (s.department as any).name) ? (s.department as any).name : String(s.department || '');
-        ws.addRow([s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String(s.level || ''), String(s.session || ''), String(s.tuitionStatus || '')]);
-      }
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename="students-export.xlsx"');
-      await wb.xlsx.write(res);
-      return res.end();
-    }
-
-    if (format === 'pdf') {
-      const PDFDocument = require('pdfkit');
-      const doc = new PDFDocument({ size: 'A4', margin: 30 });
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="students-export.pdf"');
-      doc.pipe(res);
-
-      const margin = 30;
-      const pageWidth = doc.page.width - margin * 2;
-      // columns: StudentId, Name, Email, Phone, Program, Status
-      const cols = [50, 150, 150, 80, 80, 25];
-      const colX: number[] = [];
-      let x = margin;
-      for (const w of cols) {
-        colX.push(x);
-        x += w;
-      }
-
-      const rowHeight = 18;
-      let y = margin;
-
-      function drawHeader() {
-        doc.fontSize(14).font('Helvetica-Bold').text('Students Export', margin, y, { align: 'left' });
-        y += 20;
-        // header background
-        doc.fontSize(10).font('Helvetica-Bold');
-        const headerLabels = ['StudentId', 'Name', 'Email', 'Phone', 'Program', 'Status'];
-        for (let i = 0; i < headerLabels.length; i++) {
-          const hx = colX[i];
-          const hw = cols[i];
-          doc.rect(hx, y, hw, rowHeight).fill('#f3f4f6');
-          doc.fillColor('#000').text(headerLabels[i], hx + 4, y + 4, { width: hw - 8, ellipsis: true });
-        }
-        y += rowHeight;
-      }
-
-      function newPage() {
-        doc.addPage();
-        y = margin;
-        drawHeader();
-      }
-
-      drawHeader();
-
-      doc.font('Helvetica').fontSize(9).fillColor('#000');
-      for (const s of rows) {
-        if (y + rowHeight > doc.page.height - margin) {
-          newPage();
-        }
-        const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
-        const status = String(s.tuitionStatus || '');
-
-        const values = [s.studentId || '', `${s.firstName || ''} ${s.lastName || ''}`, s.email || '', s.phoneNumber || '', prog, status];
-        for (let i = 0; i < values.length; i++) {
-          const vx = colX[i];
-          const vw = cols[i];
-          doc.fillColor('#000').text(String(values[i]), vx + 4, y + 4, { width: vw - 8, continued: false });
-        }
-        y += rowHeight;
-      }
-
-      doc.end();
-      return;
-    }
-
-    // default CSV
-    const header = ['StudentId', 'FirstName', 'LastName', 'Email', 'Phone', 'Program', 'Department', 'Level', 'Session', 'TuitionStatus'];
-    const lines = [header.join(',')];
-    for (const s of rows) {
-      const prog = (s.program && (s.program as any).name) ? (s.program as any).name : String(s.program || '');
-      const dept = (s.department && (s.department as any).name) ? (s.department as any).name : String(s.department || '');
-      const fields = [s.studentId || '', s.firstName || '', s.lastName || '', s.email || '', s.phoneNumber || '', prog, dept, String(s.level || ''), String(s.session || ''), String(s.tuitionStatus || '')];
-      const esc = fields.map(f => `"${String(f).replace(/"/g, '""')}"`);
-      lines.push(esc.join(','));
-    }
-    const csv = lines.join('\n');
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="students-export.csv"');
-    return res.send(csv);
+  // debug log: number of rows and request context
+  // eslint-disable-next-line no-console
+  console.log('[students/export] GET export request', { format, rows: rows.length, user: (req.user as any)?.email || (req.user as any)?.id || 'unknown', branch: query.branch || null });
+  return await sendExport(rows, format, res);
   } catch (e) {
+    // log error details for debugging
+    // eslint-disable-next-line no-console
+  console.error('[students/export] GET export error', e && ((e as any).stack || e));
+    return res.status(500).json({ message: 'Failed to export students' });
+  }
+});
+
+// POST /export - accept JSON body with filters and format. This allows authenticated fetch from frontend and download via blob.
+router.post('/export', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const format = String(req.body.format || 'csv').toLowerCase();
+    const query: any = {};
+    if (!(req.user && req.user.type === 'SuperAdmin')) {
+      const branchId = String(req.body.branch || '');
+      if (!branchId) return res.status(400).json({ message: 'branch is required' });
+      query.branch = branchId;
+    } else {
+      if (req.body.branch) query.branch = String(req.body.branch);
+    }
+    const search = String(req.body.search || '').trim();
+    if (search) {
+      const re = new RegExp(search.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'), 'i');
+      query.$or = [ { firstName: re }, { lastName: re }, { email: re }, { studentId: re } ];
+    }
+    if (req.body.program) query.program = String(req.body.program);
+    if (req.body.status) query.tuitionStatus = String(req.body.status);
+    // support exporting selected IDs (array of _id or studentId)
+    if (req.body.ids && Array.isArray(req.body.ids) && req.body.ids.length) {
+      const idsArr = (req.body.ids || []).map((x: any) => String(x));
+      const objectIds: string[] = idsArr.filter((id: string) => mongoose.Types.ObjectId.isValid(id));
+      const nonObjectIds: string[] = idsArr.filter((id: string) => !mongoose.Types.ObjectId.isValid(id));
+      // debug incoming ids and classification
+      // eslint-disable-next-line no-console
+      console.debug('[students/export] POST received ids', { idsArr, objectIds, nonObjectIds });
+      if (objectIds.length && nonObjectIds.length) {
+        query.$or = [ ...(query.$or || []), { _id: { $in: objectIds } }, { studentId: { $in: nonObjectIds } } ];
+      } else if (objectIds.length) {
+        query._id = { $in: objectIds };
+      } else {
+        query.studentId = { $in: nonObjectIds };
+      }
+    }
+
+    // log the final query for debugging
+    // eslint-disable-next-line no-console
+    console.debug('[students/export] POST computed query', JSON.stringify(query));
+
+  const rows = await Student.find(query).populate('program department branch').sort({ createdAt: -1 });
+  // debug log: number of rows and request context
+  // eslint-disable-next-line no-console
+  console.log('[students/export] POST export request', { format, rows: rows.length, user: (req.user as any)?.email || (req.user as any)?.id || 'unknown', branch: query.branch || null });
+  return await sendExport(rows, format, res);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+  console.error('[students/export] POST export error', e && ((e as any).stack || e));
     return res.status(500).json({ message: 'Failed to export students' });
   }
 });
@@ -325,6 +406,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
   const student = new Student(studentData);
   try {
     await student.save();
+  try { emitEvent('student.created', { id: student._id, student }); } catch (e) {}
     return res.status(201).json(student);
   } catch (e: any) {
     // handle duplicate key error coming from unique index
@@ -364,11 +446,13 @@ router.put('/:id', async (req, res) => {
   }
 
   const student = await Student.findByIdAndUpdate(req.params.id, updateData, { new: true });
+  try { emitEvent('student.updated', { id: student?._id, student }); } catch (e) {}
   res.json(student);
 });
 
 router.delete('/:id', async (req, res) => {
-  await Student.findByIdAndDelete(req.params.id);
+  const del = await Student.findByIdAndDelete(req.params.id);
+  try { emitEvent('student.deleted', { id: req.params.id, student: del }); } catch (e) {}
   res.status(204).send();
 });
 

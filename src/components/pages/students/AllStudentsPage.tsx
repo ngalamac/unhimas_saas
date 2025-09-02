@@ -6,6 +6,8 @@ import { getBranches } from '../../../api/branches';
 import { useBranch } from '../../../context/BranchContext';
 import { Student } from '../../../types/school';
 import { useNavigation } from '../../../context/NavigationContext';
+import useSSE from '../../../lib/useSSE';
+import { useUI } from '../../../context/UIContext';
 
 export const AllStudentsPage: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -30,6 +32,8 @@ export const AllStudentsPage: React.FC = () => {
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; studentIds: string[] }>>([]);
    const [aggregates, setAggregates] = useState<{ paid:number; partial:number; unpaid:number } | null>(null);
   const [branchMap, setBranchMap] = useState<Record<string,string>>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [tempFilters, setTempFilters] = useState<{ program?: string; status?: string; branch?: string; level?: string; session?: string; gender?: string }>({});
 
   // Pagination state (declare before effects that use them)
   const [page, setPage] = useState(1);
@@ -149,23 +153,172 @@ export const AllStudentsPage: React.FC = () => {
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages]);
 
   const { setCurrentPage } = useNavigation();
-  const [exportOpen, setExportOpen] = useState(false);
+  const [exportAllOpen, setExportAllOpen] = useState(false);
+  const [exportSelectedOpen, setExportSelectedOpen] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [liveEnabled, setLiveEnabled] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const triggerExport = (format: 'csv' | 'xlsx' | 'pdf') => {
+  const triggerExport = async (format: 'csv' | 'xlsx' | 'pdf', ids?: string[]) => {
     const branchId = currentBranch ? ((currentBranch as any)._id || (currentBranch as any).id) : undefined;
-    const params = new URLSearchParams();
-    params.set('format', format);
-    params.set('page', String(page));
-    params.set('limit', String(pageSize));
-    if (branchId) params.set('branch', branchId);
-    if (searchTerm) params.set('search', searchTerm);
-    if (filterProgram) params.set('program', filterProgram);
-    if (filterStatus) params.set('status', filterStatus);
-    const url = `/api/students/export?${params.toString()}`;
-    // open in new tab to trigger download
-    window.open(url, '_blank');
-    setExportOpen(false);
+    const body: any = { format };
+    if (ids && ids.length > 0) body.ids = ids;
+    if (branchId) body.branch = branchId;
+    if (searchTerm) body.search = searchTerm;
+    if (filterProgram) body.program = filterProgram;
+    if (filterStatus) body.status = filterStatus;
+
+    try {
+      setExportLoading(true);
+      // debug: log payload being sent so we can verify selected IDs
+      // eslint-disable-next-line no-console
+      console.debug('[students/export] client payload', body);
+      // fetch as blob using Authorization-aware fetch client
+      const res = await fetchClient.postJson('/api/students/export', body);
+      // if server responded with non-blob JSON error, try to parse
+  if (!res.ok) {
+        let err = 'Export failed';
+        try { const j = await res.json(); err = j?.message || err; } catch (e) {}
+  setToasts(prev => [{ id: `export-err-${Date.now()}`, message: err, studentIds: [] }, ...prev]);
+  try { setExportAllOpen(false); } catch (e) {}
+  try { setExportSelectedOpen(false); } catch (e) {}
+        return;
+      }
+
+  const blob = await res.blob();
+      // derive filename from content-disposition or default
+      const cd = res.headers.get('content-disposition') || '';
+      let filename = `students-export.${format}`;
+      try {
+        // support both filename="..." and filename*=UTF-8''... formats
+        const fnStarMatch = /filename\*=[^']+'[^']+'([^;\n]+)/i.exec(cd);
+        if (fnStarMatch && fnStarMatch[1]) {
+          filename = decodeURIComponent(fnStarMatch[1].trim().replace(/"/g, ''));
+        } else {
+          const fnMatch = /filename="?([^";]+)"?/i.exec(cd);
+          if (fnMatch && fnMatch[1]) filename = fnMatch[1].trim();
+        }
+      } catch (e) {
+        // ignore parse errors and keep default filename
+      }
+
+  const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setToasts(prev => [{ id: `export-ok-${Date.now()}`, message: `Export (${format}) started`, studentIds: [] }, ...prev]);
+      // close both dropdowns if open
+      try { setExportAllOpen(false); } catch (e) {}
+      try { setExportSelectedOpen(false); } catch (e) {}
+    } catch (e: any) {
+      setToasts(prev => [{ id: `export-err-${Date.now()}`, message: `Export failed: ${String(e?.message || e)}`, studentIds: [] }, ...prev]);
+  try { setExportAllOpen(false); } catch (er) {}
+  try { setExportSelectedOpen(false); } catch (er) {}
+    }
+    finally {
+      setExportLoading(false);
+    }
   };
+
+  // Live polling to refresh the current view periodically (pauses on modal interactions / when not visible)
+  useEffect(() => {
+    let mounted = true;
+    let timer: any = null;
+    const shouldPause = () => {
+      // pause if any modal is open or we have pending deletes
+      return showEditModal || actionModal?.open || emailModal.open || smsModal.open || showDeleteModal || Object.keys(pendingDeletes || {}).length > 0 || exportAllOpen || exportSelectedOpen;
+    };
+
+    const runPoll = async () => {
+      if (!mounted) return;
+      if (!liveEnabled) return;
+      if (document.hidden) return; // don't poll when tab not visible
+      if (shouldPause()) return;
+      try {
+        const branchId = currentBranch ? ((currentBranch as any)._id || (currentBranch as any).id) : undefined;
+        const res: any = await getStudents(branchId, page, pageSize, { search: searchTerm, program: filterProgram, status: filterStatus });
+        if (!mounted) return;
+        if (Array.isArray(res.data)) {
+          // shallow compare lengths and ids to avoid noisy updates
+          const existingIds = students.map(s => getStudentId(s)).join(',');
+          const incomingIds = res.data.map((s: any) => getStudentId(s)).join(',');
+          if (existingIds !== incomingIds) {
+            setStudents(Array.isArray(res.data) ? res.data : []);
+          }
+        }
+        if (res.aggregates) setAggregates(res.aggregates);
+      } catch (e) {
+        // ignore polling errors; we'll try again later
+        // eslint-disable-next-line no-console
+        console.debug('[students/livePoll] poll error', (e as any)?.message || e);
+      }
+    };
+
+    if (liveEnabled) {
+      // initial kick
+      runPoll();
+      timer = setInterval(runPoll, 10000);
+    }
+    return () => { mounted = false; if (timer) clearInterval(timer); };
+  }, [liveEnabled, currentBranch, page, pageSize, searchTerm, filterProgram, filterStatus, showEditModal, actionModal, emailModal, smsModal, showDeleteModal, pendingDeletes, exportAllOpen, exportSelectedOpen, students]);
+
+  // SSE subscription for realtime updates (complements polling)
+  const ui = (() => { try { return useUI(); } catch (e) { return null as any; } })();
+  useSSE('/api/events', {
+    'student.created': (_) => { ui && ui.showToast && ui.showToast('New student added'); refresh(); },
+    'student.updated': (_) => { ui && ui.showToast && ui.showToast('Student updated'); refresh(); },
+    'student.deleted': (_) => { ui && ui.showToast && ui.showToast('Student deleted'); refresh(); },
+  });
+
+  // Lazy load next page (append) when user requests
+  const loadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const branchId = currentBranch ? ((currentBranch as any)._id || (currentBranch as any).id) : undefined;
+      const nextPage = Math.floor(students.length / pageSize) + 1;
+      const res: any = await getStudents(branchId, nextPage, pageSize, { search: searchTerm, program: filterProgram, status: filterStatus });
+      if (Array.isArray(res.data) && res.data.length) {
+        setStudents(prev => [...prev, ...res.data]);
+        setTotal(Number(res.total) || total);
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[students/loadMore] error', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // show a load more control if server has more pages than currently loaded
+  const hasMore = students.length < total;
+
+  // load branches for filter dropdown
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res: any = await getBranches();
+        if (!mounted) return;
+        if (Array.isArray(res)) {
+          const map: Record<string,string> = {};
+          res.forEach((b: any) => { map[(b._id || b.id || b)] = (b.name || b.title || String(b)); });
+          setBranchMap(map);
+        } else if (res && Array.isArray(res.data)) {
+          const map: Record<string,string> = {};
+          res.data.forEach((b: any) => { map[(b._id || b.id || b)] = (b.name || b.title || String(b)); });
+          setBranchMap(map);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -269,8 +422,9 @@ export const AllStudentsPage: React.FC = () => {
       level: (student as any).level,
       session: student.session,
       tuitionStatus: student.tuitionStatus,
+      // guardian is not part of Student type; keep as any on the editable form
       guardian: (student as any).guardian || undefined,
-    });
+    } as any);
     setShowEditModal(true);
   };
 
@@ -338,24 +492,32 @@ export const AllStudentsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">All Students</h1>
           <p className="text-gray-600">Manage and view all registered students</p>
         </div>
-        <div className="flex space-x-3 relative">
-          <div className="relative">
-            <button onClick={() => setExportOpen(o => !o)} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
-              <Download className="w-4 h-4" />
-              <span>Export</span>
-            </button>
-            {exportOpen && (
-              <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-md z-50">
-                <button onClick={() => triggerExport('csv')} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download CSV</button>
-                <button onClick={() => triggerExport('xlsx')} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download Excel</button>
-                <button onClick={() => triggerExport('pdf')} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download PDF</button>
-              </div>
-            )}
+  <div className="flex space-x-3 relative items-center">
+            <div className="relative">
+              <button disabled={exportLoading} onClick={() => { setExportAllOpen(o => !o); }} className={`bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2 ${exportLoading ? 'opacity-80 cursor-wait' : ''}`}>
+                {exportLoading ? (
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle></svg>
+                ) : <Download className="w-4 h-4" />}
+                <span>{exportLoading ? 'Exporting...' : 'Export'}</span>
+              </button>
+              {exportAllOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-md z-50">
+                  <button onClick={() => { setExportAllOpen(false); triggerExport('csv'); }} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download CSV</button>
+                  <button onClick={() => { setExportAllOpen(false); triggerExport('xlsx'); }} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download Excel</button>
+                  <button onClick={() => { setExportAllOpen(false); triggerExport('pdf'); }} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download PDF</button>
+                </div>
+              )}
           </div>
           <button onClick={() => setCurrentPage('student-registration')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
             <Plus className="w-4 h-4" />
             <span>Add New Student</span>
           </button>
+          <div className="flex items-center ml-2 space-x-2 text-sm">
+            <label className="flex items-center space-x-2 text-gray-700">
+              <input type="checkbox" checked={liveEnabled} onChange={(e) => setLiveEnabled(e.target.checked)} className="rounded" />
+              <span>Live</span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -440,7 +602,7 @@ export const AllStudentsPage: React.FC = () => {
             <option value="Partial">Partial</option>
             <option value="Unpaid">Unpaid</option>
           </select>
-          <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 flex items-center space-x-2">
+          <button onClick={() => { setTempFilters({ program: filterProgram || '', status: filterStatus || '', branch: '', level: '', session: '', gender: '' }); setFiltersOpen(true); }} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 flex items-center space-x-2">
             <Filter className="w-4 h-4" />
             <span>More Filters</span>
           </button>
@@ -467,8 +629,11 @@ export const AllStudentsPage: React.FC = () => {
                   setEmailModal({ open: true, recipients, subject: ``, body: ``, loading: false, templateSelected: false });
                 }}>Send Email</span>
             </button>
-            <button className="bg-teal-600 text-white px-3 py-1 rounded text-sm hover:bg-teal-700" onClick={() => {
-              const recipients = selectedStudents.map(id => students.find(s => s.id === id)?.phoneNumber || students.find(s => s.id === id)?.phone).filter(Boolean) as string[];
+                <button className="bg-teal-600 text-white px-3 py-1 rounded text-sm hover:bg-teal-700" onClick={() => {
+              const recipients = selectedStudents.map(id => {
+                const s = students.find(s => s.id === id);
+                return s?.phoneNumber || (s as any)?.phone;
+              }).filter(Boolean) as string[];
               if (recipients.length === 0) {
                 setToasts(prev => [{ id: `sms-empty-${Date.now()}`, message: 'No phone numbers selected', studentIds: [] }, ...prev]);
                 return;
@@ -477,9 +642,16 @@ export const AllStudentsPage: React.FC = () => {
             }}>
               Send SMS
             </button>
-            <button className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700">
-              Export Selected
-            </button>
+            <div className="relative">
+              <button onClick={() => setExportSelectedOpen(o => !o)} className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700">Export Selected</button>
+              {exportSelectedOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-md z-50">
+                  <button onClick={() => { setExportSelectedOpen(false); triggerExport('csv', selectedStudents); }} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download CSV</button>
+                  <button onClick={() => { setExportSelectedOpen(false); triggerExport('xlsx', selectedStudents); }} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download Excel</button>
+                  <button onClick={() => { setExportSelectedOpen(false); triggerExport('pdf', selectedStudents); }} className="w-full text-left px-3 py-2 hover:bg-gray-100">Download PDF</button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -538,7 +710,7 @@ export const AllStudentsPage: React.FC = () => {
                       <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden">
                         { (student as any).profilePicture ? (
                           // show profile picture (object-cover to keep square)
-                          <img src={resolveProfileUrl((student as any).profilePicture as string)} alt={`${student.firstName || ''} ${student.lastName || ''}`} className="w-10 h-10 object-cover rounded-full" />
+                          <img loading="lazy" src={resolveProfileUrl((student as any).profilePicture as string)} alt={`${student.firstName || ''} ${student.lastName || ''}`} className="w-10 h-10 object-cover rounded-full" />
                         ) : (
                           <span className="text-sm font-medium text-gray-700">{(student.firstName?.[0] || '')}{(student.lastName?.[0] || '')}</span>
                         )}
@@ -644,6 +816,11 @@ export const AllStudentsPage: React.FC = () => {
             <option value={10}>10 / page</option>
             <option value={25}>25 / page</option>
           </select>
+            {hasMore && (
+              <button onClick={loadMore} disabled={loadingMore} className="px-3 py-1 border border-gray-300 rounded text-sm bg-white hover:bg-gray-50">
+                {loadingMore ? 'Loading...' : 'Load more'}
+              </button>
+            )}
         </div>
       </div>
 
@@ -712,7 +889,7 @@ export const AllStudentsPage: React.FC = () => {
               <div className="flex items-center space-x-4">
                 <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200">
                   { (viewStudent as any).profilePicture ? (
-                    <img src={resolveProfileUrl((viewStudent as any).profilePicture)} alt="profile" className="w-20 h-20 object-cover" />
+                    <img loading="lazy" src={resolveProfileUrl((viewStudent as any).profilePicture)} alt="profile" className="w-20 h-20 object-cover" />
                   ) : (
                     <div className="w-20 h-20 flex items-center justify-center text-xl font-bold text-gray-700">{(viewStudent.firstName?.[0]||'')}{(viewStudent.lastName?.[0]||'')}</div>
                   )}
@@ -950,7 +1127,7 @@ export const AllStudentsPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Tuition Status</label>
                   <select
                     value={String(editForm.tuitionStatus || '')}
-                    onChange={(e) => setEditForm(f => ({ ...(f || {}), tuitionStatus: e.target.value }))}
+                    onChange={(e) => setEditForm(f => ({ ...(f || {}), tuitionStatus: e.target.value as Student['tuitionStatus'] }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Paid">Paid</option>
@@ -986,6 +1163,77 @@ export const AllStudentsPage: React.FC = () => {
               >
                 Save Changes
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* More Filters Modal */}
+      {filtersOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">More Filters</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-sm">Program</label>
+                <select value={tempFilters.program || ''} onChange={(e) => setTempFilters(f => ({ ...(f||{}), program: e.target.value }))} className="w-full px-3 py-2 border rounded">
+                  <option value="">Any</option>
+                  <option value="HND">HND</option>
+                  <option value="Bachelor">Bachelor</option>
+                  <option value="Masters">Masters</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm">Tuition Status</label>
+                <select value={tempFilters.status || ''} onChange={(e) => setTempFilters(f => ({ ...(f||{}), status: e.target.value }))} className="w-full px-3 py-2 border rounded">
+                  <option value="">Any</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Partial">Partial</option>
+                  <option value="Unpaid">Unpaid</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm">Branch</label>
+                <select value={tempFilters.branch || ''} onChange={(e) => setTempFilters(f => ({ ...(f||{}), branch: e.target.value }))} className="w-full px-3 py-2 border rounded">
+                  <option value="">Any</option>
+                  {Object.entries(branchMap).map(([id,name]) => <option key={id} value={id}>{name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm">Level</label>
+                  <input value={tempFilters.level || ''} onChange={(e) => setTempFilters(f => ({ ...(f||{}), level: e.target.value }))} className="w-full px-3 py-2 border rounded" />
+                </div>
+                <div>
+                  <label className="text-sm">Session</label>
+                  <input value={tempFilters.session || ''} onChange={(e) => setTempFilters(f => ({ ...(f||{}), session: e.target.value }))} className="w-full px-3 py-2 border rounded" />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm">Gender</label>
+                <select value={tempFilters.gender || ''} onChange={(e) => setTempFilters(f => ({ ...(f||{}), gender: e.target.value }))} className="w-full px-3 py-2 border rounded">
+                  <option value="">Any</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+            </div>
+            <div className="p-6 border-t flex justify-end space-x-3">
+              <button disabled={false} onClick={() => { setFiltersOpen(false); }} className="px-4 py-2 border rounded">Cancel</button>
+              <button onClick={() => {
+                // apply temp filters to main filter state
+                setFilterProgram(tempFilters.program || '');
+                setFilterStatus(tempFilters.status || '');
+                // for branch, we store in currentBranch? for now store in local branchMap filter using setBranchMap selection
+                if (tempFilters.branch) {
+                  try { setCurrentPage(''); } catch (e) {}
+                }
+                // close modal
+                setFiltersOpen(false);
+              }} className="px-4 py-2 bg-blue-600 text-white rounded">Apply</button>
+              <button onClick={() => { setTempFilters({}); setFilterProgram(''); setFilterStatus(''); }} className="px-4 py-2 border rounded">Clear</button>
             </div>
           </div>
         </div>

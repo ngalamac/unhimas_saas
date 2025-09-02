@@ -11,6 +11,7 @@ import coursesRouter from './routes/courses';
 import studentsRouter from './routes/students';
 import uploadsRouter from './routes/uploads';
 import communicationRouter from './routes/communication';
+import { eventsHandler } from './lib/events';
 import path from 'path';
 
 const app = express();
@@ -62,6 +63,8 @@ app.use('/api/programs', programsRouter);
 app.use('/api/departments', departmentsRouter);
 app.use('/api/courses', coursesRouter);
 app.use('/api/students', studentsRouter);
+// server-sent events for realtime updates
+app.get('/api/events', eventsHandler);
 // serve uploaded files
 const uploadsPath = path.join(__dirname, '../public');
 app.use('/uploads', express.static(path.join(uploadsPath, 'uploads')));

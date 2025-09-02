@@ -40,6 +40,14 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
       <div className="flex items-center justify-between">
         {/* Left side */}
         <div className="flex items-center space-x-4">
+          {/* Brand/logo visible across all dashboards */}
+          <div className="flex items-center space-x-3 mr-2">
+            <img src="/src/assets/unhimas-logo.png" alt="UNHIMAS" className="w-8 h-8 object-contain" />
+            <div className="hidden sm:block">
+              <div className="text-sm font-semibold text-gray-900">UNHIMAS</div>
+              <div className="text-xs text-gray-500">School Management</div>
+            </div>
+          </div>
           <button
             onClick={onMenuToggle}
             className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
