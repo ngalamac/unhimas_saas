@@ -1,6 +1,7 @@
 import React from 'react';
 import { DollarSign, CreditCard, TrendingUp, AlertCircle, FileText, Users } from 'lucide-react';
 import { mockPayments, mockFeeStructures, mockStudents, getCurrentBatchData } from '../../data/mockData';
+import { formatXAF } from '../../utils/currency';
 
 export const AccountantDashboard: React.FC = () => {
   const currentBatch = getCurrentBatchData();
@@ -11,13 +12,7 @@ export const AccountantDashboard: React.FC = () => {
   const unpaidStudents = mockStudents.filter(s => s.tuitionStatus === 'Unpaid');
   const partialPayments = mockStudents.filter(s => s.tuitionStatus === 'Partial');
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-CM', {
-      style: 'currency',
-      currency: 'XAF',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => formatXAF(amount);
 
   return (
     <>

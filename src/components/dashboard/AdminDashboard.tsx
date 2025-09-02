@@ -1,6 +1,7 @@
 import React from 'react';
 import { Users, GraduationCap, Building2, CreditCard, AlertCircle } from 'lucide-react';
 import { mockStudents, mockBranches, mockPayments, getCurrentBatchData } from '../../data/mockData';
+import { formatXAF } from '../../utils/currency';
 import { useBranch } from '../../context/BranchContext';
 
 export const AdminDashboard: React.FC = () => {
@@ -21,13 +22,7 @@ export const AdminDashboard: React.FC = () => {
   const [resetMsg, setResetMsg] = React.useState('');
   const adminEmail = 'superadminunhimas@gmail.com'; // Replace with dynamic value if available
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-CM', {
-      style: 'currency',
-      currency: 'XAF',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => formatXAF(amount);
 
   // Trigger password reset for admin/superadmin
   const handleAdminPasswordReset = async () => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Building2, QrCode, Shield, DollarSign, CreditCard, GraduationCap, Calculator, UserPlus, FileText, Users, MessageSquare, Car as IdCard, Settings, ChevronRight, ChevronDown, MapPin, Eye, Plus, BookOpen, Calendar, Mail, BarChart3, UserCheck, School } from 'lucide-react';
+import { Home, Building2, QrCode, Shield, DollarSign, CreditCard, GraduationCap, Calculator, UserPlus, FileText, Users, MessageSquare, Car as IdCard, Settings, ChevronRight, ChevronDown, Eye, Plus, BookOpen, Calendar, Mail, BarChart3, UserCheck, School } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -69,7 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     { id: 'fees-management', label: 'Powerful Fees Management', icon: <DollarSign className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['fees', 'all'], submenuItems: [ { id: 'fee-structure', label: 'Fee Structure', icon: <Calculator className="w-3 h-3" /> }, { id: 'discounts', label: 'Discounts & Fines', icon: <DollarSign className="w-3 h-3" /> }, { id: 'fee-reminders', label: 'Fee Reminders', icon: <Mail className="w-3 h-3" /> }, { id: 'payment-history', label: 'Payment History', icon: <FileText className="w-3 h-3" /> } ] },
     { id: 'register-payments', label: 'Register Payments', icon: <CreditCard className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['payments', 'all'], submenuItems: [ { id: 'online-payments', label: 'Online Payments', icon: <CreditCard className="w-3 h-3" /> }, { id: 'offline-payments', label: 'Offline Payments', icon: <Calculator className="w-3 h-3" /> }, { id: 'payment-tracking', label: 'Payment Tracking', icon: <BarChart3 className="w-3 h-3" /> } ] },
     { id: 'grading-system', label: 'Multi-Type Grading System', icon: <GraduationCap className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['grades', 'all'], submenuItems: [ { id: 'exam-types', label: 'Exam Types (Mark/GPA)', icon: <FileText className="w-3 h-3" /> }, { id: 'mark-distribution', label: 'Mark Distribution', icon: <BarChart3 className="w-3 h-3" /> }, { id: 'ca-exam-setup', label: 'CA & Exam Setup', icon: <Settings className="w-3 h-3" /> } ] },
-    { id: 'accounting', label: 'Accounting', icon: <Calculator className="w-4 h-4" />, requiredPermissions: ['accounting', 'all'] },
+  { id: 'accounting', label: 'Accounting', icon: <Calculator className="w-4 h-4" />, requiredPermissions: ['accounting', 'all'], hasSubmenu: true, submenuItems: [ { id: 'accounting-overview', label: 'Overview', icon: <Calculator className="w-3 h-3" /> }, { id: 'chart-of-accounts', label: 'Chart of Accounts', icon: <BookOpen className="w-3 h-3" /> } ] },
     { id: 'admissions', label: 'Admissions', icon: <UserPlus className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['students', 'all'], submenuItems: [ { id: 'admission-applications', label: 'Admission Applications', icon: <FileText className="w-3 h-3" /> }, { id: 'admission-payments', label: 'Admission Payments', icon: <CreditCard className="w-3 h-3" /> }, { id: 'admission-status', label: 'Admission Status', icon: <UserCheck className="w-3 h-3" /> } ] },
     { id: 'students', label: 'Student Management', icon: <Users className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['students', 'department_students', 'all'], submenuItems: [ { id: 'all-students', label: 'All Students', icon: <Users className="w-3 h-3" /> }, { id: 'student-registration', label: 'Student Registration', icon: <UserPlus className="w-3 h-3" /> }, { id: 'student-details', label: 'Student Details', icon: <Eye className="w-3 h-3" /> }, { id: 'tuition-status', label: 'Tuition Status', icon: <DollarSign className="w-3 h-3" /> } ] },
     { id: 'programs-departments', label: 'Programs & Departments', icon: <School className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['programs', 'department_courses', 'all'], submenuItems: [ { id: 'programs', label: 'Programs (HND/Bachelor/Masters)', icon: <GraduationCap className="w-3 h-3" /> }, { id: 'departments', label: 'Departments', icon: <Building2 className="w-3 h-3" /> }, { id: 'courses', label: 'Courses', icon: <BookOpen className="w-3 h-3" /> }, { id: 'hod-management', label: 'HOD Management', icon: <UserCheck className="w-3 h-3" /> }, { id: 'lecturers', label: 'Lecturers', icon: <Users className="w-3 h-3" /> } ] },
@@ -86,8 +86,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     if (!user) return [];
     if (user.permissions && (user.permissions.includes?.('all') || user.role === 'SuperAdmin')) return ['all'];
     if (user.permissions && typeof user.permissions === 'object') {
-      return Object.keys(user.permissions).flatMap(feature => {
-        const actions = user.permissions[feature];
+      const perms = user.permissions as Record<string, any>;
+      return Object.keys(perms).flatMap(feature => {
+        const actions = perms[feature];
         if (Array.isArray(actions)) {
           return actions.map((action: string) => `${feature}:${action}`.toLowerCase());
         } else if (typeof actions === 'string') {
@@ -106,6 +107,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const [filteredSidebarItems, setFilteredSidebarItems] = useState<SidebarItem[]>(sidebarItems);
 
   useEffect(() => {
+    // Development shortcut: show all items so features can be inspected without special permissions
+    if (import.meta.env.DEV) {
+      setFilteredSidebarItems(sidebarItems);
+      // Auto-expand students menu for convenience in dev
+      setExpandedItems(prev => prev.includes('students') ? prev : [...prev, 'students']);
+      return;
+    }
+
     let items = sidebarItems;
     if (user?.role === 'SuperAdmin') {
       items = sidebarItems;
@@ -156,18 +165,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       <div className={`fixed left-0 top-0 h-full bg-white shadow-lg z-50 transition-transform duration-300 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0 lg:static lg:z-auto w-64`}>
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-red-500 rounded flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <span className="font-bold text-gray-800">UNHIMAS</span>
-              <div className="text-xs text-gray-500">{user?.role}</div>
-            </div>
-          </div>
-        </div>
+  {/* Header spacer (logo removed - branding handled in Header.tsx) */}
+  <div className="p-4 border-b border-gray-200" />
         {/* Main Section */}
         <div className="p-4">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Main</h3>

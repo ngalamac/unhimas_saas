@@ -1,6 +1,7 @@
 import React from 'react';
 import { Users, GraduationCap, Users2, UserCheck, Building2, QrCode, CreditCard, FileText } from 'lucide-react';
 import { mockStudents, mockEmployees, mockPrograms, mockDepartments, mockPayments, mockBranches, getCurrentBatchData } from '../../data/mockData';
+import { formatXAF } from '../../utils/currency';
 
 export const DashboardStats: React.FC = () => {
   const currentBatch = getCurrentBatchData();
@@ -12,13 +13,7 @@ export const DashboardStats: React.FC = () => {
   const pendingAdmissions = 23; // Mock data
   const attendanceRate = 94; // Mock data
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-CM', {
-      style: 'currency',
-      currency: 'XAF',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => formatXAF(amount);
 
   const stats = [
     {

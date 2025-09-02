@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
 import { DollarSign, TrendingUp, Download, Calendar, CreditCard, PieChart } from 'lucide-react';
+import { formatXAF } from '../../../utils/currency';
 
 export const FinancialReportsPage: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('current-month');
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-CM', {
-      style: 'currency',
-      currency: 'XAF',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => formatXAF(amount);
 
   const financialData = {
     totalRevenue: 125000000,

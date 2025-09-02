@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import transactionsRouter from './routes/transactions';
+import accountsRouter from './routes/accounts';
 import authRouter from './routes/auth';
 import usersRouter from './routes/users';
 import branchesRouter from './routes/branches';
@@ -56,6 +57,7 @@ startServer();
 
 // API routes
 app.use('/api/transactions', transactionsRouter);
+app.use('/api/accounts', accountsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/branches', branchesRouter);

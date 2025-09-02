@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CreditCard, Search, Filter, Download, Eye, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { mockPayments, mockStudents } from '../../../data/mockData';
+import { formatXAF } from '../../../utils/currency';
 import { Payment } from '../../../types/school';
 
 export const PaymentHistoryPage: React.FC = () => {
@@ -9,13 +10,7 @@ export const PaymentHistoryPage: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterMethod, setFilterMethod] = useState('');
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-CM', {
-      style: 'currency',
-      currency: 'XAF',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => formatXAF(amount);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

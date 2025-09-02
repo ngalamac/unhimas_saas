@@ -39,3 +39,14 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
 }
 
 export default authMiddleware;
+
+// Simple permissions middleware that reads permissions from x-user-permissions header
+// Header format: comma-separated list, e.g. 'accounting,fees,all'
+export function requirePermission(permission: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const header = (req.headers['x-user-permissions'] as string) || '';
+    const perms = header.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    if (perms.includes('all') || perms.includes(permission.toLowerCase())) return next();
+    return res.status(403).json({ error: 'Forbidden' });
+  };
+}

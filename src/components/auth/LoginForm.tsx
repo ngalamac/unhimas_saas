@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import unhimasLogo from '../../assets/unhimas-logo.png';
 import { User, Lock, Loader, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';

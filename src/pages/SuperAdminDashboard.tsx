@@ -5,12 +5,10 @@ import { Header } from '../components/dashboard/Header';
 import { PageRenderer } from '../components/dashboard/PageRenderer';
 import { RoleDashboard } from '../components/dashboard/RoleDashboard';
 import { useNavigation } from '../context/NavigationContext';
-import { useAuth } from '../context/AuthContext';
 
 const DashboardContent: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { currentPage, breadcrumb } = useNavigation();
-  const { user } = useAuth();
 
   const renderMainContent = () => {
     if (currentPage === 'dashboard') {
@@ -40,6 +38,14 @@ const DashboardContent: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Floating brand above sidebar (top-left) */}
+      <div className="fixed left-0 top-0 z-60 p-3 hidden lg:flex items-center space-x-3">
+        <img src="/unhimas-logo.png" alt="UNHIMAS" className="w-10 h-10 object-contain bg-white rounded" />
+        <div className="hidden xl:block">
+          <div className="text-sm font-semibold text-gray-900">UNHIMAS</div>
+          <div className="text-xs text-gray-500">School Management</div>
+        </div>
+      </div>
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       

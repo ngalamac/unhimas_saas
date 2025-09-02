@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DollarSign, Plus, Edit, Trash2, Eye, Search, Filter, Copy, Calculator } from 'lucide-react';
 import { mockFeeStructures, mockPrograms } from '../../../data/mockData';
+import { formatXAF } from '../../../utils/currency';
 import { FeeStructure } from '../../../types/school';
 
 export const FeeStructurePage: React.FC = () => {
@@ -23,13 +24,7 @@ export const FeeStructurePage: React.FC = () => {
     return matchesSearch && matchesProgram && matchesBatch;
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-CM', {
-      style: 'currency',
-      currency: 'XAF',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => formatXAF(amount);
 
   const handleDeleteFee = (feeId: string) => {
     setFeeToDelete(feeId);
