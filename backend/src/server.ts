@@ -12,6 +12,8 @@ import coursesRouter from './routes/courses';
 import studentsRouter from './routes/students';
 import uploadsRouter from './routes/uploads';
 import communicationRouter from './routes/communication';
+import staffRouter from './routes/staff';
+import payrollRouter from './routes/payroll';
 import { eventsHandler } from './lib/events';
 import path from 'path';
 
@@ -65,6 +67,8 @@ app.use('/api/programs', programsRouter);
 app.use('/api/departments', departmentsRouter);
 app.use('/api/courses', coursesRouter);
 app.use('/api/students', studentsRouter);
+app.use('/api/staff', staffRouter);
+app.use('/api/payroll', payrollRouter);
 // server-sent events for realtime updates
 app.get('/api/events', eventsHandler);
 // serve uploaded files

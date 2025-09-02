@@ -22,7 +22,10 @@ import { IDCardManagementPage } from '../pages/cards/IDCardManagementPage';
 import RoleManagementPage from '../roles/RoleManagementPage';
 import { TwoFactorAuthPage } from '../pages/security/TwoFactorAuthPage';
 import AccountingPage from '../accounting/AccountingPage';
+import AccountingOverview from '../pages/accounting/AccountingOverview';
 import ChartOfAccountsPage from '../pages/accounting/ChartOfAccountsPage';
+import StaffDirectory from '../pages/hr/StaffDirectory';
+import PayrollPage from '../pages/hr/PayrollPage';
 import SettingsPage from './SettingsPage';
 
 export const PageRenderer: React.FC = () => {
@@ -69,9 +72,17 @@ export const PageRenderer: React.FC = () => {
       // Accounting
       case 'accounting':
       case 'accounting-overview':
+        return <AccountingOverview />;
+      case 'transactions':
         return <AccountingPage />;
       case 'chart-of-accounts':
         return <ChartOfAccountsPage />;
+
+      // HR
+      case 'staff-management':
+        return <StaffDirectory />;
+      case 'payroll':
+        return <PayrollPage />;
       
       // Communication
       case 'bulk-messaging':

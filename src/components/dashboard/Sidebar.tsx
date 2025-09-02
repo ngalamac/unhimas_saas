@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Building2, QrCode, Shield, DollarSign, CreditCard, GraduationCap, Calculator, UserPlus, FileText, Users, MessageSquare, Car as IdCard, Settings, ChevronRight, ChevronDown, Eye, Plus, BookOpen, Calendar, Mail, BarChart3, UserCheck, School } from 'lucide-react';
+import { Home, Building2, QrCode, Shield, DollarSign, CreditCard, GraduationCap, Calculator, UserPlus, FileText, Users, MessageSquare, Car as IdCard, Settings, ChevronRight, ChevronDown, Eye, Plus, BookOpen, Calendar, BarChart3, UserCheck, School } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -40,6 +40,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     'schedule-communication': ['communication:read', 'communication:create', 'communication:update', 'communication:delete', 'announcements:read', 'all'],
     'id-card-management': ['idcard:read', 'idcard:create', 'idcard:update', 'idcard:delete', 'all'],
     'data-analysis': ['reports:read', 'financial_reports:read', 'academic_reports:read', 'all'],
+  'human-resources': ['staff:read','staff:create','staff:update','staff:delete','all'],
+  'staff-management': ['staff:read','staff:create','staff:update','staff:delete','all'],
+  'payroll': ['payroll:read','payroll:create','payroll:update','payroll:delete','all'],
     'settings': ['all']
   };
 
@@ -62,22 +65,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
   // Sidebar items definition (always defined before filtering)
   const sidebarItems: SidebarItem[] = [
+    // Primary
     { id: 'dashboard', label: 'Dashboard', icon: <Home className="w-4 h-4" /> },
-    { id: 'all-branches', label: 'All Branches', icon: <Building2 className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['branches', 'all'], submenuItems: [ { id: 'view-branches', label: 'View Branches', icon: <Eye className="w-3 h-3" /> }, { id: 'create-branch', label: 'Create Branch', icon: <Plus className="w-3 h-3" /> }, { id: 'branch-data', label: 'Branch Data Management', icon: <BarChart3 className="w-3 h-3" /> } ] },
-    { id: 'qr-attendance', label: 'QR Attendance', icon: <QrCode className="w-4 h-4" />, requiredPermissions: ['attendance', 'all'] },
-    { id: 'two-factor-auth', label: 'Two Factor Authentication', icon: <Shield className="w-4 h-4" />, requiredPermissions: ['all'] },
-    { id: 'fees-management', label: 'Powerful Fees Management', icon: <DollarSign className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['fees', 'all'], submenuItems: [ { id: 'fee-structure', label: 'Fee Structure', icon: <Calculator className="w-3 h-3" /> }, { id: 'discounts', label: 'Discounts & Fines', icon: <DollarSign className="w-3 h-3" /> }, { id: 'fee-reminders', label: 'Fee Reminders', icon: <Mail className="w-3 h-3" /> }, { id: 'payment-history', label: 'Payment History', icon: <FileText className="w-3 h-3" /> } ] },
-    { id: 'register-payments', label: 'Register Payments', icon: <CreditCard className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['payments', 'all'], submenuItems: [ { id: 'online-payments', label: 'Online Payments', icon: <CreditCard className="w-3 h-3" /> }, { id: 'offline-payments', label: 'Offline Payments', icon: <Calculator className="w-3 h-3" /> }, { id: 'payment-tracking', label: 'Payment Tracking', icon: <BarChart3 className="w-3 h-3" /> } ] },
-    { id: 'grading-system', label: 'Multi-Type Grading System', icon: <GraduationCap className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['grades', 'all'], submenuItems: [ { id: 'exam-types', label: 'Exam Types (Mark/GPA)', icon: <FileText className="w-3 h-3" /> }, { id: 'mark-distribution', label: 'Mark Distribution', icon: <BarChart3 className="w-3 h-3" /> }, { id: 'ca-exam-setup', label: 'CA & Exam Setup', icon: <Settings className="w-3 h-3" /> } ] },
-  { id: 'accounting', label: 'Accounting', icon: <Calculator className="w-4 h-4" />, requiredPermissions: ['accounting', 'all'], hasSubmenu: true, submenuItems: [ { id: 'accounting-overview', label: 'Overview', icon: <Calculator className="w-3 h-3" /> }, { id: 'chart-of-accounts', label: 'Chart of Accounts', icon: <BookOpen className="w-3 h-3" /> } ] },
-    { id: 'admissions', label: 'Admissions', icon: <UserPlus className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['students', 'all'], submenuItems: [ { id: 'admission-applications', label: 'Admission Applications', icon: <FileText className="w-3 h-3" /> }, { id: 'admission-payments', label: 'Admission Payments', icon: <CreditCard className="w-3 h-3" /> }, { id: 'admission-status', label: 'Admission Status', icon: <UserCheck className="w-3 h-3" /> } ] },
-    { id: 'students', label: 'Student Management', icon: <Users className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['students', 'department_students', 'all'], submenuItems: [ { id: 'all-students', label: 'All Students', icon: <Users className="w-3 h-3" /> }, { id: 'student-registration', label: 'Student Registration', icon: <UserPlus className="w-3 h-3" /> }, { id: 'student-details', label: 'Student Details', icon: <Eye className="w-3 h-3" /> }, { id: 'tuition-status', label: 'Tuition Status', icon: <DollarSign className="w-3 h-3" /> } ] },
-    { id: 'programs-departments', label: 'Programs & Departments', icon: <School className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['programs', 'department_courses', 'all'], submenuItems: [ { id: 'programs', label: 'Programs (HND/Bachelor/Masters)', icon: <GraduationCap className="w-3 h-3" /> }, { id: 'departments', label: 'Departments', icon: <Building2 className="w-3 h-3" /> }, { id: 'courses', label: 'Courses', icon: <BookOpen className="w-3 h-3" /> }, { id: 'hod-management', label: 'HOD Management', icon: <UserCheck className="w-3 h-3" /> }, { id: 'lecturers', label: 'Lecturers', icon: <Users className="w-3 h-3" /> } ] },
-    { id: 'progress-report', label: 'Progress Report Card', icon: <FileText className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['grades', 'academic_reports', 'all'], submenuItems: [ { id: 'semester-results', label: 'Semester Results', icon: <FileText className="w-3 h-3" /> }, { id: 'transcript', label: 'Transcript Generation', icon: <GraduationCap className="w-3 h-3" /> }, { id: 'gpa-calculation', label: 'GPA Calculation', icon: <Calculator className="w-3 h-3" /> } ] },
-    { id: 'role-management', label: 'Role Management', icon: <Shield className="w-4 h-4" />, requiredPermissions: ['all'] },
-    { id: 'schedule-communication', label: 'Schedule Email/SMS', icon: <MessageSquare className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['announcements', 'all'], submenuItems: [ { id: 'bulk-messaging', label: 'Bulk Messaging', icon: <MessageSquare className="w-3 h-3" /> }, { id: 'user-groups', label: 'User Groups', icon: <Users className="w-3 h-3" /> }, { id: 'scheduled-messages', label: 'Scheduled Messages', icon: <Calendar className="w-3 h-3" /> }, { id: 'announcements', label: 'Announcements', icon: <Mail className="w-3 h-3" /> } ] },
-    { id: 'id-card-management', label: 'School ID Card Management', icon: <IdCard className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['all'], submenuItems: [ { id: 'student-id', label: 'Student ID Cards', icon: <IdCard className="w-3 h-3" /> }, { id: 'employee-id', label: 'Employee ID Cards', icon: <IdCard className="w-3 h-3" /> }, { id: 'admit-cards', label: 'Admit Cards', icon: <FileText className="w-3 h-3" /> }, { id: 'certificates', label: 'Certificates', icon: <GraduationCap className="w-3 h-3" /> }, { id: 'card-templates', label: 'Card Templates', icon: <Settings className="w-3 h-3" /> } ] },
-    { id: 'data-analysis', label: 'Data Analysis & Reports', icon: <BarChart3 className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['reports', 'financial_reports', 'academic_reports', 'all'], submenuItems: [ { id: 'student-analytics', label: 'Student Analytics', icon: <BarChart3 className="w-3 h-3" /> }, { id: 'financial-reports', label: 'Financial Reports', icon: <DollarSign className="w-3 h-3" /> }, { id: 'academic-reports', label: 'Academic Reports', icon: <GraduationCap className="w-3 h-3" /> }, { id: 'attendance-reports', label: 'Attendance Reports', icon: <Calendar className="w-3 h-3" /> } ] },
+
+    // Academics
+    { id: 'programs-departments', label: 'Academics', icon: <School className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'programs', label: 'Programs', icon: <GraduationCap className="w-3 h-3" /> }, { id: 'departments', label: 'Departments', icon: <Building2 className="w-3 h-3" /> }, { id: 'courses', label: 'Courses', icon: <BookOpen className="w-3 h-3" /> }, { id: 'grading-system', label: 'Grading System', icon: <FileText className="w-3 h-3" /> }, { id: 'progress-report', label: 'Progress Reports', icon: <FileText className="w-3 h-3" /> } ] },
+
+    // Students & Admissions
+    { id: 'students', label: 'Students', icon: <Users className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'all-students', label: 'All Students', icon: <Users className="w-3 h-3" /> }, { id: 'student-registration', label: 'Register Student', icon: <UserPlus className="w-3 h-3" /> }, { id: 'tuition-status', label: 'Tuition Status', icon: <DollarSign className="w-3 h-3" /> } ] },
+    { id: 'admissions', label: 'Admissions', icon: <UserPlus className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'admission-applications', label: 'Applications', icon: <FileText className="w-3 h-3" /> }, { id: 'admission-payments', label: 'Payments', icon: <CreditCard className="w-3 h-3" /> }, { id: 'admission-status', label: 'Admission Status', icon: <UserCheck className="w-3 h-3" /> } ] },
+
+    // Finance
+    { id: 'accounting', label: 'Finance', icon: <DollarSign className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'accounting-overview', label: 'Overview', icon: <Calculator className="w-3 h-3" /> }, { id: 'transactions', label: 'Transactions', icon: <FileText className="w-3 h-3" /> }, { id: 'chart-of-accounts', label: 'Chart of Accounts', icon: <BookOpen className="w-3 h-3" /> }, { id: 'fees-management', label: 'Fee Management', icon: <Calculator className="w-3 h-3" /> }, { id: 'register-payments', label: 'Payments', icon: <CreditCard className="w-3 h-3" /> } ] },
+
+    // Human Resources
+    { id: 'human-resources', label: 'Human Resources', icon: <Users className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['staff:read','all'], submenuItems: [ { id: 'staff-management', label: 'Staff Directory', icon: <UserCheck className="w-3 h-3" /> }, { id: 'payroll', label: 'Payroll', icon: <DollarSign className="w-3 h-3" /> }, { id: 'id-card-management', label: 'ID Cards', icon: <IdCard className="w-3 h-3" /> } ] },
+
+    // Attendance & Scheduling
+    { id: 'qr-attendance', label: 'Attendance', icon: <QrCode className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'qr-attendance', label: 'QR Attendance', icon: <QrCode className="w-3 h-3" /> }, { id: 'schedule-communication', label: 'Schedule Messaging', icon: <MessageSquare className="w-3 h-3" /> } ] },
+
+    // Reports & Analytics
+    { id: 'data-analysis', label: 'Reports & Analytics', icon: <BarChart3 className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'student-analytics', label: 'Student Analytics', icon: <BarChart3 className="w-3 h-3" /> }, { id: 'financial-reports', label: 'Financial Reports', icon: <DollarSign className="w-3 h-3" /> }, { id: 'attendance-reports', label: 'Attendance Reports', icon: <Calendar className="w-3 h-3" /> } ] },
+
+    // Branches & Admin
+    { id: 'all-branches', label: 'Branches', icon: <Building2 className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'view-branches', label: 'View Branches', icon: <Eye className="w-3 h-3" /> }, { id: 'create-branch', label: 'Create Branch', icon: <Plus className="w-3 h-3" /> } ] },
+    { id: 'role-management', label: 'Roles & Access', icon: <Shield className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'role-management', label: 'Role Management', icon: <Shield className="w-3 h-3" /> } ] },
+
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, requiredPermissions: ['all'] }
   ];
 

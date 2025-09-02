@@ -43,7 +43,9 @@ router.get('/', async (req, res) => {
     const transactions = await Transaction.find(filter)
       .sort({ date: -1, createdAt: -1 })
       .skip((p - 1) * l)
-      .limit(l);
+      .limit(l)
+      .populate('staffId', 'name email')
+      .populate('studentId', 'name email');
 
     res.json({ data: transactions, meta: { total, page: p, limit: l } });
   } catch (err) {
@@ -69,11 +71,15 @@ router.get('/export', async (req, res) => {
       date: r.date ? new Date(r.date).toISOString() : '',
       reference: r.reference,
       createdBy: r.createdBy,
-      createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : ''
+      createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : '',
+      staffName: r.staffId ? (r.staffId.name || '') : '',
+      staffEmail: r.staffId ? (r.staffId.email || '') : '',
+      studentName: r.studentId ? (r.studentId.name || '') : '',
+      studentEmail: r.studentId ? (r.studentId.email || '') : ''
     }));
 
     if (format === 'csv') {
-      const fields = ['_id', 'type', 'category', 'amount', 'description', 'date', 'reference', 'createdBy', 'createdAt'];
+  const fields = ['_id', 'type', 'category', 'amount', 'description', 'date', 'reference', 'createdBy', 'createdAt', 'staffName', 'staffEmail', 'studentName', 'studentEmail'];
       const json2csv = new Json2csvParser({ fields });
       const csv = json2csv.parse(mapped);
       res.header('Content-Type', 'text/csv');
@@ -93,9 +99,13 @@ router.get('/export', async (req, res) => {
         { header: 'Date', key: 'date', width: 24 },
         { header: 'Reference', key: 'reference', width: 24 },
         { header: 'Created By', key: 'createdBy', width: 24 },
-        { header: 'Created At', key: 'createdAt', width: 24 }
+        { header: 'Created At', key: 'createdAt', width: 24 },
+        { header: 'Staff', key: 'staffName', width: 24 },
+        { header: 'Staff Email', key: 'staffEmail', width: 32 },
+        { header: 'Student', key: 'studentName', width: 24 },
+        { header: 'Student Email', key: 'studentEmail', width: 32 }
       ];
-      mapped.forEach((m: any) => sheet.addRow(m));
+  mapped.forEach((m: any) => sheet.addRow(m));
       res.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.attachment('transactions.xlsx');
       await workbook.xlsx.write(res);
@@ -110,7 +120,8 @@ router.get('/export', async (req, res) => {
       doc.fontSize(16).text('Transactions Report', { align: 'center' });
       doc.moveDown();
       mapped.forEach((m: any) => {
-        doc.fontSize(10).text(`${m.date} | ${m.type.toUpperCase()} | ${m.category} | ${m.amount} XAF`);
+        const who = m.staffName ? `Staff: ${m.staffName}` : (m.studentName ? `Student: ${m.studentName}` : '');
+        doc.fontSize(10).text(`${m.date} | ${m.type.toUpperCase()} | ${m.category} | ${m.amount} XAF ${who ? `| ${who}` : ''}`);
         doc.fontSize(9).text(`${m.description}`);
         doc.moveDown(0.3);
       });
@@ -135,7 +146,7 @@ router.get('/export', async (req, res) => {
       const to = String(req.query.email || '');
       if (!to) return res.status(400).json({ error: 'Missing email address' });
       // Create CSV attachment
-      const fields = ['_id', 'type', 'category', 'amount', 'description', 'date', 'reference', 'createdBy', 'createdAt'];
+  const fields = ['_id', 'type', 'category', 'amount', 'description', 'date', 'reference', 'createdBy', 'createdAt', 'staffName', 'staffEmail', 'studentName', 'studentEmail'];
       const json2csv = new Json2csvParser({ fields });
       const csv = json2csv.parse(mapped);
 
@@ -181,7 +192,7 @@ router.post('/import', requirePermission('accounting'), upload.single('file'), a
     const filePath = req.file.path;
     const created: any[] = [];
 
-    if (ext === '.csv') {
+  if (ext === '.csv') {
       const csv = fs.readFileSync(filePath, 'utf8');
       const lines = csv.split(/\r?\n/).filter(Boolean);
       const headers = lines.shift()!.split(',').map(h => h.trim());
@@ -190,7 +201,7 @@ router.post('/import', requirePermission('accounting'), upload.single('file'), a
         const obj: any = {};
         headers.forEach((h, i) => obj[h] = cols[i]);
         // expect fields: type,category,amount,description,date
-        const trx = new Transaction({ type: String(obj.type).toLowerCase(), category: obj.category, amount: Number(obj.amount), description: obj.description, date: obj.date || new Date() });
+    const trx = new Transaction({ type: String(obj.type).toLowerCase(), category: obj.category, amount: Number(obj.amount), description: obj.description, date: obj.date || new Date(), staffId: obj.staffId || undefined, studentId: obj.studentId || undefined });
         await trx.save();
         created.push(trx);
       }
@@ -206,7 +217,7 @@ router.post('/import', requirePermission('accounting'), upload.single('file'), a
         if (!row || row.length === 0) continue;
         const obj: any = {};
         headers.forEach((h: any, idx: number) => obj[h] = row[idx+1]);
-        const trx = new Transaction({ type: String(obj.type).toLowerCase(), category: obj.category, amount: Number(obj.amount), description: obj.description, date: obj.date || new Date() });
+  const trx = new Transaction({ type: String(obj.type).toLowerCase(), category: obj.category, amount: Number(obj.amount), description: obj.description, date: obj.date || new Date(), staffId: obj.staffId || undefined, studentId: obj.studentId || undefined });
         await trx.save();
         created.push(trx);
       }
@@ -229,7 +240,7 @@ router.put('/:id', requirePermission('accounting'), async (req, res) => {
     if (update.category && !allAllowedCategories.has(String(update.category).toLowerCase())) {
       return res.status(400).json({ error: 'Invalid category' });
     }
-    const trx = await Transaction.findByIdAndUpdate(id, update, { new: true });
+  const trx = await Transaction.findByIdAndUpdate(id, update, { new: true }).populate('staffId', 'name email').populate('studentId', 'name email');
     if (!trx) return res.status(404).json({ error: 'Transaction not found' });
     res.json(trx);
   } catch (err) {
@@ -254,7 +265,7 @@ router.delete('/:id', requirePermission('accounting'), async (req, res) => {
 // GET /api/transactions/:id
 router.get('/:id', async (req, res) => {
   try {
-    const trx = await Transaction.findById(req.params.id);
+  const trx = await Transaction.findById(req.params.id).populate('staffId', 'name email').populate('studentId', 'name email');
     if (!trx) return res.status(404).json({ error: 'Transaction not found' });
     res.json(trx);
   } catch (err) {
@@ -263,10 +274,79 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Summary endpoint: GET /api/transactions/summary?from=...&to=...&type=income|expense
+router.get('/summary', async (req, res) => {
+  try {
+    const filter = buildFilter(req.query);
+    const groupBy = String(req.query.groupBy || '').toLowerCase();
+
+    // Simple in-memory cache to avoid repeated heavy aggregations
+    // key is the serialized query params. TTL: 30 seconds
+    const cacheKey = JSON.stringify({ filter, groupBy });
+    // lightweight cache store on module
+    if (!(global as any).__trxSummaryCache) {
+      (global as any).__trxSummaryCache = new Map<string, { expires: number; data: any }>();
+    }
+    const cache: Map<string, { expires: number; data: any }> = (global as any).__trxSummaryCache;
+    const now = Date.now();
+    const cached = cache.get(cacheKey);
+    if (cached && cached.expires > now) {
+      return res.json({ data: cached.data });
+    }
+
+    if (groupBy === 'month') {
+      // group by year-month
+      const agg = await Transaction.aggregate([
+        { $match: filter },
+        { $group: {
+          _id: { year: { $year: '$date' }, month: { $month: '$date' } },
+          totalIncome: { $sum: { $cond: [{ $eq: ['$type', 'income'] }, { $ifNull: ['$amount', 0] }, 0] } },
+          totalExpense: { $sum: { $cond: [{ $eq: ['$type', 'expense'] }, { $ifNull: ['$amount', 0] }, 0] } },
+          count: { $sum: 1 }
+        } },
+        { $project: {
+          _id: 0,
+          year: '$_id.year',
+          month: '$_id.month',
+          totalIncome: 1,
+          totalExpense: 1,
+          count: 1,
+          net: { $subtract: ['$totalIncome', '$totalExpense'] }
+        } },
+        { $sort: { year: 1, month: 1 } }
+      ]).exec();
+
+      // map labels
+      const out = agg.map((r: any) => ({ label: `${r.year}-${String(r.month).padStart(2, '0')}`, year: r.year, month: r.month, totalIncome: r.totalIncome || 0, totalExpense: r.totalExpense || 0, count: r.count || 0, net: (r.totalIncome || 0) - (r.totalExpense || 0) }));
+      cache.set(cacheKey, { expires: now + 30_000, data: out });
+      return res.json({ data: out });
+    }
+
+    // default: totals
+    const agg = await Transaction.aggregate([
+      { $match: filter },
+      { $group: {
+        _id: null,
+        totalIncome: { $sum: { $cond: [{ $eq: ['$type', 'income'] }, { $ifNull: ['$amount', 0] }, 0] } },
+        totalExpense: { $sum: { $cond: [{ $eq: ['$type', 'expense'] }, { $ifNull: ['$amount', 0] }, 0] } },
+        count: { $sum: 1 }
+      } }
+    ]).exec();
+
+    const summary = (agg && agg[0]) ? agg[0] : { totalIncome: 0, totalExpense: 0, count: 0 };
+    const out = { totalIncome: summary.totalIncome || 0, totalExpense: summary.totalExpense || 0, count: summary.count || 0 };
+    cache.set(cacheKey, { expires: now + 30_000, data: out });
+    res.json({ data: out });
+  } catch (err) {
+    console.error('GET /api/transactions/summary error', err);
+    res.status(500).json({ error: 'Failed to compute summary' });
+  }
+});
+
 // Add a transaction
 router.post('/', requirePermission('accounting'), async (req, res) => {
   try {
-    const { type, category, amount, description, date, reference, createdBy } = req.body;
+  const { type, category, amount, description, date, reference, createdBy, staffId, studentId } = req.body;
     if (!type || !category || !amount || !description || !date) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -281,7 +361,7 @@ router.post('/', requirePermission('accounting'), async (req, res) => {
       return res.status(400).json({ error: 'Invalid category' });
     }
 
-    const transaction = new Transaction({ type, category, amount, description, date, reference, createdBy });
+  const transaction = new Transaction({ type, category, amount, description, date, reference, createdBy, staffId: staffId || undefined, studentId: studentId || undefined });
     await transaction.save();
     res.status(201).json(transaction);
   } catch (err) {
