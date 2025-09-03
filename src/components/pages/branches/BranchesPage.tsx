@@ -1,39 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Eye, Edit, Trash2, Download, Plus, Users, Mail, Phone, MapPin, Calendar, UserCheck } from 'lucide-react';
+import { Search, Filter, Eye, Edit, Trash2, Download, Plus, Building2, Users, MapPin, Phone, Mail, Calendar } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
 import { useUI } from '../../../context/UIContext';
 import fetchClient from '../../../lib/fetchClient';
 
-interface Staff {
+interface Branch {
   _id: string;
-  firstName: string;
-  lastName: string;
-  names: string;
-  email: string;
+  name: string;
+  address: string;
   phoneNumber: string;
-  employeeId: string;
-  department: string;
-  position: string;
-  type: 'Lecturer' | 'Accountant' | 'Dean of Studies' | 'Head Of Department' | 'Admin';
-  isActive: boolean;
-  hireDate: string;
-  salary?: number;
-  address?: {
-    street: string;
-    city: string;
-    region: string;
-    country: string;
-  };
-  emergencyContact?: {
-    name: string;
-    relationship: string;
-    phone: string;
-  };
-  profilePicture?: string;
-  branch: {
+  email: string;
+  manager: {
     _id: string;
     name: string;
+    email: string;
+  };
+  isActive: boolean;
+  establishedDate: string;
+  studentCount: number;
+  staffCount: number;
+  description?: string;
+  location?: {
+    city: string;
+    region: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+  settings?: {
+    timezone: string;
+    currency: string;
+    academicYear: string;
   };
   createdBy: {
     _id: string;
@@ -43,28 +42,27 @@ interface Staff {
   updatedAt: string;
 }
 
-interface StaffStats {
+interface BranchStats {
   total: number;
   active: number;
   inactive: number;
-  byType: Array<{ _id: string; count: number }>;
-  byDepartment: Array<{ _id: string; count: number }>;
+  totalStudents: number;
+  totalStaff: number;
 }
 
-export const StaffDirectory: React.FC = () => {
+export const BranchesPage: React.FC = () => {
   const { user } = useAuth();
   const { selectedBranch } = useBranch();
   const { showToast } = useUI();
   
-  const [staff, setStaff] = useState<Staff[]>([]);
-  const [stats, setStats] = useState<StaffStats | null>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [stats, setStats] = useState<BranchStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('');
-  const [filterDepartment, setFilterDepartment] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [showActiveOnly, setShowActiveOnly] = useState(true);
   
   // Pagination
@@ -73,34 +71,32 @@ export const StaffDirectory: React.FC = () => {
   const [total, setTotal] = useState(0);
   
   // UI State
-  const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
+  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedStaffMember, setSelectedStaffMember] = useState<Staff | null>(null);
+  const [selectedBranchForModal, setSelectedBranchForModal] = useState<Branch | null>(null);
 
-  // Fetch staff
-  const fetchStaff = async () => {
+  // Fetch branches
+  const fetchBranches = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
         page: page.toString(),
         limit: pageSize.toString(),
         ...(searchTerm && { search: searchTerm }),
-        ...(filterType && { type: filterType }),
-        ...(filterDepartment && { department: filterDepartment }),
-        ...(showActiveOnly && { isActive: 'true' }),
-        ...(selectedBranch && { branch: selectedBranch._id })
+        ...(filterStatus && { status: filterStatus }),
+        ...(showActiveOnly && { isActive: 'true' })
       });
 
-      const response = await fetchClient.get(`/api/staff?${params}`);
+      const response = await fetchClient.get(`/api/branches?${params}`);
       const data = await response.json();
-      setStaff(data.data || []);
+      setBranches(data.data || []);
       setTotal(data.total || 0);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch staff');
-      showToast('Failed to fetch staff', 'error');
+      setError(err.message || 'Failed to fetch branches');
+      showToast('Failed to fetch branches', 'error');
     } finally {
       setLoading(false);
     }
@@ -109,54 +105,47 @@ export const StaffDirectory: React.FC = () => {
   // Fetch statistics
   const fetchStats = async () => {
     try {
-      const params = new URLSearchParams();
-      if (selectedBranch) {
-        params.append('branch', selectedBranch._id);
-      }
-
-      const response = await fetchClient.get(`/api/staff/stats/overview?${params}`);
+      const response = await fetchClient.get('/api/branches/stats/overview');
       const data = await response.json();
       setStats(data);
     } catch (err: any) {
-      console.error('Failed to fetch staff statistics:', err);
+      console.error('Failed to fetch branch statistics:', err);
     }
   };
 
   useEffect(() => {
-    fetchStaff();
-  }, [page, pageSize, searchTerm, filterType, filterDepartment, showActiveOnly, selectedBranch]);
+    fetchBranches();
+  }, [page, pageSize, searchTerm, filterStatus, showActiveOnly]);
 
   useEffect(() => {
     fetchStats();
-  }, [selectedBranch]);
+  }, []);
 
-  const handleDeleteStaff = async (staffId: string) => {
-    if (!window.confirm('Are you sure you want to deactivate this staff member?')) {
+  const handleDeleteBranch = async (branchId: string) => {
+    if (!window.confirm('Are you sure you want to deactivate this branch?')) {
       return;
     }
 
     try {
-      await fetchClient.delete(`/api/staff/${staffId}`);
-      showToast('Staff member deactivated successfully', 'success');
-      fetchStaff();
+      await fetchClient.delete(`/api/branches/${branchId}`);
+      showToast('Branch deactivated successfully', 'success');
+      fetchBranches();
       fetchStats();
     } catch (err: any) {
-      showToast(err.message || 'Failed to delete staff member', 'error');
+      showToast(err.message || 'Failed to delete branch', 'error');
     }
   };
 
-  const handleExportStaff = async (format: 'csv' | 'xlsx' | 'pdf') => {
+  const handleExportBranches = async (format: 'csv' | 'xlsx' | 'pdf') => {
     try {
       const params = new URLSearchParams({
         format,
-        ...(selectedBranch && { branch: selectedBranch._id }),
         ...(searchTerm && { search: searchTerm }),
-        ...(filterType && { type: filterType }),
-        ...(filterDepartment && { department: filterDepartment }),
+        ...(filterStatus && { status: filterStatus }),
         ...(showActiveOnly && { isActive: 'true' })
       });
 
-      const response = await fetchClient.get(`/api/staff/export?${params}`, {
+      const response = await fetchClient.get(`/api/branches/export?${params}`, {
         responseType: 'blob'
       });
 
@@ -164,15 +153,15 @@ export const StaffDirectory: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `staff-export.${format}`;
+      link.download = `branches-export.${format}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      showToast(`Staff exported successfully as ${format.toUpperCase()}`, 'success');
+      showToast(`Branches exported successfully as ${format.toUpperCase()}`, 'success');
     } catch (err: any) {
-      showToast(err.message || 'Failed to export staff', 'error');
+      showToast(err.message || 'Failed to export branches', 'error');
     }
   };
 
@@ -182,32 +171,11 @@ export const StaffDirectory: React.FC = () => {
       : 'bg-red-100 text-red-800';
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'Lecturer': return 'bg-blue-100 text-blue-800';
-      case 'Accountant': return 'bg-green-100 text-green-800';
-      case 'Dean of Studies': return 'bg-purple-100 text-purple-800';
-      case 'Head Of Department': return 'bg-orange-100 text-orange-800';
-      case 'Admin': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const formatPhone = (phone: string) => {
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length === 9) {
-      return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
-    } else if (digits.length === 12 && digits.startsWith('237')) {
-      return `+237 ${digits.slice(3, 6)} ${digits.slice(6, 9)} ${digits.slice(9)}`;
-    }
-    return phone;
-  };
-
-  if (loading && staff.length === 0) {
+  if (loading && branches.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
@@ -220,18 +188,20 @@ export const StaffDirectory: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Staff Directory</h1>
-          <p className="text-gray-600">Manage staff members and employees</p>
+          <h1 className="text-2xl font-bold text-gray-900">Branches Management</h1>
+          <p className="text-gray-600">Manage school branches and locations</p>
         </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Staff</span>
-          </button>
-        </div>
+        {user?.type === 'SuperAdmin' && (
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Branch</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Statistics Cards */}
@@ -240,10 +210,10 @@ export const StaffDirectory: React.FC = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="w-6 h-6 text-blue-600" />
+                <Building2 className="w-6 h-6 text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Staff</p>
+                <p className="text-sm font-medium text-gray-600">Total Branches</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
             </div>
@@ -252,10 +222,10 @@ export const StaffDirectory: React.FC = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded-lg">
-                <UserCheck className="w-6 h-6 text-green-600" />
+                <Building2 className="w-6 h-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Staff</p>
+                <p className="text-sm font-medium text-gray-600">Active Branches</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.active}</p>
               </div>
             </div>
@@ -267,10 +237,8 @@ export const StaffDirectory: React.FC = () => {
                 <Users className="w-6 h-6 text-purple-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Lecturers</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.byType.find(t => t._id === 'Lecturer')?.count || 0}
-                </p>
+                <p className="text-sm font-medium text-gray-600">Total Students</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalStudents}</p>
               </div>
             </div>
           </div>
@@ -281,10 +249,8 @@ export const StaffDirectory: React.FC = () => {
                 <Users className="w-6 h-6 text-orange-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Administrative</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.byType.filter(t => ['Admin', 'Accountant', 'Dean of Studies', 'Head Of Department'].includes(t._id)).reduce((sum, t) => sum + t.count, 0)}
-                </p>
+                <p className="text-sm font-medium text-gray-600">Total Staff</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalStaff}</p>
               </div>
             </div>
           </div>
@@ -314,37 +280,22 @@ export const StaffDirectory: React.FC = () => {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search staff..."
+                  placeholder="Search branches..."
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               >
-                <option value="">All Types</option>
-                <option value="Lecturer">Lecturer</option>
-                <option value="Accountant">Accountant</option>
-                <option value="Dean of Studies">Dean of Studies</option>
-                <option value="Head Of Department">Head of Department</option>
-                <option value="Admin">Admin</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-              <select
-                value={filterDepartment}
-                onChange={(e) => setFilterDepartment(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              >
-                <option value="">All Departments</option>
-                {/* This would be populated from departments API */}
+                <option value="">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
               </select>
             </div>
 
@@ -357,29 +308,29 @@ export const StaffDirectory: React.FC = () => {
                 className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
               />
               <label htmlFor="activeOnly" className="ml-2 block text-sm text-gray-900">
-                Show active staff only
+                Show active branches only
               </label>
             </div>
           </div>
         )}
       </div>
 
-      {/* Staff Table */}
+      {/* Branches Table */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium text-gray-900">
-              Staff Members ({total})
+              Branches ({total})
             </h3>
             <div className="flex space-x-2">
               <button
-                onClick={() => handleExportStaff('csv')}
+                onClick={() => handleExportBranches('csv')}
                 className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
               >
                 Export CSV
               </button>
               <button
-                onClick={() => handleExportStaff('xlsx')}
+                onClick={() => handleExportBranches('xlsx')}
                 className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
               >
                 Export Excel
@@ -393,19 +344,16 @@ export const StaffDirectory: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Staff Member
+                  Branch
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Position
+                  Manager
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Contact
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Department
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Hire Date
+                  Statistics
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -416,93 +364,87 @@ export const StaffDirectory: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {staff.map((staffMember) => (
-                <tr key={staffMember._id} className="hover:bg-gray-50">
+              {branches.map((branch) => (
+                <tr key={branch._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
-                        {staffMember.profilePicture ? (
-                          <img
-                            className="h-10 w-10 rounded-full"
-                            src={staffMember.profilePicture}
-                            alt={staffMember.names}
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-sm font-medium text-gray-600">
-                              {staffMember.firstName[0]}{staffMember.lastName[0]}
-                            </span>
-                          </div>
-                        )}
+                        <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                          <Building2 className="w-5 h-5 text-orange-600" />
+                        </div>
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {staffMember.names}
+                          {branch.name}
                         </div>
-                        <div className="text-sm text-gray-500">
-                          ID: {staffMember.employeeId}
+                        <div className="text-sm text-gray-500 flex items-center">
+                          <MapPin className="w-3 h-3 mr-1" />
+                          {branch.location?.city}, {branch.location?.region}
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="space-y-1">
-                      <div className="text-sm text-gray-900">{staffMember.position}</div>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(staffMember.type)}`}>
-                        {staffMember.type}
-                      </span>
-                    </div>
+                    <div className="text-sm text-gray-900">{branch.manager?.name}</div>
+                    <div className="text-sm text-gray-500">{branch.manager?.email}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 flex items-center">
                       <Phone className="w-3 h-3 mr-1" />
-                      {formatPhone(staffMember.phoneNumber)}
+                      {branch.phoneNumber}
                     </div>
                     <div className="text-sm text-gray-500 flex items-center">
                       <Mail className="w-3 h-3 mr-1" />
-                      {staffMember.email}
+                      {branch.email}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{staffMember.department}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="flex items-center">
-                      <Calendar className="w-3 h-3 mr-1" />
-                      {formatDate(staffMember.hireDate)}
+                    <div className="text-sm text-gray-900">
+                      <div className="flex items-center">
+                        <Users className="w-3 h-3 mr-1" />
+                        {branch.studentCount} students
+                      </div>
+                      <div className="flex items-center">
+                        <Users className="w-3 h-3 mr-1" />
+                        {branch.staffCount} staff
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(staffMember.isActive)}`}>
-                      {staffMember.isActive ? 'Active' : 'Inactive'}
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(branch.isActive)}`}>
+                      {branch.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       <button
                         onClick={() => {
-                          setSelectedStaffMember(staffMember);
+                          setSelectedBranchForModal(branch);
                           setShowViewModal(true);
                         }}
                         className="text-blue-600 hover:text-blue-900"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => {
-                          setSelectedStaffMember(staffMember);
-                          setShowEditModal(true);
-                        }}
-                        className="text-orange-600 hover:text-orange-900"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteStaff(staffMember._id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {user?.type === 'SuperAdmin' && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setSelectedBranchForModal(branch);
+                              setShowEditModal(true);
+                            }}
+                            className="text-orange-600 hover:text-orange-900"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteBranch(branch._id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -540,23 +482,23 @@ export const StaffDirectory: React.FC = () => {
       </div>
 
       {/* Empty State */}
-      {staff.length === 0 && !loading && (
+      {branches.length === 0 && !loading && (
         <div className="text-center py-12">
-          <Users className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No staff found</h3>
+          <Building2 className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No branches found</h3>
           <p className="mt-1 text-sm text-gray-500">
-            {searchTerm || filterType || filterDepartment
+            {searchTerm || filterStatus
               ? 'Try adjusting your filters to see more results.'
-              : 'Get started by adding a new staff member.'}
+              : 'Get started by adding a new branch.'}
           </p>
-          {!searchTerm && !filterType && !filterDepartment && (
+          {!searchTerm && !filterStatus && user?.type === 'SuperAdmin' && (
             <div className="mt-6">
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Staff Member
+                Add Branch
               </button>
             </div>
           )}
@@ -566,4 +508,4 @@ export const StaffDirectory: React.FC = () => {
   );
 };
 
-export default StaffDirectory;
+export default BranchesPage;

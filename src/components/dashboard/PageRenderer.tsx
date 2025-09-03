@@ -3,9 +3,11 @@ import { useNavigation } from '../../context/NavigationContext';
 
 // Import all page components
 import { AllStudentsPage } from '../pages/students/AllStudentsPage';
+import StudentsPage from '../pages/students/StudentsPage';
 import { StudentRegistrationPage } from '../pages/students/StudentRegistrationPage';
 import { AllBranchesPage } from '../pages/branches/AllBranchesPage';
 import { CreateBranchPage } from '../pages/branches/CreateBranchPage';
+import BranchesPage from '../pages/branches/BranchesPage';
 import { QRAttendancePage } from '../pages/attendance/QRAttendancePage';
 import { FeeStructurePage } from '../pages/fees/FeeStructurePage';
 import { PaymentHistoryPage } from '../pages/payments/PaymentHistoryPage';
@@ -17,9 +19,11 @@ import { BulkMessagingPage } from '../pages/communication/BulkMessagingPage';
 import { AnnouncementsPage } from '../pages/communication/AnnouncementsPage';
 import { StudentAnalyticsPage } from '../pages/analytics/StudentAnalyticsPage';
 import { FinancialReportsPage } from '../pages/analytics/FinancialReportsPage';
+import AnalyticsPage from '../pages/analytics/AnalyticsPage';
 import { AdmissionApplicationsPage } from '../pages/admissions/AdmissionApplicationsPage';
 import { IDCardManagementPage } from '../pages/cards/IDCardManagementPage';
 import RoleManagementPage from '../roles/RoleManagementPage';
+import UserManagementPage from '../pages/roles/UserManagementPage';
 import { TwoFactorAuthPage } from '../pages/security/TwoFactorAuthPage';
 import AccountingOverview from '../pages/accounting/AccountingOverview';
 import TransactionsPage from '../pages/accounting/TransactionsPage';
@@ -36,13 +40,13 @@ export const PageRenderer: React.FC = () => {
     switch (currentPage) {
       // Students
       case 'all-students':
-        return <AllStudentsPage />;
+        return <StudentsPage />;
       case 'student-registration':
         return <StudentRegistrationPage />;
       
       // Branches
       case 'view-branches':
-        return <AllBranchesPage />;
+        return <BranchesPage />;
       case 'create-branch':
         return <CreateBranchPage />;
       
@@ -95,9 +99,11 @@ export const PageRenderer: React.FC = () => {
       
       // Analytics
       case 'student-analytics':
-        return <StudentAnalyticsPage />;
+        return <AnalyticsPage />;
       case 'financial-reports':
-        return <FinancialReportsPage />;
+        return <AnalyticsPage />;
+      case 'attendance-reports':
+        return <AnalyticsPage />;
       
       // Admissions
       case 'admission-applications':
@@ -110,6 +116,8 @@ export const PageRenderer: React.FC = () => {
       // Roles & Permissions
       case 'role-management':
         return <RoleManagementPage />;
+      case 'user-management':
+        return <UserManagementPage />;
        case 'settings':
          return <SettingsPage />;
       

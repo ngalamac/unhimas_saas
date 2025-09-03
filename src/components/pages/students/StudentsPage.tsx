@@ -1,41 +1,66 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Eye, Edit, Trash2, Download, Plus, Users, Mail, Phone, MapPin, Calendar, UserCheck } from 'lucide-react';
+import { Search, Filter, Eye, Edit, Trash2, Download, Plus, Users, UserPlus, Mail, Phone, CreditCard, Calendar, MapPin, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
 import { useUI } from '../../../context/UIContext';
 import fetchClient from '../../../lib/fetchClient';
 
-interface Staff {
+interface Student {
   _id: string;
   firstName: string;
   lastName: string;
   names: string;
-  email: string;
+  studentId: string;
+  dateOfBirth: string;
+  placeOfBirth: string;
+  regionOfOrigin: string;
   phoneNumber: string;
-  employeeId: string;
-  department: string;
-  position: string;
-  type: 'Lecturer' | 'Accountant' | 'Dean of Studies' | 'Head Of Department' | 'Admin';
+  gender: 'Male' | 'Female';
+  email?: string;
+  program: {
+    _id: string;
+    name: string;
+  };
+  department: {
+    _id: string;
+    name: string;
+  };
+  branch: {
+    _id: string;
+    name: string;
+  };
+  profilePicture?: string;
+  level?: string | number;
+  session?: string;
+  tuitionStatus: 'Paid' | 'Partial' | 'Pending' | 'Overdue';
+  enrollmentStatus: 'Active' | 'Suspended' | 'Graduated' | 'Withdrawn';
+  admissionDate: string;
+  academicYear: string;
   isActive: boolean;
-  hireDate: string;
-  salary?: number;
-  address?: {
-    street: string;
-    city: string;
-    region: string;
-    country: string;
+  guardian: {
+    name: string;
+    address?: string;
+    contact?: string;
   };
   emergencyContact?: {
     name: string;
     relationship: string;
     phone: string;
+    email?: string;
   };
-  profilePicture?: string;
-  branch: {
+  address?: {
+    street: string;
+    city: string;
+    region: string;
+    country: string;
+    postalCode?: string;
+  };
+  notes?: string;
+  createdBy: {
     _id: string;
     name: string;
   };
-  createdBy: {
+  lastModifiedBy?: {
     _id: string;
     name: string;
   };
@@ -43,28 +68,42 @@ interface Staff {
   updatedAt: string;
 }
 
-interface StaffStats {
+interface StudentStats {
   total: number;
-  active: number;
-  inactive: number;
-  byType: Array<{ _id: string; count: number }>;
-  byDepartment: Array<{ _id: string; count: number }>;
+  enrollment: {
+    active: number;
+    suspended: number;
+    graduated: number;
+    withdrawn: number;
+  };
+  tuition: {
+    paid: number;
+    partial: number;
+    pending: number;
+    overdue: number;
+  };
+  byGender: Array<{ _id: string; count: number }>;
+  byProgram: Array<{ _id: string; count: number }>;
 }
 
-export const StaffDirectory: React.FC = () => {
+export const StudentsPage: React.FC = () => {
   const { user } = useAuth();
   const { selectedBranch } = useBranch();
   const { showToast } = useUI();
   
-  const [staff, setStaff] = useState<Staff[]>([]);
-  const [stats, setStats] = useState<StaffStats | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [stats, setStats] = useState<StudentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('');
+  const [filterProgram, setFilterProgram] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
+  const [filterTuitionStatus, setFilterTuitionStatus] = useState('');
+  const [filterEnrollmentStatus, setFilterEnrollmentStatus] = useState('');
+  const [filterAcademicYear, setFilterAcademicYear] = useState('');
+  const [filterGender, setFilterGender] = useState('');
   const [showActiveOnly, setShowActiveOnly] = useState(true);
   
   // Pagination
@@ -73,34 +112,38 @@ export const StaffDirectory: React.FC = () => {
   const [total, setTotal] = useState(0);
   
   // UI State
-  const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedStaffMember, setSelectedStaffMember] = useState<Staff | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
-  // Fetch staff
-  const fetchStaff = async () => {
+  // Fetch students
+  const fetchStudents = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
         page: page.toString(),
         limit: pageSize.toString(),
         ...(searchTerm && { search: searchTerm }),
-        ...(filterType && { type: filterType }),
+        ...(filterProgram && { program: filterProgram }),
         ...(filterDepartment && { department: filterDepartment }),
+        ...(filterTuitionStatus && { tuitionStatus: filterTuitionStatus }),
+        ...(filterEnrollmentStatus && { enrollmentStatus: filterEnrollmentStatus }),
+        ...(filterAcademicYear && { academicYear: filterAcademicYear }),
+        ...(filterGender && { gender: filterGender }),
         ...(showActiveOnly && { isActive: 'true' }),
         ...(selectedBranch && { branch: selectedBranch._id })
       });
 
-      const response = await fetchClient.get(`/api/staff?${params}`);
+      const response = await fetchClient.get(`/api/students?${params}`);
       const data = await response.json();
-      setStaff(data.data || []);
+      setStudents(data.data || []);
       setTotal(data.total || 0);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch staff');
-      showToast('Failed to fetch staff', 'error');
+      setError(err.message || 'Failed to fetch students');
+      showToast('Failed to fetch students', 'error');
     } finally {
       setLoading(false);
     }
@@ -114,49 +157,49 @@ export const StaffDirectory: React.FC = () => {
         params.append('branch', selectedBranch._id);
       }
 
-      const response = await fetchClient.get(`/api/staff/stats/overview?${params}`);
+      const response = await fetchClient.get(`/api/students/stats/overview?${params}`);
       const data = await response.json();
       setStats(data);
     } catch (err: any) {
-      console.error('Failed to fetch staff statistics:', err);
+      console.error('Failed to fetch student statistics:', err);
     }
   };
 
   useEffect(() => {
-    fetchStaff();
-  }, [page, pageSize, searchTerm, filterType, filterDepartment, showActiveOnly, selectedBranch]);
+    fetchStudents();
+  }, [page, pageSize, searchTerm, filterProgram, filterDepartment, filterTuitionStatus, filterEnrollmentStatus, filterAcademicYear, filterGender, showActiveOnly, selectedBranch]);
 
   useEffect(() => {
     fetchStats();
   }, [selectedBranch]);
 
-  const handleDeleteStaff = async (staffId: string) => {
-    if (!window.confirm('Are you sure you want to deactivate this staff member?')) {
-      return;
-    }
-
+  const handleDeleteStudent = async (studentId: string) => {
     try {
-      await fetchClient.delete(`/api/staff/${staffId}`);
-      showToast('Staff member deactivated successfully', 'success');
-      fetchStaff();
+      await fetchClient.delete(`/api/students/${studentId}`);
+      showToast('Student deactivated successfully', 'success');
+      fetchStudents();
       fetchStats();
     } catch (err: any) {
-      showToast(err.message || 'Failed to delete staff member', 'error');
+      showToast(err.message || 'Failed to delete student', 'error');
     }
   };
 
-  const handleExportStaff = async (format: 'csv' | 'xlsx' | 'pdf') => {
+  const handleExportStudents = async (format: 'csv' | 'xlsx' | 'pdf') => {
     try {
       const params = new URLSearchParams({
         format,
         ...(selectedBranch && { branch: selectedBranch._id }),
         ...(searchTerm && { search: searchTerm }),
-        ...(filterType && { type: filterType }),
+        ...(filterProgram && { program: filterProgram }),
         ...(filterDepartment && { department: filterDepartment }),
+        ...(filterTuitionStatus && { tuitionStatus: filterTuitionStatus }),
+        ...(filterEnrollmentStatus && { enrollmentStatus: filterEnrollmentStatus }),
+        ...(filterAcademicYear && { academicYear: filterAcademicYear }),
+        ...(filterGender && { gender: filterGender }),
         ...(showActiveOnly && { isActive: 'true' })
       });
 
-      const response = await fetchClient.get(`/api/staff/export?${params}`, {
+      const response = await fetchClient.get(`/api/students/export?${params}`, {
         responseType: 'blob'
       });
 
@@ -164,32 +207,35 @@ export const StaffDirectory: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `staff-export.${format}`;
+      link.download = `students-export.${format}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      showToast(`Staff exported successfully as ${format.toUpperCase()}`, 'success');
+      showToast(`Students exported successfully as ${format.toUpperCase()}`, 'success');
     } catch (err: any) {
-      showToast(err.message || 'Failed to export staff', 'error');
+      showToast(err.message || 'Failed to export students', 'error');
     }
   };
 
-  const getStatusColor = (isActive: boolean) => {
-    return isActive 
-      ? 'bg-green-100 text-green-800' 
-      : 'bg-red-100 text-red-800';
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'Lecturer': return 'bg-blue-100 text-blue-800';
-      case 'Accountant': return 'bg-green-100 text-green-800';
-      case 'Dean of Studies': return 'bg-purple-100 text-purple-800';
-      case 'Head Of Department': return 'bg-orange-100 text-orange-800';
-      case 'Admin': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const getStatusColor = (status: string, type: 'tuition' | 'enrollment') => {
+    if (type === 'tuition') {
+      switch (status) {
+        case 'Paid': return 'bg-green-100 text-green-800';
+        case 'Partial': return 'bg-yellow-100 text-yellow-800';
+        case 'Pending': return 'bg-blue-100 text-blue-800';
+        case 'Overdue': return 'bg-red-100 text-red-800';
+        default: return 'bg-gray-100 text-gray-800';
+      }
+    } else {
+      switch (status) {
+        case 'Active': return 'bg-green-100 text-green-800';
+        case 'Suspended': return 'bg-yellow-100 text-yellow-800';
+        case 'Graduated': return 'bg-blue-100 text-blue-800';
+        case 'Withdrawn': return 'bg-red-100 text-red-800';
+        default: return 'bg-gray-100 text-gray-800';
+      }
     }
   };
 
@@ -198,6 +244,7 @@ export const StaffDirectory: React.FC = () => {
   };
 
   const formatPhone = (phone: string) => {
+    // Format Cameroon phone numbers
     const digits = phone.replace(/\D/g, '');
     if (digits.length === 9) {
       return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
@@ -207,7 +254,7 @@ export const StaffDirectory: React.FC = () => {
     return phone;
   };
 
-  if (loading && staff.length === 0) {
+  if (loading && students.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
@@ -220,8 +267,8 @@ export const StaffDirectory: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Staff Directory</h1>
-          <p className="text-gray-600">Manage staff members and employees</p>
+          <h1 className="text-2xl font-bold text-gray-900">Students Management</h1>
+          <p className="text-gray-600">Manage student records and information</p>
         </div>
         <div className="flex space-x-3">
           <button
@@ -229,7 +276,7 @@ export const StaffDirectory: React.FC = () => {
             className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors flex items-center space-x-2"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Staff</span>
+            <span>Add Student</span>
           </button>
         </div>
       </div>
@@ -243,7 +290,7 @@ export const StaffDirectory: React.FC = () => {
                 <Users className="w-6 h-6 text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Staff</p>
+                <p className="text-sm font-medium text-gray-600">Total Students</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
             </div>
@@ -252,39 +299,35 @@ export const StaffDirectory: React.FC = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded-lg">
-                <UserCheck className="w-6 h-6 text-green-600" />
+                <GraduationCap className="w-6 h-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Staff</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.active}</p>
+                <p className="text-sm font-medium text-gray-600">Active Students</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.enrollment.active}</p>
               </div>
             </div>
           </div>
           
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Users className="w-6 h-6 text-purple-600" />
+              <div className="p-2 bg-green-100 rounded-lg">
+                <CreditCard className="w-6 h-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Lecturers</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.byType.find(t => t._id === 'Lecturer')?.count || 0}
-                </p>
+                <p className="text-sm font-medium text-gray-600">Paid Tuition</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.tuition.paid}</p>
               </div>
             </div>
           </div>
           
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex items-center">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Users className="w-6 h-6 text-orange-600" />
+              <div className="p-2 bg-red-100 rounded-lg">
+                <CreditCard className="w-6 h-6 text-red-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Administrative</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.byType.filter(t => ['Admin', 'Accountant', 'Dean of Studies', 'Head Of Department'].includes(t._id)).reduce((sum, t) => sum + t.count, 0)}
-                </p>
+                <p className="text-sm font-medium text-gray-600">Overdue Tuition</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.tuition.overdue}</p>
               </div>
             </div>
           </div>
@@ -314,37 +357,52 @@ export const StaffDirectory: React.FC = () => {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search staff..."
+                  placeholder="Search students..."
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tuition Status</label>
               <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
+                value={filterTuitionStatus}
+                onChange={(e) => setFilterTuitionStatus(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               >
-                <option value="">All Types</option>
-                <option value="Lecturer">Lecturer</option>
-                <option value="Accountant">Accountant</option>
-                <option value="Dean of Studies">Dean of Studies</option>
-                <option value="Head Of Department">Head of Department</option>
-                <option value="Admin">Admin</option>
+                <option value="">All Statuses</option>
+                <option value="Paid">Paid</option>
+                <option value="Partial">Partial</option>
+                <option value="Pending">Pending</option>
+                <option value="Overdue">Overdue</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Enrollment Status</label>
               <select
-                value={filterDepartment}
-                onChange={(e) => setFilterDepartment(e.target.value)}
+                value={filterEnrollmentStatus}
+                onChange={(e) => setFilterEnrollmentStatus(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               >
-                <option value="">All Departments</option>
-                {/* This would be populated from departments API */}
+                <option value="">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Suspended">Suspended</option>
+                <option value="Graduated">Graduated</option>
+                <option value="Withdrawn">Withdrawn</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+              <select
+                value={filterGender}
+                onChange={(e) => setFilterGender(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="">All Genders</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
               </select>
             </div>
 
@@ -357,29 +415,29 @@ export const StaffDirectory: React.FC = () => {
                 className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
               />
               <label htmlFor="activeOnly" className="ml-2 block text-sm text-gray-900">
-                Show active staff only
+                Show active students only
               </label>
             </div>
           </div>
         )}
       </div>
 
-      {/* Staff Table */}
+      {/* Students Table */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium text-gray-900">
-              Staff Members ({total})
+              Students ({total})
             </h3>
             <div className="flex space-x-2">
               <button
-                onClick={() => handleExportStaff('csv')}
+                onClick={() => handleExportStudents('csv')}
                 className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
               >
                 Export CSV
               </button>
               <button
-                onClick={() => handleExportStaff('xlsx')}
+                onClick={() => handleExportStudents('xlsx')}
                 className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
               >
                 Export Excel
@@ -393,22 +451,19 @@ export const StaffDirectory: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Staff Member
+                  Student
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Position
+                  Program
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Contact
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Department
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Hire Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Admission
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -416,72 +471,74 @@ export const StaffDirectory: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {staff.map((staffMember) => (
-                <tr key={staffMember._id} className="hover:bg-gray-50">
+              {students.map((student) => (
+                <tr key={student._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
-                        {staffMember.profilePicture ? (
+                        {student.profilePicture ? (
                           <img
                             className="h-10 w-10 rounded-full"
-                            src={staffMember.profilePicture}
-                            alt={staffMember.names}
+                            src={student.profilePicture}
+                            alt={student.names}
                           />
                         ) : (
                           <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
                             <span className="text-sm font-medium text-gray-600">
-                              {staffMember.firstName[0]}{staffMember.lastName[0]}
+                              {student.firstName[0]}{student.lastName[0]}
                             </span>
                           </div>
                         )}
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {staffMember.names}
+                          {student.names}
                         </div>
                         <div className="text-sm text-gray-500">
-                          ID: {staffMember.employeeId}
+                          ID: {student.studentId}
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="space-y-1">
-                      <div className="text-sm text-gray-900">{staffMember.position}</div>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(staffMember.type)}`}>
-                        {staffMember.type}
-                      </span>
-                    </div>
+                    <div className="text-sm text-gray-900">{student.program?.name}</div>
+                    <div className="text-sm text-gray-500">{student.department?.name}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 flex items-center">
                       <Phone className="w-3 h-3 mr-1" />
-                      {formatPhone(staffMember.phoneNumber)}
+                      {formatPhone(student.phoneNumber)}
                     </div>
-                    <div className="text-sm text-gray-500 flex items-center">
-                      <Mail className="w-3 h-3 mr-1" />
-                      {staffMember.email}
-                    </div>
+                    {student.email && (
+                      <div className="text-sm text-gray-500 flex items-center">
+                        <Mail className="w-3 h-3 mr-1" />
+                        {student.email}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{staffMember.department}</div>
+                    <div className="space-y-1">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(student.tuitionStatus, 'tuition')}`}>
+                        {student.tuitionStatus}
+                      </span>
+                      <br />
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(student.enrollmentStatus, 'enrollment')}`}>
+                        {student.enrollmentStatus}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center">
                       <Calendar className="w-3 h-3 mr-1" />
-                      {formatDate(staffMember.hireDate)}
+                      {formatDate(student.admissionDate)}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(staffMember.isActive)}`}>
-                      {staffMember.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    <div className="text-sm text-gray-500">{student.academicYear}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       <button
                         onClick={() => {
-                          setSelectedStaffMember(staffMember);
+                          setSelectedStudent(student);
                           setShowViewModal(true);
                         }}
                         className="text-blue-600 hover:text-blue-900"
@@ -490,7 +547,7 @@ export const StaffDirectory: React.FC = () => {
                       </button>
                       <button
                         onClick={() => {
-                          setSelectedStaffMember(staffMember);
+                          setSelectedStudent(student);
                           setShowEditModal(true);
                         }}
                         className="text-orange-600 hover:text-orange-900"
@@ -498,7 +555,7 @@ export const StaffDirectory: React.FC = () => {
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteStaff(staffMember._id)}
+                        onClick={() => handleDeleteStudent(student._id)}
                         className="text-red-600 hover:text-red-900"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -540,23 +597,23 @@ export const StaffDirectory: React.FC = () => {
       </div>
 
       {/* Empty State */}
-      {staff.length === 0 && !loading && (
+      {students.length === 0 && !loading && (
         <div className="text-center py-12">
           <Users className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No staff found</h3>
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No students found</h3>
           <p className="mt-1 text-sm text-gray-500">
-            {searchTerm || filterType || filterDepartment
+            {searchTerm || filterTuitionStatus || filterEnrollmentStatus || filterGender
               ? 'Try adjusting your filters to see more results.'
-              : 'Get started by adding a new staff member.'}
+              : 'Get started by adding a new student.'}
           </p>
-          {!searchTerm && !filterType && !filterDepartment && (
+          {!searchTerm && !filterTuitionStatus && !filterEnrollmentStatus && !filterGender && (
             <div className="mt-6">
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Staff Member
+                Add Student
               </button>
             </div>
           )}
@@ -566,4 +623,4 @@ export const StaffDirectory: React.FC = () => {
   );
 };
 
-export default StaffDirectory;
+export default StudentsPage;

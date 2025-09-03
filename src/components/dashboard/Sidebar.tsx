@@ -37,6 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     'programs-departments': ['programs:read', 'programs:create', 'programs:update', 'programs:delete', 'departments:read', 'departments:create', 'departments:update', 'departments:delete', 'all'],
     'progress-report': ['reports:read', 'reports:export', 'grades:read', 'academic_reports:read', 'all'],
     'role-management': ['roles:read', 'roles:create', 'roles:update', 'roles:delete', 'roles:assign', 'all'],
+    'user-management': ['users:read', 'users:create', 'users:update', 'users:delete', 'users:manage', 'all'],
     'schedule-communication': ['communication:read', 'communication:create', 'communication:update', 'communication:delete', 'announcements:read', 'all'],
     'id-card-management': ['idcard:read', 'idcard:create', 'idcard:update', 'idcard:delete', 'all'],
     'data-analysis': ['reports:read', 'financial_reports:read', 'academic_reports:read', 'all'],
@@ -89,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
     // Branches & Admin
     { id: 'all-branches', label: 'Branches', icon: <Building2 className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'view-branches', label: 'View Branches', icon: <Eye className="w-3 h-3" /> }, { id: 'create-branch', label: 'Create Branch', icon: <Plus className="w-3 h-3" /> } ] },
-    { id: 'role-management', label: 'Roles & Access', icon: <Shield className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'role-management', label: 'Role Management', icon: <Shield className="w-3 h-3" /> } ] },
+    { id: 'role-management', label: 'Roles & Access', icon: <Shield className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'role-management', label: 'Role Management', icon: <Shield className="w-3 h-3" /> }, { id: 'user-management', label: 'User Management', icon: <Users className="w-3 h-3" /> } ] },
 
     { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, requiredPermissions: ['all'] }
   ];

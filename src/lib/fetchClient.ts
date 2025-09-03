@@ -38,6 +38,91 @@ export async function postJson(path: string, body: any) {
   }
 }
 
+export async function get(path: string, options: any = {}) {
+  const base = getBase();
+  const url = path.startsWith('http') ? path : `${base}${path}`;
+  const bridge = (window as any).__UI_BRIDGE__;
+  let timer: any = null;
+  try {
+    // If request takes longer than 300ms, show a global loader
+    timer = setTimeout(() => { try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(true); } catch (e) {} }, 300);
+    const res = await fetch(url, { 
+      method: 'GET', 
+      headers: defaultHeaders(options.headers || {}),
+      ...options
+    });
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    
+    return res;
+  } catch (e) {
+    try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
+    try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(false); } catch (e) {}
+  }
+}
+
+export async function put(path: string, body: any, options: any = {}) {
+  const base = getBase();
+  const url = path.startsWith('http') ? path : `${base}${path}`;
+  const bridge = (window as any).__UI_BRIDGE__;
+  let timer: any = null;
+  try {
+    // If request takes longer than 300ms, show a global loader
+    timer = setTimeout(() => { try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(true); } catch (e) {} }, 300);
+    const res = await fetch(url, { 
+      method: 'PUT', 
+      headers: defaultHeaders({ 'Content-Type': 'application/json', ...options.headers }),
+      body: JSON.stringify(body),
+      ...options
+    });
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    
+    return res;
+  } catch (e) {
+    try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
+    try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(false); } catch (e) {}
+  }
+}
+
+export async function del(path: string, options: any = {}) {
+  const base = getBase();
+  const url = path.startsWith('http') ? path : `${base}${path}`;
+  const bridge = (window as any).__UI_BRIDGE__;
+  let timer: any = null;
+  try {
+    // If request takes longer than 300ms, show a global loader
+    timer = setTimeout(() => { try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(true); } catch (e) {} }, 300);
+    const res = await fetch(url, { 
+      method: 'DELETE', 
+      headers: defaultHeaders(options.headers || {}),
+      ...options
+    });
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    
+    return res;
+  } catch (e) {
+    try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
+    try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(false); } catch (e) {}
+  }
+}
+
 export function openWithAuth(url: string) {
   // use a temporary form to include Authorization as a query param? backend expects header.
   // For downloads we open a new window with the user's current session; Authorization header will be present in XHR but not window.open.
@@ -45,4 +130,4 @@ export function openWithAuth(url: string) {
   window.open(url, '_blank');
 }
 
-export default { getAuthToken, postJson, openWithAuth };
+export default { getAuthToken, postJson, get, put, delete: del, openWithAuth };

@@ -2,7 +2,7 @@ import express from 'express';
 import Student from '../models/Student';
 import BranchModel from '../models/BranchModel';
 import mongoose from 'mongoose';
-import authMiddleware, { AuthRequest } from '../middleware/auth';
+import authMiddleware, { AuthRequest, requirePermission, requireBranchAccess } from '../middleware/auth';
 import { emitEvent } from '../lib/events';
 
 const router = express.Router();
@@ -18,7 +18,7 @@ function validateCameroonPhone(phone?: string) {
   return /^(?:237\d{9}|\d{9})$/.test(digits);
 }
 
-router.get('/', authMiddleware, async (req: AuthRequest, res) => {
+router.get('/', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
   try {
     const page = Math.max(1, Number(req.query.page || 1));
     const pageSize = Math.max(1, Math.min(100, Number(req.query.limit || 10)));
@@ -26,22 +26,20 @@ router.get('/', authMiddleware, async (req: AuthRequest, res) => {
 
     // Build base query with filters
     const query: any = {};
-    // branch scoping
-    if (!(req.user && req.user.type === 'SuperAdmin')) {
-      const branchId = String(req.query.branch || '');
-      if (!branchId) return res.status(400).json({ message: 'branch query parameter is required' });
-      query.branch = branchId;
-    } else {
-      if (req.query.branch) query.branch = String(req.query.branch);
+    
+    // Branch filtering is handled by requireBranchAccess middleware
+    if (req.query.branch) {
+      query.branch = String(req.query.branch);
     }
 
-    // optional filters: search, program, status
+    // Additional filters
     const search = String(req.query.search || '').trim();
     if (search) {
       const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       query.$or = [
         { firstName: re },
         { lastName: re },
+        { names: re },
         { email: re },
         { studentId: re }
       ];
@@ -49,21 +47,44 @@ router.get('/', authMiddleware, async (req: AuthRequest, res) => {
     if (req.query.program) {
       query.program = String(req.query.program);
     }
-    if (req.query.status) {
-      query.tuitionStatus = String(req.query.status);
+    if (req.query.department) {
+      query.department = String(req.query.department);
+    }
+    if (req.query.tuitionStatus) {
+      query.tuitionStatus = String(req.query.tuitionStatus);
+    }
+    if (req.query.enrollmentStatus) {
+      query.enrollmentStatus = String(req.query.enrollmentStatus);
+    }
+    if (req.query.academicYear) {
+      query.academicYear = String(req.query.academicYear);
+    }
+    if (req.query.isActive !== undefined) {
+      query.isActive = req.query.isActive === 'true';
     }
 
-    const [total, data, paidCount, partialCount, unpaidCount] = await Promise.all([
+    const [total, data, paidCount, partialCount, pendingCount, overdueCount] = await Promise.all([
       Student.countDocuments(query),
-  Student.find(query).populate('program department branch').skip(skip).limit(pageSize).sort({ createdAt: -1 }),
+      Student.find(query)
+        .populate('program department branch createdBy lastModifiedBy')
+        .skip(skip)
+        .limit(pageSize)
+        .sort({ createdAt: -1 }),
       Student.countDocuments({ ...query, tuitionStatus: 'Paid' }),
       Student.countDocuments({ ...query, tuitionStatus: 'Partial' }),
-      Student.countDocuments({ ...query, tuitionStatus: 'Unpaid' }),
+      Student.countDocuments({ ...query, tuitionStatus: 'Pending' }),
+      Student.countDocuments({ ...query, tuitionStatus: 'Overdue' }),
     ]);
 
-    const aggregates = { paid: paidCount, partial: partialCount, unpaid: unpaidCount };
+    const aggregates = { 
+      paid: paidCount, 
+      partial: partialCount, 
+      pending: pendingCount, 
+      overdue: overdueCount 
+    };
     return res.json({ data, total, page, pageSize, aggregates });
   } catch (e) {
+    console.error('Error fetching students:', e);
     return res.status(500).json({ message: 'Failed to fetch students' });
   }
 });
@@ -276,9 +297,10 @@ router.post('/export', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/', authMiddleware, async (req: AuthRequest, res) => {
+router.post('/', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
   const {
-    firstName, lastName, dateOfBirth, placeOfBirth, phoneNumber, gender, program, department, guardian
+    firstName, lastName, dateOfBirth, placeOfBirth, regionOfOrigin, phoneNumber, gender, email,
+    program, department, guardian, emergencyContact, address, notes, academicYear, level, session
   } = req.body;
   // debug incoming phone values
   // (remove or lower log level in production)
@@ -301,9 +323,14 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
   if (!firstName) missing.push('firstName');
   if (!lastName) missing.push('lastName');
   if (!dateOfBirth) missing.push('dateOfBirth');
+  if (!placeOfBirth) missing.push('placeOfBirth');
+  if (!regionOfOrigin) missing.push('regionOfOrigin');
   if (!phoneNumber) missing.push('phoneNumber');
   if (!gender) missing.push('gender');
+  if (!program) missing.push('program');
+  if (!department) missing.push('department');
   if (!guardian || !guardian.name) missing.push('guardian.name');
+  if (!academicYear) missing.push('academicYear');
   if (missing.length) return res.status(400).json({ message: 'Missing required fields', missing });
 
   // branch is required to attribute student to a branch
@@ -396,8 +423,12 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
     console.error('Duplicate check error', e);
   }
 
-  const studentData = { ...req.body };
-  studentData.branch = req.body.branch;
+  const studentData = { 
+    ...req.body,
+    createdBy: req.user?.id,
+    branch: req.body.branch
+  };
+  
   // ensure profilePicture is a URL if provided
   if (studentData.profilePicture && typeof studentData.profilePicture !== 'string') {
     delete studentData.profilePicture;
@@ -406,7 +437,11 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
   const student = new Student(studentData);
   try {
     await student.save();
-  try { emitEvent('student.created', { id: student._id, student }); } catch (e) {}
+    
+    // Update branch student count
+    await BranchModel.findByIdAndUpdate(branch, { $inc: { studentCount: 1 } });
+    
+    try { emitEvent('student.created', { id: student._id, student }); } catch (e) {}
     return res.status(201).json(student);
   } catch (e: any) {
     // handle duplicate key error coming from unique index
@@ -418,42 +453,156 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/:id', authMiddleware, async (req: AuthRequest, res) => {
-  const student = await Student.findById(req.params.id).populate('program department branch');
-  if (!student) return res.status(404).json({ message: 'Not found' });
-  if (req.user && req.user.type !== 'SuperAdmin') {
-    const branchId = student.branch ? String(student.branch) : '';
-    const reqBranch = String(req.query.branch || '');
-    if (!reqBranch || reqBranch !== branchId) return res.status(403).json({ message: 'Not authorized to view this student' });
+router.get('/:id', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
+  try {
+    const student = await Student.findById(req.params.id)
+      .populate('program department branch createdBy lastModifiedBy');
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+    
+    // Branch access is handled by requireBranchAccess middleware
+    res.json(student);
+  } catch (e) {
+    console.error('Error fetching student:', e);
+    return res.status(500).json({ message: 'Failed to fetch student' });
   }
-  res.json(student);
 });
 
-router.put('/:id', async (req, res) => {
-  const {
-    firstName, lastName, dateOfBirth, placeOfBirth, phoneNumber, gender, guardian
-  } = req.body;
-  if (!firstName || !lastName || !dateOfBirth || !phoneNumber || !gender || !guardian || !guardian.name) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
-  if (!validateCameroonPhone(phoneNumber)) {
-    return res.status(400).json({ message: 'Phone number must be either a 9-digit local number (e.g. 652278121) or an international +237 number (e.g. +237652278121)' });
-  }
+router.put('/:id', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
+  try {
+    const {
+      firstName, lastName, dateOfBirth, placeOfBirth, regionOfOrigin, phoneNumber, gender, email,
+      program, department, guardian, emergencyContact, address, notes, academicYear, level, session,
+      tuitionStatus, enrollmentStatus, isActive
+    } = req.body;
+    
+    if (!firstName || !lastName || !dateOfBirth || !placeOfBirth || !regionOfOrigin || !phoneNumber || !gender || !guardian || !guardian.name) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    if (!validateCameroonPhone(phoneNumber)) {
+      return res.status(400).json({ message: 'Phone number must be either a 9-digit local number (e.g. 652278121) or an international +237 number (e.g. +237652278121)' });
+    }
 
-  const updateData = { ...req.body };
-  if (updateData.profilePicture && typeof updateData.profilePicture !== 'string') {
-    delete updateData.profilePicture;
-  }
+    const updateData = { 
+      ...req.body,
+      lastModifiedBy: req.user?.id
+    };
+    
+    if (updateData.profilePicture && typeof updateData.profilePicture !== 'string') {
+      delete updateData.profilePicture;
+    }
 
-  const student = await Student.findByIdAndUpdate(req.params.id, updateData, { new: true });
-  try { emitEvent('student.updated', { id: student?._id, student }); } catch (e) {}
-  res.json(student);
+    const student = await Student.findByIdAndUpdate(req.params.id, updateData, { new: true })
+      .populate('program department branch createdBy lastModifiedBy');
+    
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    
+    try { emitEvent('student.updated', { id: student._id, student }); } catch (e) {}
+    res.json(student);
+  } catch (e) {
+    console.error('Error updating student:', e);
+    return res.status(500).json({ message: 'Failed to update student' });
+  }
 });
 
-router.delete('/:id', async (req, res) => {
-  const del = await Student.findByIdAndDelete(req.params.id);
-  try { emitEvent('student.deleted', { id: req.params.id, student: del }); } catch (e) {}
-  res.status(204).send();
+router.delete('/:id', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    
+    // Soft delete - set isActive to false instead of hard delete
+    const updatedStudent = await Student.findByIdAndUpdate(
+      req.params.id, 
+      { isActive: false, lastModifiedBy: req.user?.id }, 
+      { new: true }
+    );
+    
+    // Update branch student count
+    if (student.branch) {
+      await BranchModel.findByIdAndUpdate(student.branch, { $inc: { studentCount: -1 } });
+    }
+    
+    try { emitEvent('student.deleted', { id: req.params.id, student: updatedStudent }); } catch (e) {}
+    res.status(200).json({ message: 'Student deactivated successfully' });
+  } catch (e) {
+    console.error('Error deleting student:', e);
+    return res.status(500).json({ message: 'Failed to delete student' });
+  }
+});
+
+// Get student statistics
+router.get('/stats/overview', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
+  try {
+    const query: any = {};
+    
+    // Branch filtering is handled by requireBranchAccess middleware
+    if (req.query.branch) {
+      query.branch = String(req.query.branch);
+    }
+
+    const [
+      totalStudents,
+      activeStudents,
+      suspendedStudents,
+      graduatedStudents,
+      withdrawnStudents,
+      paidStudents,
+      partialStudents,
+      pendingStudents,
+      overdueStudents,
+      studentsByGender,
+      studentsByProgram
+    ] = await Promise.all([
+      Student.countDocuments(query),
+      Student.countDocuments({ ...query, isActive: true, enrollmentStatus: 'Active' }),
+      Student.countDocuments({ ...query, enrollmentStatus: 'Suspended' }),
+      Student.countDocuments({ ...query, enrollmentStatus: 'Graduated' }),
+      Student.countDocuments({ ...query, enrollmentStatus: 'Withdrawn' }),
+      Student.countDocuments({ ...query, tuitionStatus: 'Paid' }),
+      Student.countDocuments({ ...query, tuitionStatus: 'Partial' }),
+      Student.countDocuments({ ...query, tuitionStatus: 'Pending' }),
+      Student.countDocuments({ ...query, tuitionStatus: 'Overdue' }),
+      Student.aggregate([
+        { $match: query },
+        { $group: { _id: '$gender', count: { $sum: 1 } } }
+      ]),
+      Student.aggregate([
+        { $match: query },
+        { $lookup: { from: 'programs', localField: 'program', foreignField: '_id', as: 'programInfo' } },
+        { $unwind: '$programInfo' },
+        { $group: { _id: '$programInfo.name', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ])
+    ]);
+
+    const stats = {
+      total: totalStudents,
+      enrollment: {
+        active: activeStudents,
+        suspended: suspendedStudents,
+        graduated: graduatedStudents,
+        withdrawn: withdrawnStudents
+      },
+      tuition: {
+        paid: paidStudents,
+        partial: partialStudents,
+        pending: pendingStudents,
+        overdue: overdueStudents
+      },
+      byGender: studentsByGender,
+      byProgram: studentsByProgram
+    };
+
+    res.json(stats);
+  } catch (e) {
+    console.error('Error fetching student statistics:', e);
+    return res.status(500).json({ message: 'Failed to fetch student statistics' });
+  }
 });
 
 export default router;

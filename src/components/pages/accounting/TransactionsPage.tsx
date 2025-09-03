@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { Search, Filter, Download, Plus, Edit, Trash2, Eye } from 'lucide-react';
 import TransactionForm from './TransactionForm';
+import { useAuth } from '../../../context/AuthContext';
+import { useBranch } from '../../../context/BranchContext';
+import fetchClient from '../../../lib/fetchClient';
 
 type Tx = {
   _id: string;
@@ -8,83 +12,339 @@ type Tx = {
   description?: string;
   amount: number;
   type: 'income' | 'expense';
-  registeredBy?: { name?: string } | string;
+  registeredBy?: { name?: string; email?: string } | string;
+  branch?: { name?: string } | string;
+  reference?: string;
+  paymentMethod?: string;
+  status?: string;
 };
 
 const TransactionsPage: React.FC = () => {
   const [transactions, setTransactions] = useState<Tx[]>([]);
   const [page, setPage] = useState(1);
-  const [limit] = useState(30);
+  const [limit] = useState(20);
   const [total, setTotal] = useState(0);
-  const [filters, setFilters] = useState({ category: '', from: '', to: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState({ 
+    category: '', 
+    from: '', 
+    to: '', 
+    type: '',
+    status: '',
+    search: ''
+  });
+  const [showForm, setShowForm] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Tx | null>(null);
+
+  const { user } = useAuth();
+  const { currentBranch } = useBranch();
 
   const fetchPage = async (p = 1) => {
-    const q = new URLSearchParams({ page: String(p), limit: String(limit) });
-    if (filters.category) q.set('category', filters.category);
-    if (filters.from) q.set('from', filters.from);
-    if (filters.to) q.set('to', filters.to);
-    const res = await fetch(`/api/accounting?${q.toString()}`);
-    if (!res.ok) throw new Error('Failed');
-    const j = await res.json();
-    setTransactions(j.data || []);
-    setTotal(j.meta?.total || 0);
+    setLoading(true);
+    setError(null);
+    try {
+      const q = new URLSearchParams({ 
+        page: String(p), 
+        limit: String(limit) 
+      });
+      
+      if (filters.category) q.set('category', filters.category);
+      if (filters.from) q.set('from', filters.from);
+      if (filters.to) q.set('to', filters.to);
+      if (filters.type) q.set('type', filters.type);
+      if (filters.status) q.set('status', filters.status);
+      if (filters.search) q.set('search', filters.search);
+      
+      const res = await fetchClient.get(`/api/accounting?${q.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch transactions');
+      
+      const j = await res.json();
+      setTransactions(j.data || []);
+      setTotal(j.meta?.total || 0);
+    } catch (err) {
+      setError('Failed to load transactions');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchPage(1).catch(() => {}); }, [filters]);
+  useEffect(() => { 
+    fetchPage(1).catch(() => {}); 
+  }, [filters]);
 
-  const onCreated = () => { fetchPage(1).catch(()=>{}); };
+  const onCreated = () => { 
+    fetchPage(1).catch(()=>{}); 
+    setShowForm(false);
+    setEditingTransaction(null);
+  };
 
-  const runningBalance = () => {
-    let bal = 0;
-    return transactions.map(t => {
-      bal += t.type === 'income' ? t.amount : -t.amount;
-      return { ...t, balance: bal };
-    });
+  const onCancel = () => {
+    setShowForm(false);
+    setEditingTransaction(null);
+  };
+
+  const handleEdit = (transaction: Tx) => {
+    setEditingTransaction(transaction);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this transaction?')) return;
+    
+    try {
+      const res = await fetchClient.delete(`/api/accounting/${id}`);
+      if (res.ok) {
+        fetchPage(page);
+      } else {
+        setError('Failed to delete transaction');
+      }
+    } catch (err) {
+      setError('Error deleting transaction');
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-CM', {
+      style: 'currency',
+      currency: 'XAF',
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const getStatusColor = (type: 'income' | 'expense') => {
+    return type === 'income' ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100';
+  };
+
+  const getStatusIcon = (type: 'income' | 'expense') => {
+    return type === 'income' ? '↗' : '↘';
   };
 
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">Transactions</h1>
-  <TransactionForm onCreated={onCreated} />
-  <div className="mb-2 flex space-x-2">
-        <input placeholder="Category" value={filters.category} onChange={(e)=>setFilters(f=>({...f,category:e.target.value}))} className="border p-2" />
-        <input type="date" value={filters.from} onChange={(e)=>setFilters(f=>({...f,from:e.target.value}))} className="border p-2" />
-        <input type="date" value={filters.to} onChange={(e)=>setFilters(f=>({...f,to:e.target.value}))} className="border p-2" />
-        <button onClick={() => fetchPage(1)} className="px-3 py-2 bg-blue-600 text-white rounded">Filter</button>
-      </div>
-      <div className="overflow-auto border rounded">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="p-2">Date</th>
-              <th className="p-2">Category</th>
-              <th className="p-2">Description</th>
-              <th className="p-2 text-right">Debit</th>
-              <th className="p-2 text-right">Credit</th>
-              <th className="p-2">User</th>
-              <th className="p-2 text-right">Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {runningBalance().map(tx => (
-              <tr key={tx._id} className="border-t">
-                <td className="p-2">{new Date(tx.date).toLocaleString()}</td>
-                <td className="p-2">{tx.category}</td>
-                <td className="p-2">{tx.description}</td>
-                <td className="p-2 text-right">{tx.type === 'expense' ? tx.amount.toFixed(2) : ''}</td>
-                <td className="p-2 text-right">{tx.type === 'income' ? tx.amount.toFixed(2) : ''}</td>
-                <td className="p-2">{typeof tx.registeredBy === 'string' ? tx.registeredBy : tx.registeredBy?.name}</td>
-                <td className="p-2 text-right">{(tx as any).balance.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="mt-2 flex justify-between items-center">
-        <div>Total: {total}</div>
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <button disabled={page<=1} onClick={()=>{const v=Math.max(1,page-1); setPage(v); fetchPage(v);}} className="px-2 py-1 border rounded mr-2">Prev</button>
-          <button disabled={page>=Math.ceil(total/limit)} onClick={()=>{const v=page+1; setPage(v); fetchPage(v);}} className="px-2 py-1 border rounded">Next</button>
+          <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
+          <p className="text-gray-600">Manage all financial transactions</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <button 
+            onClick={() => setShowForm(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Transaction</span>
+          </button>
+          <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
+            <Download className="w-4 h-4" />
+            <span>Export</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Transaction Form Modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <TransactionForm 
+              onCreated={onCreated}
+              onCancel={onCancel}
+              initialData={editingTransaction}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search transactions..."
+              value={filters.search}
+              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+              className="pl-10 pr-3 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <select
+            value={filters.type}
+            onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Types</option>
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+          </select>
+
+          <select
+            value={filters.category}
+            onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Categories</option>
+            <option value="Tuition Fees">Tuition Fees</option>
+            <option value="Registration fees">Registration fees</option>
+            <option value="Payroll Expenses">Payroll Expenses</option>
+            <option value="Utilities">Utilities</option>
+            <option value="Miscellaneous">Miscellaneous</option>
+          </select>
+
+          <input
+            type="date"
+            value={filters.from}
+            onChange={(e) => setFilters(prev => ({ ...prev, from: e.target.value }))}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="From Date"
+          />
+
+          <input
+            type="date"
+            value={filters.to}
+            onChange={(e) => setFilters(prev => ({ ...prev, to: e.target.value }))}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="To Date"
+          />
+
+          <button 
+            onClick={() => setFilters({ category: '', from: '', to: '', type: '', status: '', search: '' })}
+            className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg">
+          {error}
+        </div>
+      )}
+
+      {/* Transactions Table */}
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Category
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Description
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Branch
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Recorded By
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                    Loading transactions...
+                  </td>
+                </tr>
+              ) : transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                    No transactions found
+                  </td>
+                </tr>
+              ) : (
+                transactions.map((tx) => (
+                  <tr key={tx._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {new Date(tx.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(tx.type)}`}>
+                        {getStatusIcon(tx.type)} {tx.type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {tx.category}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                      {tx.description || '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {formatCurrency(tx.amount)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {typeof tx.branch === 'string' ? tx.branch : tx.branch?.name || '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {typeof tx.registeredBy === 'string' ? tx.registeredBy : tx.registeredBy?.name || '—'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleEdit(tx)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Edit"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(tx._id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-6">
+        <div className="text-sm text-gray-700">
+          Showing {transactions.length} of {total} transactions
+        </div>
+        <div className="flex items-center space-x-2">
+          <button 
+            disabled={page <= 1 || loading}
+            onClick={() => { const v = Math.max(1, page - 1); setPage(v); fetchPage(v); }} 
+            className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <div className="px-3 py-1 border border-gray-300 rounded text-sm bg-white">
+            {page} / {Math.ceil(total / limit)}
+          </div>
+          <button 
+            disabled={page >= Math.ceil(total / limit) || loading}
+            onClick={() => { const v = page + 1; setPage(v); fetchPage(v); }} 
+            className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50"
+          >
+            Next
+          </button>
         </div>
       </div>
     </div>

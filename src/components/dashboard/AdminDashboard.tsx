@@ -1,21 +1,69 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, GraduationCap, Building2, CreditCard, AlertCircle } from 'lucide-react';
-import { mockStudents, mockBranches, mockPayments, getCurrentBatchData } from '../../data/mockData';
 import { formatXAF } from '../../utils/currency';
 import { useBranch } from '../../context/BranchContext';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigation } from '../../context/NavigationContext';
+import fetchClient from '../../lib/fetchClient';
 
 export const AdminDashboard: React.FC = () => {
-  const currentBatch = getCurrentBatchData();
+  const { user } = useAuth();
   const { managedBranches, currentBranch, setCurrentBranchById } = useBranch();
-  const isManagerViewingUnassigned = currentBranch && managedBranches.length > 0 && !managedBranches.find(b => (b as any)._id === (currentBranch as any)._id || (b as any).id === (currentBranch as any).id);
+  const { setCurrentPage } = useNavigation();
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    totalStaff: 0,
+    totalRevenue: 0,
+    pendingPayments: 0,
+    activeBranches: 0
+  });
+  const [loading, setLoading] = useState(true);
 
-  // If the user is a branch manager (Admin) with managedBranches, scope the numbers to the currentBranch
-  const totalStudents = currentBranch ? currentBranch.studentCount : mockStudents.length;
-  const activeBranches = managedBranches.length > 0 ? managedBranches.filter(b => b.isActive).length : mockBranches.filter(b => b.isActive).length;
-  const totalRevenue = mockPayments
-    .filter(p => p.status === 'Completed')
-    .reduce((sum, p) => sum + p.amount, 0);
-  const pendingPayments = mockPayments.filter(p => p.status === 'Pending').length;
+  // Fetch real data from API
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch student statistics
+        const studentParams = new URLSearchParams();
+        if (currentBranch && !user?.isSuperAdmin) {
+          studentParams.append('branch', currentBranch._id);
+        }
+        const studentResponse = await fetchClient.get(`/api/students/stats/overview?${studentParams}`);
+        const studentStats = await studentResponse.json();
+
+        // Fetch financial data
+        const financeParams = new URLSearchParams();
+        if (currentBranch && !user?.isSuperAdmin) {
+          financeParams.append('branch', currentBranch._id);
+        }
+        const financeResponse = await fetchClient.get(`/api/accounting/summary/overview?${financeParams}`);
+        const financeStats = await financeResponse.json();
+
+        // Fetch branch data
+        const branchResponse = await fetchClient.get('/api/branches');
+        const branchData = await branchResponse.json();
+        const branches = Array.isArray(branchData) ? branchData : (branchData.data || []);
+
+        setStats({
+          totalStudents: studentStats.total || 0,
+          totalStaff: studentStats.totalStaff || 0,
+          totalRevenue: financeStats.totalIncome || 0,
+          pendingPayments: financeStats.pendingTransactions || 0,
+          activeBranches: branches.filter((b: any) => b.isActive).length
+        });
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [currentBranch, user?.isSuperAdmin]);
+
+  const isManagerViewingUnassigned = currentBranch && managedBranches.length > 0 && !managedBranches.find(b => (b as any)._id === (currentBranch as any)._id || (b as any).id === (currentBranch as any).id);
 
   // Account Management State
   const [resetLoading, setResetLoading] = React.useState(false);
@@ -23,6 +71,16 @@ export const AdminDashboard: React.FC = () => {
   const adminEmail = 'superadminunhimas@gmail.com'; // Replace with dynamic value if available
 
   const formatCurrency = (amount: number) => formatXAF(amount);
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg text-gray-600">Loading dashboard data...</div>
+        </div>
+      </div>
+    );
+  }
 
   // Trigger password reset for admin/superadmin
   const handleAdminPasswordReset = async () => {
@@ -53,7 +111,7 @@ export const AdminDashboard: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="text-gray-600">Administrative overview and management</p>
-          <p className="text-sm text-blue-600">Current Batch: {currentBatch?.name}</p>
+          <p className="text-sm text-blue-600">Branch: {currentBranch?.name || 'All Branches'}</p>
         </div>
         <div className="text-right">
           <div className="text-sm text-gray-600">{new Date().toLocaleDateString()}</div>
@@ -93,7 +151,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Students</p>
-              <p className="text-2xl font-bold text-gray-900">{totalStudents}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalStudents}</p>
               <p className="text-xs text-green-600">↗ +12% this month</p>
             </div>
           </div>
@@ -106,7 +164,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Active Branches</p>
-              <p className="text-2xl font-bold text-gray-900">{activeBranches}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.activeBranches}</p>
               <p className="text-xs text-blue-600">All operational</p>
             </div>
           </div>
@@ -119,7 +177,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalRevenue)}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
               <p className="text-xs text-green-600">↗ +8% this month</p>
             </div>
           </div>
@@ -132,7 +190,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Pending Payments</p>
-              <p className="text-2xl font-bold text-gray-900">{pendingPayments}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.pendingPayments}</p>
               <p className="text-xs text-orange-600">Requires attention</p>
             </div>
           </div>
@@ -144,15 +202,26 @@ export const AdminDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="space-y-3">
-            <button className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button 
+              onClick={() => setCurrentPage('student-registration')}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
               <Users className="w-4 h-4" />
               <span>Add New Student</span>
             </button>
-            <button className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
-              <Building2 className="w-4 h-4" />
-              <span>Create Branch</span>
-            </button>
-            <button className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2">
+            {user?.isSuperAdmin && (
+              <button 
+                onClick={() => setCurrentPage('create-branch')}
+                className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Create Branch</span>
+              </button>
+            )}
+            <button 
+              onClick={() => setCurrentPage('programs')}
+              className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
+            >
               <GraduationCap className="w-4 h-4" />
               <span>Add Program</span>
             </button>

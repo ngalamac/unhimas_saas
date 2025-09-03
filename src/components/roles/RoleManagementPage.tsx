@@ -51,9 +51,16 @@ const RoleManagementPage: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/users');
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const data = await res.json();
-      setUsers(data);
+      // Handle the API response structure: { data: [...], total: ... }
+      setUsers(Array.isArray(data) ? data : (data.data || []));
     } catch {
       setError('Failed to fetch users');
     }
@@ -74,9 +81,13 @@ const RoleManagementPage: React.FC = () => {
     }
     updatedPermissions[normalizedFeature][action] = value;
     try {
+      const token = localStorage.getItem('token');
       const res = await fetch(`http://localhost:5000/api/users/${userId}/permissions`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ permissions: updatedPermissions }),
       });
       if (res.ok) {
@@ -92,8 +103,12 @@ const RoleManagementPage: React.FC = () => {
   const handleDeleteUser = async (userId: string) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     try {
+      const token = localStorage.getItem('token');
       await fetch(`http://localhost:5000/api/users/${userId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       fetchUsers();
     } catch {
@@ -112,9 +127,13 @@ const RoleManagementPage: React.FC = () => {
       permissions: getDefaultPermissions(),
     };
     try {
-      const res = await fetch('http://localhost:5000/api/auth/register', {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(userPayload),
       });
       if (res.ok) {

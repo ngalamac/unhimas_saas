@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Branch } from '../types/school';
 import { useAuth } from './AuthContext';
+import fetchClient from '../lib/fetchClient';
 
 interface BranchContextType {
   managedBranches: Branch[];
@@ -27,7 +28,7 @@ export const BranchProvider: React.FC<Props> = ({ children }) => {
   const fetchManaged = async () => {
     if (!user) return;
     try {
-      const res = await fetch('/api/branches');
+      const res = await fetchClient.get('/api/branches');
       const data = await res.json();
       if (!Array.isArray(data)) return;
       // filter branches where manager matches this user
