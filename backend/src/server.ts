@@ -1,9 +1,8 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import transactionsRouter from './routes/transactions';
-import accountsRouter from './routes/accounts';
 import authRouter from './routes/auth';
+import accountingRouter from './routes/accounting';
 import usersRouter from './routes/users';
 import branchesRouter from './routes/branches';
 import programsRouter from './routes/programs';
@@ -58,8 +57,8 @@ async function startServer() {
 startServer();
 
 // API routes
-app.use('/api/transactions', transactionsRouter);
-app.use('/api/accounts', accountsRouter);
+// transactions router removed
+// accounts router removed
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/branches', branchesRouter);
@@ -69,6 +68,7 @@ app.use('/api/courses', coursesRouter);
 app.use('/api/students', studentsRouter);
 app.use('/api/staff', staffRouter);
 app.use('/api/payroll', payrollRouter);
+app.use('/api/accounting', accountingRouter);
 // server-sent events for realtime updates
 app.get('/api/events', eventsHandler);
 // serve uploaded files

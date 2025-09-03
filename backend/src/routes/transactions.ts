@@ -344,7 +344,7 @@ router.get('/summary', async (req, res) => {
 });
 
 // Add a transaction
-router.post('/', requirePermission('accounting'), async (req, res) => {
+router.post('/', requirePermission('accounting'), async (req: any, res) => {
   try {
   const { type, category, amount, description, date, reference, createdBy, staffId, studentId } = req.body;
     if (!type || !category || !amount || !description || !date) {
@@ -361,9 +361,14 @@ router.post('/', requirePermission('accounting'), async (req, res) => {
       return res.status(400).json({ error: 'Invalid category' });
     }
 
-  const transaction = new Transaction({ type, category, amount, description, date, reference, createdBy, staffId: staffId || undefined, studentId: studentId || undefined });
-    await transaction.save();
-    res.status(201).json(transaction);
+  // normalize date
+  const postingDate = date ? new Date(date) : new Date();
+  // prefer authenticated user info if present (req.user added by auth middleware when using JWT)
+  const creator = req.user ? { id: req.user.id || null, name: (req.user as any).name || null, email: (req.user as any).email || null } : (createdBy || 'system');
+
+  const transaction = new Transaction({ type, category, amount, description, date: postingDate, reference, createdBy: creator, staffId: staffId || undefined, studentId: studentId || undefined, createdAt: new Date() });
+  await transaction.save();
+  res.status(201).json(transaction);
   } catch (err) {
     console.error('POST /api/transactions error', err);
     res.status(400).json({ error: 'Failed to add transaction' });

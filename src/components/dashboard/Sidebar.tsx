@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Building2, QrCode, Shield, DollarSign, CreditCard, GraduationCap, Calculator, UserPlus, FileText, Users, MessageSquare, Car as IdCard, Settings, ChevronRight, ChevronDown, Eye, Plus, BookOpen, Calendar, BarChart3, UserCheck, School } from 'lucide-react';
+import { Home, Building2, QrCode, Shield, DollarSign, CreditCard, GraduationCap, UserPlus, FileText, Users, MessageSquare, Car as IdCard, Settings, ChevronRight, ChevronDown, Eye, Plus, BookOpen, Calendar, BarChart3, UserCheck, School } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -28,10 +28,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     'all-branches': ['branches:read', 'branches:create', 'branches:update', 'branches:delete', 'all'],
     'qr-attendance': ['attendance:read', 'attendance:create', 'attendance:update', 'attendance:delete', 'all'],
     'two-factor-auth': ['all'],
-    'fees-management': ['fees:read', 'fees:create', 'fees:update', 'fees:delete', 'transactions:read', 'transactions:create', 'transactions:update', 'transactions:delete', 'all'],
-    'register-payments': ['transactions:read', 'transactions:create', 'transactions:update', 'transactions:delete', 'all'],
-    'grading-system': ['grades:read', 'grades:create', 'grades:update', 'grades:delete', 'all'],
-    'accounting': ['accounting:read', 'accounting:create', 'accounting:update', 'accounting:delete', 'all'],
+  'fees-management': ['fees:read', 'fees:create', 'fees:update', 'fees:delete', 'transactions:read', 'transactions:create', 'transactions:update', 'transactions:delete', 'all'],
+  'accounting': ['accounting:read', 'accounting:create', 'accounting:update', 'accounting:delete', 'all'],
+  'register-payments': ['transactions:read', 'transactions:create', 'transactions:update', 'transactions:delete', 'all'],
+  'grading-system': ['grades:read', 'grades:create', 'grades:update', 'grades:delete', 'all'],
     'admissions': ['admissions:read', 'admissions:create', 'admissions:update', 'admissions:delete', 'students:read', 'all'],
     'students': ['students:read', 'students:create', 'students:update', 'students:delete', 'all'],
     'programs-departments': ['programs:read', 'programs:create', 'programs:update', 'programs:delete', 'departments:read', 'departments:create', 'departments:update', 'departments:delete', 'all'],
@@ -75,8 +75,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     { id: 'students', label: 'Students', icon: <Users className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'all-students', label: 'All Students', icon: <Users className="w-3 h-3" /> }, { id: 'student-registration', label: 'Register Student', icon: <UserPlus className="w-3 h-3" /> }, { id: 'tuition-status', label: 'Tuition Status', icon: <DollarSign className="w-3 h-3" /> } ] },
     { id: 'admissions', label: 'Admissions', icon: <UserPlus className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'admission-applications', label: 'Applications', icon: <FileText className="w-3 h-3" /> }, { id: 'admission-payments', label: 'Payments', icon: <CreditCard className="w-3 h-3" /> }, { id: 'admission-status', label: 'Admission Status', icon: <UserCheck className="w-3 h-3" /> } ] },
 
-    // Finance
-    { id: 'accounting', label: 'Finance', icon: <DollarSign className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'accounting-overview', label: 'Overview', icon: <Calculator className="w-3 h-3" /> }, { id: 'transactions', label: 'Transactions', icon: <FileText className="w-3 h-3" /> }, { id: 'chart-of-accounts', label: 'Chart of Accounts', icon: <BookOpen className="w-3 h-3" /> }, { id: 'fees-management', label: 'Fee Management', icon: <Calculator className="w-3 h-3" /> }, { id: 'register-payments', label: 'Payments', icon: <CreditCard className="w-3 h-3" /> } ] },
+  // Finance
+  { id: 'accounting', label: 'Accounting', icon: <DollarSign className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'accounting-overview', label: 'Dashboard', icon: <BarChart3 className="w-3 h-3" /> }, { id: 'transactions', label: 'Transactions', icon: <FileText className="w-3 h-3" /> }, { id: 'categories', label: 'Categories', icon: <BookOpen className="w-3 h-3" /> }, { id: 'reports', label: 'Reports', icon: <FileText className="w-3 h-3" /> } ] },
 
     // Human Resources
     { id: 'human-resources', label: 'Human Resources', icon: <Users className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['staff:read','all'], submenuItems: [ { id: 'staff-management', label: 'Staff Directory', icon: <UserCheck className="w-3 h-3" /> }, { id: 'payroll', label: 'Payroll', icon: <DollarSign className="w-3 h-3" /> }, { id: 'id-card-management', label: 'ID Cards', icon: <IdCard className="w-3 h-3" /> } ] },

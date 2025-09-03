@@ -21,9 +21,10 @@ import { AdmissionApplicationsPage } from '../pages/admissions/AdmissionApplicat
 import { IDCardManagementPage } from '../pages/cards/IDCardManagementPage';
 import RoleManagementPage from '../roles/RoleManagementPage';
 import { TwoFactorAuthPage } from '../pages/security/TwoFactorAuthPage';
-import AccountingPage from '../accounting/AccountingPage';
 import AccountingOverview from '../pages/accounting/AccountingOverview';
-import ChartOfAccountsPage from '../pages/accounting/ChartOfAccountsPage';
+import TransactionsPage from '../pages/accounting/TransactionsPage';
+import CategoriesPage from '../pages/accounting/CategoriesPage';
+import ReportsPage from '../pages/accounting/ReportsPage';
 import StaffDirectory from '../pages/hr/StaffDirectory';
 import PayrollPage from '../pages/hr/PayrollPage';
 import SettingsPage from './SettingsPage';
@@ -74,9 +75,11 @@ export const PageRenderer: React.FC = () => {
       case 'accounting-overview':
         return <AccountingOverview />;
       case 'transactions':
-        return <AccountingPage />;
-      case 'chart-of-accounts':
-        return <ChartOfAccountsPage />;
+        return <TransactionsPage />;
+      case 'categories':
+        return <CategoriesPage />;
+      case 'reports':
+        return <ReportsPage />;
 
       // HR
       case 'staff-management':

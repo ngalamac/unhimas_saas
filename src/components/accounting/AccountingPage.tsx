@@ -76,7 +76,9 @@ const AccountingPage: React.FC = () => {
   async function fetchTransactions(p = 1) {
     try {
       setLoading(true);
-      const res = await fetch(`/api/transactions?page=${p}&limit=${limit}`);
+      const token = localStorage.getItem('token');
+      const perms = localStorage.getItem('permissions') || 'accounting';
+      const res = await fetch(`/api/transactions?page=${p}&limit=${limit}`, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-user-permissions': perms } });
       if (!res.ok) throw new Error('Failed to fetch');
       const wrapper = await res.json();
       const mapped: Transaction[] = (wrapper.data || []).map((t: any) => ({
@@ -87,7 +89,8 @@ const AccountingPage: React.FC = () => {
         description: t.description,
         date: t.date ? new Date(t.date).toISOString().split('T')[0] : '',
         reference: t.reference,
-        createdBy: t.createdBy,
+        // normalize createdBy which can be string or object {id,name,email}
+        createdBy: (function(cb:any){ if(!cb) return 'system'; if(typeof cb === 'string') return cb; if(typeof cb === 'object') return (cb.name || cb.email || cb.id || 'system'); return String(cb); })(t.createdBy),
         property: t.property,
         staffId: t.staffId?._id || t.staffId || undefined,
         staffName: t.staffId?.name || t.staffName || undefined,
@@ -116,21 +119,27 @@ const AccountingPage: React.FC = () => {
 
   // CRUD
   async function createTx(payload: Partial<Transaction>) {
-    const body = { ...payload, type: payload.type } as any;
-    const res = await fetch('/api/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const body = { ...payload, type: payload.type } as any;
+  const token = localStorage.getItem('token');
+  const perms = localStorage.getItem('permissions') || 'accounting';
+  const res = await fetch('/api/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-user-permissions': perms }, body: JSON.stringify(body) });
     if (!res.ok) throw new Error('Create failed');
     await fetchTransactions(1);
   }
 
   async function updateTx(id: string, payload: Partial<Transaction>) {
-    const res = await fetch(`/api/transactions/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  const token = localStorage.getItem('token');
+  const perms = localStorage.getItem('permissions') || 'accounting';
+  const res = await fetch(`/api/transactions/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-user-permissions': perms }, body: JSON.stringify(payload) });
     if (!res.ok) throw new Error('Update failed');
     await fetchTransactions(page);
   }
 
   async function deleteTx(id?: string) {
     if (!id) return;
-    const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+  const token = localStorage.getItem('token');
+  const perms = localStorage.getItem('permissions') || 'accounting';
+  const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-user-permissions': perms } });
     if (!res.ok) throw new Error('Delete failed');
     await fetchTransactions(1);
   }
