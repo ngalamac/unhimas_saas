@@ -20,6 +20,13 @@ export interface Student {
   tuitionStatus: 'Paid' | 'Partial' | 'Unpaid';
   profileImage?: string;
   studentId: string; // Generated student ID
+  // Optional tuition/payment-related fields
+  tuitionPlan?: string | TuitionPlan;
+  paymentPlans?: Array<string | PaymentPlan>;
+  tuitionInstallments?: TuitionInstallment[];
+  totalPaid?: number;
+  balanceDue?: number;
+  payments?: Payment[] | Array<string>;
 }
 
 export interface Program {
@@ -290,4 +297,36 @@ export interface SystemSettings {
   enableQRAttendance: boolean;
   enableSMSNotifications: boolean;
   enableEmailNotifications: boolean;
+}
+
+// Payment plan reusable entity (frontend shape)
+export interface PaymentPlan {
+  _id?: string;
+  id?: string;
+  name: string;
+  targetAmount: number;
+  description?: string;
+  dueDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TuitionPlan {
+  _id?: string;
+  id?: string;
+  program?: any;
+  department?: any;
+  level?: any;
+  academicYear?: string;
+  installments?: Array<{ key: string; label?: string; amount: number; dueDate?: string }>;
+}
+
+// Per-student installment snapshot
+export interface TuitionInstallment {
+  key?: string;
+  label?: string;
+  amountDue?: number;
+  paid?: number;
+  dueDate?: string;
+  status?: 'Pending' | 'Partial' | 'Paid' | 'Overdue';
 }

@@ -1,22 +1,23 @@
 import { Department } from '../types/school';
+import fetchClient from '../lib/fetchClient';
 
 const BASE = '/api/departments';
 
 export async function getDepartments(): Promise<Department[]> {
-  const res = await fetch(BASE);
+  const res = await fetchClient.get(BASE);
   return res.json();
 }
 
 export async function createDepartment(payload: Partial<Department>) {
-  const res = await fetch(BASE, { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+  const res = await fetchClient.postJson(BASE, payload);
   return res.json();
 }
 
 export async function updateDepartment(id: string, payload: Partial<Department>) {
-  const res = await fetch(`${BASE}/${id}`, { method: 'PUT', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+  const res = await fetchClient.put(`${BASE}/${id}`, payload);
   return res.json();
 }
 
 export async function deleteDepartment(id: string) {
-  await fetch(`${BASE}/${id}`, { method: 'DELETE' });
+  await fetchClient.delete(`${BASE}/${id}`);
 }

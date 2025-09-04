@@ -7,11 +7,12 @@ type Toast = {
   message: string; 
   type?: 'success' | 'error' | 'warning' | 'info';
   duration?: number;
+  action?: { label: string; onClick: () => void };
 };
 
 type UIContextType = {
   toasts: Toast[];
-  showToast: (message: string, type?: 'success' | 'error' | 'warning' | 'info', duration?: number) => void;
+  showToast: (message: string, type?: 'success' | 'error' | 'warning' | 'info', duration?: number, action?: { label: string; onClick: () => void }) => void;
   clearToasts: () => void;
   setGlobalLoading: (v: boolean) => void;
 };
@@ -28,9 +29,9 @@ export const UIProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [globalLoading, setGlobalLoading] = useState(false);
 
-  const showToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', duration: number = 5000) => {
-    const id = `t_${Date.now()}`;
-    setToasts(prev => [{ id, message, type, duration }, ...prev]);
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', duration: number = 5000, action?: { label: string; onClick: () => void }) => {
+    const id = `t_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    setToasts(prev => [{ id, message, type, duration, action }, ...prev]);
     // auto dismiss
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
   }, []);
@@ -40,7 +41,7 @@ export const UIProvider = ({ children }: { children: ReactNode }) => {
   // expose a window bridge for non-React modules to toggle loading
   (window as any).__UI_BRIDGE__ = {
     setGlobalLoading: (v: boolean) => setGlobalLoading(v),
-    showToast: (m: string, t?: 'success' | 'error' | 'warning' | 'info') => showToast(m, t)
+    showToast: (m: string, t?: 'success' | 'error' | 'warning' | 'info', d?: number, action?: { label: string; onClick: () => void }) => showToast(m, t, d, action)
   };
 
   return (

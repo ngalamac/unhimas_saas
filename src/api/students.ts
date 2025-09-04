@@ -1,4 +1,5 @@
 import { Student } from '../types/school';
+import fetchClient from '../lib/fetchClient';
 
 // Use explicit backend origin during development to avoid missing dev proxy setups.
 const DEV_BACKEND = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.DEV) ? 'http://localhost:5000' : '';
@@ -12,10 +13,7 @@ export interface StudentsPage {
   aggregates?: { paid: number; partial: number; unpaid: number };
 }
 export async function getStudents(branchId?: string, page = 1, limit = 10, filters?: { search?: string; program?: string; status?: string }): Promise<StudentsPage> {
-  const token = localStorage.getItem('token');
-  const headers: Record<string,string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  else console.warn('[getStudents] no auth token found in localStorage; requests may be unauthorized');
+  // fetchClient will attach Authorization header when token exists
   const params = new URLSearchParams();
   params.set('page', String(page));
   params.set('limit', String(limit));
@@ -24,16 +22,14 @@ export async function getStudents(branchId?: string, page = 1, limit = 10, filte
   if (filters?.program) params.set('program', filters.program);
   if (filters?.status) params.set('status', filters.status);
   const url = `${BASE}?${params.toString()}`;
-  // Debug: log request URL and headers to help diagnose empty results / auth issues
-  try { console.debug('[getStudents] request', { url, headers }); } catch (e) {}
-  const res = await fetch(url, { headers });
+  // Debug: log request URL to help diagnose empty results / auth issues
+  try { console.debug('[getStudents] request', { url }); } catch (e) {}
+  const res = await fetchClient.get(url);
   if (!res.ok) {
     if (res.status === 401) {
-      // Invalid or expired token - clear stored auth and navigate to login
       try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch (e) {}
       try { window.location.hash = '#/login'; } catch (e) {}
     }
-    // try parse json error, fallback to text
     try {
       const err = await res.clone().json();
       const message = err?.message || JSON.stringify(err);
@@ -56,11 +52,13 @@ export async function createStudent(payload: Partial<Student>) {
   if (pp && typeof pp === 'string' && pp.startsWith('data:')) {
     try {
       // convert dataURL to blob
-      const resBlob = await fetch(pp);
-      const blob = await resBlob.blob();
+  const resBlob = await fetch(pp);
+  const blob = await resBlob.blob();
       const form = new FormData();
       form.append('file', new File([blob], 'profile.png', { type: blob.type }));
-      const up = await fetch('/api/uploads/profile', { method: 'POST', body: form });
+  // Attach Authorization header for upload
+  const token = fetchClient.getAuthToken ? fetchClient.getAuthToken() : null;
+  const up = await fetch('/api/uploads/profile', { method: 'POST', body: form, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
       if (!up.ok) {
         const txt = await up.text();
         throw new Error(txt || `Upload failed with status ${up.status}`);
@@ -79,50 +77,89 @@ export async function createStudent(payload: Partial<Student>) {
     }
   }
 
-  const token = localStorage.getItem('token');
-  const headers: Record<string,string> = { 'Content-Type':'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(BASE, { method: 'POST', headers, body: JSON.stringify(payload) });
+  const res = await fetchClient.postJson(BASE, payload);
   if (!res.ok) {
     if (res.status === 401) {
       try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch (e) {}
       try { window.location.hash = '#/login'; } catch (e) {}
     }
-    // read error body safely using a clone so we don't consume the original stream
     try {
       const errJson = await res.clone().json();
-  const message = errJson?.message || JSON.stringify(errJson);
-  const err = new Error(message) as any;
-  err.status = res.status;
-  throw err;
+      const message = errJson?.message || JSON.stringify(errJson);
+      const err = new Error(message) as any;
+      err.status = res.status;
+      throw err;
     } catch (e) {
-  const txt = await res.clone().text();
-  const err = new Error(txt || `Request failed with status ${res.status}`) as any;
-  err.status = res.status;
-  throw err;
+      const txt = await res.clone().text();
+      const err = new Error(txt || `Request failed with status ${res.status}`) as any;
+      err.status = res.status;
+      throw err;
     }
   }
   return res.json();
 }
 
 export async function getStudent(id: string) {
-  const token = localStorage.getItem('token');
-  const headers: Record<string,string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}/${id}`, { headers });
+  const res = await fetchClient.get(`${BASE}/${id}`);
+  return res.json();
+}
+
+export async function getTuition(id: string) {
+  const res = await fetchClient.get(`${BASE}/${id}/tuition`);
+  if (!res.ok) throw new Error('Failed to fetch tuition');
+  return res.json();
+}
+
+export async function payTuition(id: string, payload: { amount: number; currency?: string; installmentKey?: string; method?: string; notes?: string }) {
+  const res = await fetchClient.postJson(`${BASE}/${id}/payments`, payload);
+  if (!res.ok) {
+    try {
+      const err = await res.clone().json();
+      const message = err?.message || `Payment failed (${res.status})`;
+      const e: any = new Error(message);
+      e.status = res.status;
+      throw e;
+    } catch (e) {
+      const txt = await res.clone().text();
+      const err = new Error(txt || `Payment failed with status ${res.status}`) as any;
+      err.status = res.status;
+      throw err;
+    }
+  }
   return res.json();
 }
 
 export async function updateStudent(id: string, payload: Partial<Student>) {
-  const token = localStorage.getItem('token');
-  const headers: Record<string,string> = { 'Content-Type':'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}/${id}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
+  const res = await fetchClient.put(`${BASE}/${id}`, payload);
+  return res.json();
+}
+
+export async function restoreStudent(id: string) {
+  const res = await fetchClient.postJson(`${BASE}/${id}/restore`, {});
+  if (!res.ok) {
+    try {
+      const err = await res.clone().json();
+      const message = err?.message || JSON.stringify(err) || `Restore failed (${res.status})`;
+      const e: any = new Error(message);
+      e.status = res.status;
+      throw e;
+    } catch (e) {
+      const txt = await res.clone().text();
+      const err = new Error(txt || `Restore failed with status ${res.status}`) as any;
+      err.status = res.status;
+      throw err;
+    }
+  }
+  return res.json();
+}
+
+export async function setEnrollmentStatus(id: string, status: string) {
+  const res = await fetchClient.postJson(`${BASE}/${id}/enrollment`, { enrollmentStatus: status });
   return res.json();
 }
 
 export async function deleteStudent(id: string) {
-  const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' });
+  const res = await fetchClient.delete(`${BASE}/${id}`);
   if (!res.ok) {
     try {
       const err = await res.json().catch(() => ({}));

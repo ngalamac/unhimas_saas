@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { formatXAF } from '../../utils/currency';
+import fetchClient from '../../lib/fetchClient';
 import { incomeCategories, expenseCategories } from '../../data/accountingCategories';
+import BalanceSheet from './BalanceSheet';
 
 type TxType = 'income' | 'expense';
 interface Transaction {
@@ -33,6 +35,7 @@ const AccountingPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all'|'income'|'expense'>('all');
   const [filterCategory, setFilterCategory] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [showBalance, setShowBalance] = useState(false);
   const [newTx, setNewTx] = useState<Transaction>({ type: 'income', category: '', amount: 0, description: '', date: new Date().toISOString().split('T')[0] });
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -51,8 +54,8 @@ const AccountingPage: React.FC = () => {
   async function fetchStaffAndStudents() {
     try {
       const [sRes, stRes] = await Promise.all([
-        fetch('/api/staff'),
-        fetch('/api/students'),
+  fetchClient.get('/api/staff'),
+  fetchClient.get('/api/students'),
       ]);
       if (sRes.ok) {
         const sjson = await sRes.json();
@@ -76,9 +79,9 @@ const AccountingPage: React.FC = () => {
   async function fetchTransactions(p = 1) {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const perms = localStorage.getItem('permissions') || 'accounting';
-      const res = await fetch(`/api/transactions?page=${p}&limit=${limit}`, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-user-permissions': perms } });
+  const token = fetchClient.getAuthToken ? fetchClient.getAuthToken() : localStorage.getItem('token');
+  const perms = localStorage.getItem('permissions') || 'accounting';
+  const res = await fetch(`/api/transactions?page=${p}&limit=${limit}`, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-user-permissions': perms } });
       if (!res.ok) throw new Error('Failed to fetch');
       const wrapper = await res.json();
       const mapped: Transaction[] = (wrapper.data || []).map((t: any) => ({
@@ -120,7 +123,7 @@ const AccountingPage: React.FC = () => {
   // CRUD
   async function createTx(payload: Partial<Transaction>) {
   const body = { ...payload, type: payload.type } as any;
-  const token = localStorage.getItem('token');
+  const token = fetchClient.getAuthToken ? fetchClient.getAuthToken() : localStorage.getItem('token');
   const perms = localStorage.getItem('permissions') || 'accounting';
   const res = await fetch('/api/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-user-permissions': perms }, body: JSON.stringify(body) });
     if (!res.ok) throw new Error('Create failed');
@@ -128,7 +131,7 @@ const AccountingPage: React.FC = () => {
   }
 
   async function updateTx(id: string, payload: Partial<Transaction>) {
-  const token = localStorage.getItem('token');
+  const token = fetchClient.getAuthToken ? fetchClient.getAuthToken() : localStorage.getItem('token');
   const perms = localStorage.getItem('permissions') || 'accounting';
   const res = await fetch(`/api/transactions/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-user-permissions': perms }, body: JSON.stringify(payload) });
     if (!res.ok) throw new Error('Update failed');
@@ -137,7 +140,7 @@ const AccountingPage: React.FC = () => {
 
   async function deleteTx(id?: string) {
     if (!id) return;
-  const token = localStorage.getItem('token');
+  const token = fetchClient.getAuthToken ? fetchClient.getAuthToken() : localStorage.getItem('token');
   const perms = localStorage.getItem('permissions') || 'accounting';
   const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-user-permissions': perms } });
     if (!res.ok) throw new Error('Delete failed');
@@ -149,8 +152,10 @@ const AccountingPage: React.FC = () => {
     if (selected.size === 0) { setError('No items selected'); return; }
     if (!confirm(`Delete ${selected.size} selected transactions?`)) return;
     try {
-      const ids = Array.from(selected).filter(Boolean);
-      await Promise.all(ids.map(id => fetch(`/api/transactions/${id}`, { method: 'DELETE' })));
+  const ids = Array.from(selected).filter(Boolean);
+  const token = fetchClient.getAuthToken ? fetchClient.getAuthToken() : localStorage.getItem('token');
+  const perms = localStorage.getItem('permissions') || 'accounting';
+  await Promise.all(ids.map(id => fetch(`/api/transactions/${id}`, { method: 'DELETE', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'x-user-permissions': perms } })));
       setSelected(new Set());
       await fetchTransactions(1);
     } catch (err: any) {
@@ -182,22 +187,46 @@ const AccountingPage: React.FC = () => {
   // Import
   async function handleImport() {
     if (!importFile) { setError('Select file'); return; }
-    const fd = new FormData(); fd.append('file', importFile);
-    const res = await fetch('/api/transactions/import', { method: 'POST', body: fd });
+  const fd = new FormData(); fd.append('file', importFile);
+  const token = fetchClient.getAuthToken ? fetchClient.getAuthToken() : localStorage.getItem('token');
+  const res = await fetch('/api/transactions/import', { method: 'POST', body: fd, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
     if (!res.ok) throw new Error('Import failed');
     const j = await res.json();
     setError(`Imported ${j.created || j.created.length || j.created}`);
     await fetchTransactions(1);
   }
 
-  // Export
-  function handleExport() {
-    if (exportFormat === 'email') {
-      if (!exportEmail) { setError('Provide email'); return; }
-      fetch(`/api/transactions/export?format=email&email=${encodeURIComponent(exportEmail)}`).then(r => { if (!r.ok) setError('Email failed'); else setError('Email sent'); });
-      return;
+  // Export (download or email)
+  async function handleExport() {
+    try {
+      if (exportFormat === 'email') {
+        if (!exportEmail) { setError('Provide email'); return; }
+        const resp = await fetchClient.get(`/api/transactions/export?format=email&email=${encodeURIComponent(exportEmail)}`);
+        if (!resp.ok) {
+          setError('Email failed');
+        } else {
+          setError('Email queued/sent');
+        }
+        return;
+      }
+
+      // Download as blob so auth headers are included
+      const resp = await fetchClient.get(`/api/transactions/export?format=${exportFormat}`);
+      if (!resp.ok) throw new Error('Export failed');
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      // Choose extension based on selected format
+      const ext = exportFormat === 'xlsx' ? 'xlsx' : (exportFormat === 'pdf' ? 'pdf' : 'csv');
+      link.download = `transactions-export.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err?.message || 'Export failed');
     }
-    window.open(`/api/transactions/export?format=${exportFormat}`, '_blank');
   }
 
   return (
@@ -242,6 +271,7 @@ const AccountingPage: React.FC = () => {
   <div className="border-l pl-2" />
   <button onClick={() => handleBulkExportCSV()} className="px-3 py-2 border rounded">Export selected (CSV)</button>
   <button onClick={() => handleBulkDelete()} className="px-3 py-2 bg-red-100 text-red-700 border rounded">Delete selected</button>
+  <button onClick={() => setShowBalance(true)} className="px-3 py-2 border rounded">Balance Sheet</button>
         <select value={exportFormat} onChange={e => setExportFormat(e.target.value as any)} className="ml-auto px-3 py-2 border rounded">
           <option value="csv">CSV</option>
           <option value="xlsx">Excel</option>
@@ -354,6 +384,11 @@ const AccountingPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Balance Sheet modal */}
+      {showBalance && (
+        <BalanceSheet onClose={() => setShowBalance(false)} />
       )}
 
       {/* Edit modal */}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, CreditCard, Users, Building2, Calendar, Filter, Download, Plus } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Filter, Download, Plus } from 'lucide-react';
+import BalanceSheet from '../../accounting/BalanceSheet';
 import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
 import fetchClient from '../../../lib/fetchClient';
@@ -37,9 +38,10 @@ const AccountingOverview: React.FC = () => {
     to: new Date().toISOString().split('T')[0]
   });
   const [selectedBranch, setSelectedBranch] = useState<string>('');
+  const [showBalance, setShowBalance] = useState(false);
 
   const { user } = useAuth();
-  const { currentBranch, managedBranches } = useBranch();
+  const { managedBranches } = useBranch();
 
   const fetchSummary = async () => {
     try {
@@ -135,6 +137,10 @@ const AccountingOverview: React.FC = () => {
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
+          <button onClick={() => setShowBalance(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center space-x-2">
+            <DollarSign className="w-4 h-4" />
+            <span>Balance Sheet</span>
+          </button>
         </div>
       </div>
 
@@ -163,7 +169,7 @@ const AccountingOverview: React.FC = () => {
               className="px-3 py-1 border border-gray-300 rounded text-sm"
             />
           </div>
-          {user?.role === 'SuperAdmin' && (
+          {((user as any)?.role === 'SuperAdmin' || (user as any)?.type === 'SuperAdmin' || (user as any)?.isSuperAdmin === true) && (
             <div className="flex items-center space-x-2">
               <label className="text-sm text-gray-600">Branch:</label>
               <select
@@ -242,7 +248,7 @@ const AccountingOverview: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <CreditCard className="w-6 h-6 text-blue-600" />
+              <DollarSign className="w-6 h-6 text-blue-600" />
             </div>
             <div>
               <p className="text-sm text-gray-600">Transactions</p>
@@ -257,6 +263,10 @@ const AccountingOverview: React.FC = () => {
       {/* Recent Transactions */}
       <div className="bg-white rounded-lg shadow-sm border">
         <div className="p-6 border-b border-gray-200">
+            {/* Balance Sheet modal */}
+            {showBalance && (
+              <BalanceSheet onClose={() => setShowBalance(false)} branch={selectedBranch || undefined} />
+            )}
           <h2 className="text-lg font-semibold text-gray-900">Recent Transactions</h2>
         </div>
         <div className="overflow-x-auto">
@@ -283,6 +293,9 @@ const AccountingOverview: React.FC = () => {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Recorded By
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Linked
                 </th>
               </tr>
             </thead>
@@ -312,6 +325,13 @@ const AccountingOverview: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {transaction.registeredBy?.name || '—'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    { (transaction as any).linkedStudent || (transaction as any).linkedStaff ? (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Linked</span>
+                    ) : (
+                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Unlinked</span>
+                    ) }
                   </td>
                 </tr>
               ))}

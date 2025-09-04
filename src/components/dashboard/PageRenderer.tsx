@@ -5,6 +5,7 @@ import { useNavigation } from '../../context/NavigationContext';
 import { AllStudentsPage } from '../pages/students/AllStudentsPage';
 import StudentsPage from '../pages/students/StudentsPage';
 import { StudentRegistrationPage } from '../pages/students/StudentRegistrationPage';
+import TuitionStatusPage from '../pages/students/TuitionStatusPage';
 import { AllBranchesPage } from '../pages/branches/AllBranchesPage';
 import { CreateBranchPage } from '../pages/branches/CreateBranchPage';
 import BranchesPage from '../pages/branches/BranchesPage';
@@ -29,6 +30,8 @@ import AccountingOverview from '../pages/accounting/AccountingOverview';
 import TransactionsPage from '../pages/accounting/TransactionsPage';
 import CategoriesPage from '../pages/accounting/CategoriesPage';
 import ReportsPage from '../pages/accounting/ReportsPage';
+import PaymentPlansPage from '../pages/accounting/PaymentPlansPage';
+import TuitionPlansPage from '../pages/accounting/TuitionPlansPage';
 import StaffDirectory from '../pages/hr/StaffDirectory';
 import PayrollPage from '../pages/hr/PayrollPage';
 import SettingsPage from './SettingsPage';
@@ -43,6 +46,9 @@ export const PageRenderer: React.FC = () => {
         return <StudentsPage />;
       case 'student-registration':
         return <StudentRegistrationPage />;
+      case 'tuition-management':
+      case 'tuition-status':
+        return <TuitionStatusPage />;
       
       // Branches
       case 'view-branches':
@@ -82,6 +88,10 @@ export const PageRenderer: React.FC = () => {
         return <TransactionsPage />;
       case 'categories':
         return <CategoriesPage />;
+      case 'payment-plans':
+        return <PaymentPlansPage />;
+      case 'tuition-plans':
+        return <TuitionPlansPage />;
       case 'reports':
         return <ReportsPage />;
 

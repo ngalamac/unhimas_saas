@@ -22,6 +22,19 @@ export interface IStudent extends Document {
   level?: string | number;
   session?: string;
   tuitionStatus: 'Paid' | 'Partial' | 'Pending' | 'Overdue';
+  // tuition-related fields
+  tuitionPlan?: mongoose.Types.ObjectId;
+  balanceDue?: number;
+  totalPaid?: number;
+  payments?: mongoose.Types.ObjectId[];
+  tuitionInstallments?: Array<{
+    key?: string;
+    label?: string;
+    amountDue?: number;
+    paid?: number;
+    dueDate?: Date;
+    status?: 'Pending' | 'Partial' | 'Paid' | 'Overdue';
+  }>;
   guardian: IGuardian;
   studentId: string;
   identityHash?: string;
@@ -92,6 +105,23 @@ const StudentSchema: Schema = new Schema({
     default: 'Pending',
     required: true 
   },
+  // Tuition plan applied (optional) and summary fields
+  tuitionPlan: { type: Schema.Types.ObjectId, ref: 'TuitionPlan' },
+  // allow one or more paymentPlans assigned to a student
+  paymentPlans: [{ type: Schema.Types.ObjectId, ref: 'PaymentPlan' }],
+  balanceDue: { type: Number, default: 0 },
+  totalPaid: { type: Number, default: 0 },
+  // store recent payments as references
+  payments: [{ type: Schema.Types.ObjectId, ref: 'TuitionTransaction' }],
+  // per-installment breakdown stored on student for fast access
+  tuitionInstallments: [{
+    key: { type: String },
+    label: { type: String },
+    amountDue: { type: Number, default: 0 },
+    paid: { type: Number, default: 0 },
+    dueDate: { type: Date },
+    status: { type: String, enum: ['Pending', 'Partial', 'Paid', 'Overdue'], default: 'Pending' }
+  }],
   identityHash: { type: String, index: { unique: true, sparse: true } },
   branch: { type: Schema.Types.ObjectId, ref: 'Branch', required: true },
   guardian: { type: GuardianSchema, required: true },
@@ -125,7 +155,8 @@ StudentSchema.index({ names: 'text', firstName: 'text', lastName: 'text' }); // 
 StudentSchema.index({ branch: 1, isActive: 1 });
 StudentSchema.index({ branch: 1, enrollmentStatus: 1 });
 
-StudentSchema.pre<IStudent>('save', function(next) {
+// Generate derived fields before validation so required checks see them
+StudentSchema.pre<IStudent>('validate', function(next) {
   this.names = `${this.firstName} ${this.lastName}`;
   if (!this.studentId) {
     this.studentId = `S-${Date.now().toString().slice(-6)}`;

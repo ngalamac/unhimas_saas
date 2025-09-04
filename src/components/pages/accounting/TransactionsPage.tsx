@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Filter, Download, Plus, Edit, Trash2, Eye } from 'lucide-react';
+import { Search, Download, Plus, Edit, Trash2 } from 'lucide-react';
 import TransactionForm from './TransactionForm';
 import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
@@ -37,8 +37,8 @@ const TransactionsPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Tx | null>(null);
 
-  const { user } = useAuth();
-  const { currentBranch } = useBranch();
+  useAuth();
+  useBranch();
 
   const fetchPage = async (p = 1) => {
     setLoading(true);
@@ -151,6 +151,7 @@ const TransactionsPage: React.FC = () => {
               onCreated={onCreated}
               onCancel={onCancel}
               initialData={editingTransaction}
+              showTrigger={false}
             />
           </div>
         </div>
@@ -186,11 +187,28 @@ const TransactionsPage: React.FC = () => {
             className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Categories</option>
-            <option value="Tuition Fees">Tuition Fees</option>
+            {/* Income */}
             <option value="Registration fees">Registration fees</option>
+            <option value="Tuition Fees">Tuition Fees</option>
+            <option value="Examination fees">Examination fees</option>
+            <option value="Internship fees">Internship fees</option>
+            <option value="Cafeteria income">Cafeteria income</option>
+            <option value="Donations, grants, and sponsorships">Donations, grants, and sponsorships</option>
+            <option value="Rent of Campus">Rent of Campus</option>
+            <option value="IT Boot camp">IT Boot camp</option>
+            <option value="Miscellaneous">Miscellaneous</option>
+            {/* Expense */}
             <option value="Payroll Expenses">Payroll Expenses</option>
             <option value="Utilities">Utilities</option>
-            <option value="Miscellaneous">Miscellaneous</option>
+            <option value="Publicity Expense">Publicity Expense</option>
+            <option value="Examination expenses">Examination expenses</option>
+            <option value="Repairs & maintenance">Repairs & maintenance</option>
+            <option value="Teaching materials">Teaching materials</option>
+            <option value="Laboratory supplies">Laboratory supplies</option>
+            <option value="internship expense">internship expense</option>
+            <option value="Transport">Transport</option>
+            <option value="Events & extracurricular activities">Events & extracurricular activities</option>
+            <option value="Administrative expenses">Administrative expenses</option>
           </select>
 
           <input

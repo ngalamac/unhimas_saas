@@ -73,11 +73,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     { id: 'programs-departments', label: 'Academics', icon: <School className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'programs', label: 'Programs', icon: <GraduationCap className="w-3 h-3" /> }, { id: 'departments', label: 'Departments', icon: <Building2 className="w-3 h-3" /> }, { id: 'courses', label: 'Courses', icon: <BookOpen className="w-3 h-3" /> }, { id: 'grading-system', label: 'Grading System', icon: <FileText className="w-3 h-3" /> }, { id: 'progress-report', label: 'Progress Reports', icon: <FileText className="w-3 h-3" /> } ] },
 
     // Students & Admissions
-    { id: 'students', label: 'Students', icon: <Users className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'all-students', label: 'All Students', icon: <Users className="w-3 h-3" /> }, { id: 'student-registration', label: 'Register Student', icon: <UserPlus className="w-3 h-3" /> }, { id: 'tuition-status', label: 'Tuition Status', icon: <DollarSign className="w-3 h-3" /> } ] },
+  { id: 'students', label: 'Students', icon: <Users className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'all-students', label: 'All Students', icon: <Users className="w-3 h-3" /> }, { id: 'student-registration', label: 'Register Student', icon: <UserPlus className="w-3 h-3" /> }, { id: 'tuition-management', label: 'Tuition Management', icon: <DollarSign className="w-3 h-3" /> } ] },
     { id: 'admissions', label: 'Admissions', icon: <UserPlus className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'admission-applications', label: 'Applications', icon: <FileText className="w-3 h-3" /> }, { id: 'admission-payments', label: 'Payments', icon: <CreditCard className="w-3 h-3" /> }, { id: 'admission-status', label: 'Admission Status', icon: <UserCheck className="w-3 h-3" /> } ] },
 
   // Finance
   { id: 'accounting', label: 'Accounting', icon: <DollarSign className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'accounting-overview', label: 'Dashboard', icon: <BarChart3 className="w-3 h-3" /> }, { id: 'transactions', label: 'Transactions', icon: <FileText className="w-3 h-3" /> }, { id: 'categories', label: 'Categories', icon: <BookOpen className="w-3 h-3" /> }, { id: 'reports', label: 'Reports', icon: <FileText className="w-3 h-3" /> } ] },
+  { id: 'accounting', label: 'Accounting', icon: <DollarSign className="w-4 h-4" />, hasSubmenu: true, submenuItems: [ { id: 'accounting-overview', label: 'Dashboard', icon: <BarChart3 className="w-3 h-3" /> }, { id: 'transactions', label: 'Transactions', icon: <FileText className="w-3 h-3" /> }, { id: 'categories', label: 'Categories', icon: <BookOpen className="w-3 h-3" /> }, { id: 'reports', label: 'Reports', icon: <FileText className="w-3 h-3" /> }, { id: 'payment-plans', label: 'Payment Plans', icon: <CreditCard className="w-3 h-3" /> }, { id: 'tuition-plans', label: 'Tuition Plans', icon: <School className="w-3 h-3" /> } ] },
 
     // Human Resources
     { id: 'human-resources', label: 'Human Resources', icon: <Users className="w-4 h-4" />, hasSubmenu: true, requiredPermissions: ['staff:read','all'], submenuItems: [ { id: 'staff-management', label: 'Staff Directory', icon: <UserCheck className="w-3 h-3" /> }, { id: 'payroll', label: 'Payroll', icon: <DollarSign className="w-3 h-3" /> }, { id: 'id-card-management', label: 'ID Cards', icon: <IdCard className="w-3 h-3" /> } ] },
@@ -98,7 +99,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   // Get all user permissions as a flat array
   const getUserPermissions = () => {
     if (!user) return [];
-    if (user.permissions && (user.permissions.includes?.('all') || user.role === 'SuperAdmin')) return ['all'];
+  const isSuper = (user as any)?.role === 'SuperAdmin' || (user as any)?.type === 'SuperAdmin' || (user as any)?.isSuperAdmin === true;
+  if (user.permissions && (user.permissions.includes?.('all') || isSuper)) return ['all'];
     
     // AuthContext now provides permissions as an array of "feature:action" strings
     if (user.permissions && Array.isArray(user.permissions)) {
@@ -108,85 +110,49 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     return [];
   };
 
-  const userPermissions = getUserPermissions();
+  // Memoize userPermissions to avoid recalculating on every render
+  const userPermissions = React.useMemo(() => getUserPermissions(), [user]);
 
   // Fallback: Always show all sidebar items for SuperAdmin
   const [filteredSidebarItems, setFilteredSidebarItems] = useState<SidebarItem[]>(sidebarItems);
 
   useEffect(() => {
-    console.log('[Sidebar] User permissions debug:', {
-      user: user?.role,
-      userPermissions,
-      totalPermissions: userPermissions.length,
-      rawUserPermissions: user?.permissions,
-      userType: user?.role
-    });
-    
     let items = sidebarItems;
-    
+    // If developer toggle enabled, show all links regardless of permissions
+  // SuperAdmin always sees everything
     // SuperAdmin always sees everything
-    if (user?.role === 'SuperAdmin') {
+  const isSuperLocal = (user as any)?.role === 'SuperAdmin' || (user as any)?.type === 'SuperAdmin' || (user as any)?.isSuperAdmin === true;
+  if (isSuperLocal || userPermissions.includes('all')) {
       items = sidebarItems;
-      console.log('[Sidebar] SuperAdmin - showing all items');
-    } else if (userPermissions.includes('all')) {
-      items = sidebarItems;
-      console.log('[Sidebar] User has all permissions - showing all items');
     } else {
       // Filter items based on user permissions
       items = sidebarItems.filter(item => {
-        // If no permissions required, show the item
         if (!sidebarPermissionMap[item.id] || sidebarPermissionMap[item.id].length === 0) {
-          console.log(`[Sidebar] Item ${item.id} has no required permissions - showing`);
           return true;
         }
-        
-        // Check if user has any of the required permissions for this item
         const requiredPerms = sidebarPermissionMap[item.id];
-        const hasPermission = requiredPerms.some(requiredPerm => {
-          // Check if user has this specific permission
+        return requiredPerms.some(requiredPerm => {
           return userPermissions.some(userPerm => {
-            // Handle different permission formats
             if (userPerm === 'all') return true;
-            
-            // Normalize permissions for comparison
             const normalizedUserPerm = userPerm.toLowerCase();
             const normalizedRequiredPerm = requiredPerm.toLowerCase();
-            
-            // Direct match
             if (normalizedUserPerm === normalizedRequiredPerm) return true;
-            
-            // Check if user has the required permission pattern
-            // e.g., user has 'students:read' and item requires 'students:read'
-            if (normalizedUserPerm.includes(normalizedRequiredPerm) || 
-                normalizedRequiredPerm.includes(normalizedUserPerm)) {
+            if (normalizedUserPerm.includes(normalizedRequiredPerm) || normalizedRequiredPerm.includes(normalizedUserPerm)) {
               return true;
             }
-            
             return false;
           });
         });
-        
-        console.log(`[Sidebar] Item ${item.id} (${item.label}):`, {
-          requiredPerms,
-          userPermissions,
-          hasPermission
-        });
-        
-        return hasPermission;
       });
-      
-      console.log('[Sidebar] Filtered items:', items.map(item => item.label));
     }
-    
     setFilteredSidebarItems(items);
-    
-    // Auto-expand students menu for SuperAdmin or when viewing student pages
-    if (user?.role === 'SuperAdmin') {
+    // Only auto-expand students menu on mount or when user changes
+    if (isSuperLocal) {
       setExpandedItems(prev => prev.includes('students') ? prev : [...prev, 'students']);
-    } else if (['all-students', 'student-registration', 'student-details'].includes((window.location.hash || '').replace('#/', ''))) {
+  } else if (['all-students', 'student-registration', 'student-details', 'tuition-management'].includes((window.location.hash || '').replace('#/', ''))) {
       setExpandedItems(prev => prev.includes('students') ? prev : [...prev, 'students']);
     }
-  }, [user, userPermissions]);
+  }, [user]);
 
   return (
     <>
@@ -203,6 +169,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       } lg:translate-x-0 lg:static lg:z-auto w-64`}>
   {/* Header spacer (logo removed - branding handled in Header.tsx) */}
   <div className="p-4 border-b border-gray-200" />
+  <div className="px-4 py-2 text-xs text-gray-500 border-b">
+  <span>Sidebar</span>
+  </div>
         {/* Main Section */}
         <div className="p-4">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Main</h3>

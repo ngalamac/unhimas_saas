@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import fetchClient from '../../../lib/fetchClient';
 
 interface PayrollRun {
   id: string;
@@ -22,7 +23,7 @@ const PayrollPage: React.FC = () => {
   async function fetchAll() {
     try {
       setLoading(true);
-      const [pRes, sRes] = await Promise.all([fetch('/api/payroll'), fetch('/api/staff')]);
+  const [pRes, sRes] = await Promise.all([fetchClient.get('/api/payroll'), fetchClient.get('/api/staff')]);
       if (pRes.ok) {
         const pj = await pRes.json();
         setRuns(Array.isArray(pj.data || pj) ? (pj.data || pj).map((r: any) => ({ id: r._id || r.id, date: r.date || r.createdAt || '', staffId: r.staffId, staffName: r.staffName, amount: r.amount, notes: r.notes })) : []);
@@ -40,7 +41,7 @@ const PayrollPage: React.FC = () => {
   async function createRun() {
     try {
       if (!form.staffId || form.amount <= 0) { setError('Select staff and amount'); return; }
-      const res = await fetch('/api/payroll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ staffId: form.staffId, amount: form.amount, notes: form.notes }) });
+  const res = await fetchClient.postJson('/api/payroll', { staffId: form.staffId, amount: form.amount, notes: form.notes });
       if (!res.ok) throw new Error('Create failed');
       setForm({ staffId: '', amount: 0, notes: '' });
       setShowAdd(false);
@@ -51,7 +52,7 @@ const PayrollPage: React.FC = () => {
   async function remove(id: string) {
     if (!confirm('Delete payroll run?')) return;
     try {
-      const res = await fetch(`/api/payroll/${id}`, { method: 'DELETE' });
+  const res = await fetchClient.delete(`/api/payroll/${id}`);
       if (!res.ok) throw new Error('Delete failed');
       await fetchAll();
     } catch (err: any) { setError(err.message || 'Delete failed'); }

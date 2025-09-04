@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import fetchClient from '../../../lib/fetchClient';
 
 interface Account {
   _id?: string;
@@ -18,14 +19,14 @@ export const ChartOfAccountsPage: React.FC = () => {
   }, []);
 
   const fetchAccounts = async () => {
-    const res = await fetch('/api/accounts');
+    const res = await fetchClient.get('/api/accounts');
     if (res.ok) setAccounts(await res.json());
   };
 
   const create = async () => {
     if (!name) return;
-    const res = await fetch('/api/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, type }) });
-    if (res.ok) { setName(''); setType('asset'); fetchAccounts(); }
+  const res = await fetchClient.postJson('/api/accounts', { name, type });
+  if (res.ok) { setName(''); setType('asset'); fetchAccounts(); }
   };
 
   return (

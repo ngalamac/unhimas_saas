@@ -3,11 +3,13 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import authRouter from './routes/auth';
 import accountingRouter from './routes/accounting';
+import paymentPlansRouter from './routes/paymentPlans';
 import usersRouter from './routes/users';
 import branchesRouter from './routes/branches';
 import programsRouter from './routes/programs';
 import departmentsRouter from './routes/departments';
 import coursesRouter from './routes/courses';
+import tuitionRouter from './routes/tuition';
 import studentsRouter from './routes/students';
 import uploadsRouter from './routes/uploads';
 import communicationRouter from './routes/communication';
@@ -76,9 +78,11 @@ app.use('/api/programs', programsRouter);
 app.use('/api/departments', departmentsRouter);
 app.use('/api/courses', coursesRouter);
 app.use('/api/students', studentsRouter);
+app.use('/api/tuition', tuitionRouter);
 app.use('/api/staff', staffRouter);
 app.use('/api/payroll', payrollRouter);
 app.use('/api/accounting', accountingRouter);
+app.use('/api/payment-plans', paymentPlansRouter);
 // server-sent events for realtime updates
 app.get('/api/events', eventsHandler);
 // serve uploaded files

@@ -1,6 +1,6 @@
 import React from 'react';
 // Use public path for logo to ensure stable serving in production
-const unhimasLogo = '/unhimas-logo.png';
+const unhimasLogo = './src/assets/unhimas-logo.png';
 import { LoginForm } from './LoginForm';
 
 interface LoginSectionProps {

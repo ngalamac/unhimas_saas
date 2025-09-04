@@ -191,19 +191,46 @@ router.post('/import', requirePermission('accounting'), upload.single('file'), a
     const ext = path.extname(req.file.originalname || '').toLowerCase();
     const filePath = req.file.path;
     const created: any[] = [];
+    const errors: any[] = [];
 
-  if (ext === '.csv') {
+    const processRow = async (rowObj: any, lineNumber: number) => {
+      try {
+        const type = String(rowObj.type || '').toLowerCase();
+        const category = rowObj.category;
+        const amount = Number(rowObj.amount || 0);
+        const description = rowObj.description || '';
+        const date = rowObj.date ? new Date(rowObj.date) : new Date();
+
+        if (!type || !(type === 'income' || type === 'expense')) {
+          throw new Error('Invalid or missing type (must be "income" or "expense")');
+        }
+        if (!category) throw new Error('Missing category');
+        if (isNaN(amount) || amount <= 0) throw new Error('Invalid amount');
+
+        // basic category validation against known categories
+        if (!allAllowedCategories.has(String(category).toLowerCase())) {
+          throw new Error(`Unknown category: ${category}`);
+        }
+
+        const trx = new Transaction({ type, category, amount, description, date, staffId: rowObj.staffId || undefined, studentId: rowObj.studentId || undefined });
+        await trx.save();
+        created.push(trx);
+      } catch (e: any) {
+        errors.push({ line: lineNumber, error: e.message || String(e) });
+      }
+    };
+
+    if (ext === '.csv') {
       const csv = fs.readFileSync(filePath, 'utf8');
       const lines = csv.split(/\r?\n/).filter(Boolean);
       const headers = lines.shift()!.split(',').map(h => h.trim());
+      let lnNo = 1;
       for (const ln of lines) {
+        lnNo++;
         const cols = ln.split(',');
         const obj: any = {};
         headers.forEach((h, i) => obj[h] = cols[i]);
-        // expect fields: type,category,amount,description,date
-    const trx = new Transaction({ type: String(obj.type).toLowerCase(), category: obj.category, amount: Number(obj.amount), description: obj.description, date: obj.date || new Date(), staffId: obj.staffId || undefined, studentId: obj.studentId || undefined });
-        await trx.save();
-        created.push(trx);
+        await processRow(obj, lnNo);
       }
     } else {
       // try xlsx
@@ -217,15 +244,16 @@ router.post('/import', requirePermission('accounting'), upload.single('file'), a
         if (!row || row.length === 0) continue;
         const obj: any = {};
         headers.forEach((h: any, idx: number) => obj[h] = row[idx+1]);
-  const trx = new Transaction({ type: String(obj.type).toLowerCase(), category: obj.category, amount: Number(obj.amount), description: obj.description, date: obj.date || new Date(), staffId: obj.staffId || undefined, studentId: obj.studentId || undefined });
-        await trx.save();
-        created.push(trx);
+        await processRow(obj, i);
       }
     }
 
     // cleanup tmp file
     try { fs.unlinkSync(filePath); } catch {};
-    res.json({ created: created.length });
+
+    const result: any = { created: created.length };
+    if (errors.length > 0) result.errors = errors;
+    res.json(result);
   } catch (err) {
     console.error('POST /api/transactions/import error', err);
     res.status(500).json({ error: 'Failed to import transactions' });

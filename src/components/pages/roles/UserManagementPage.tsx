@@ -277,7 +277,7 @@ const UserManagementPage: React.FC = () => {
             <option value="Head Of Department">Head Of Department</option>
           </select>
 
-          {user?.role === 'SuperAdmin' && (
+            {((user as any)?.role === 'SuperAdmin' || (user as any)?.type === 'SuperAdmin' || (user as any)?.isSuperAdmin === true) && (
             <select
               value={filters.branch}
               onChange={(e) => setFilters(prev => ({ ...prev, branch: e.target.value }))}

@@ -1,11 +1,12 @@
 import { FC } from 'react';
-import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
 
 type Toast = {
   id: string;
   message: string;
   type?: 'success' | 'error' | 'warning' | 'info';
   duration?: number;
+  action?: { label: string; onClick: () => void };
 };
 
 const ToastContainer: FC<{ toasts: Toast[] }> = ({ toasts }) => {
@@ -46,6 +47,11 @@ const ToastContainer: FC<{ toasts: Toast[] }> = ({ toasts }) => {
         >
           {getToastIcon(t.type)}
           <div className="flex-1 text-sm font-medium">{t.message}</div>
+          {t.action && (
+            <button onClick={() => { try { t.action!.onClick(); } catch (e) {} }} className="ml-2 text-sm underline">
+              {t.action.label}
+            </button>
+          )}
         </div>
       ))}
     </div>

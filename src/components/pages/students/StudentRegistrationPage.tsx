@@ -4,6 +4,9 @@ import { getPrograms } from '../../../api/programs';
 import { getDepartments } from '../../../api/departments';
 import { createStudent } from '../../../api/students';
 import { getBranches } from '../../../api/branches';
+import { getTuitionPlans } from '../../../api/tuition';
+import { getPaymentPlans } from '../../../api/paymentPlans.ts';
+import fetchClient from '../../../lib/fetchClient';
 import { Program, Department } from '../../../types/school';
 import { Branch } from '../../../types/school';
 import { useBranch } from '../../../context/BranchContext';
@@ -24,11 +27,14 @@ export const StudentRegistrationPage: React.FC = () => {
     programId: '',
     departmentId: '',
     session: '',
+  regionOfOrigin: '',
+  academicYear: '',
     level: 1,
     profilePicture: '',
     guardianName: '',
     guardianAddress: '',
     guardianContact: ''
+  ,branchId: ''
   });
   const [region, setRegion] = useState('');
   const [imageWarning, setImageWarning] = useState('');
@@ -57,6 +63,9 @@ export const StudentRegistrationPage: React.FC = () => {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [tuitionPlans, setTuitionPlans] = useState<Array<any>>([]);
+  const [paymentPlans, setPaymentPlans] = useState<Array<any>>([]);
+  const [selectedPaymentPlans, setSelectedPaymentPlans] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
@@ -95,6 +104,8 @@ export const StudentRegistrationPage: React.FC = () => {
     getPrograms().then(setPrograms).catch(() => {});
     getDepartments().then(setDepartments).catch(() => {});
     getBranches().then(setBranches).catch(() => {});
+  getTuitionPlans().then(setTuitionPlans).catch(() => {});
+  getPaymentPlans().then(setPaymentPlans).catch(() => {});
     // prefill branch from context only when no draft provided
     if (!localStorage.getItem('studentFormDraft') && currentBranch) {
       setFormData(prev => ({ ...prev, branchId: (currentBranch as any)._id || (currentBranch as any).id || '' }));
@@ -218,6 +229,7 @@ export const StudentRegistrationPage: React.FC = () => {
     if (!formData.departmentId) errs.departmentId = 'Department is required';
   if (!formData.branchId) errs.branchId = 'Branch is required';
     if (!formData.session) errs.session = 'Session is required';
+  if (!formData.academicYear) errs.academicYear = 'Academic year is required';
     if (!formData.level || Number(formData.level) < 1) errs.level = 'Level is required';
     if (!formData.guardianName || !formData.guardianName.trim()) errs.guardianName = 'Guardian name is required';
     if (!formData.guardianContact || !formData.guardianContact.trim()) errs.guardianContact = 'Guardian contact is required';
@@ -259,14 +271,22 @@ export const StudentRegistrationPage: React.FC = () => {
       lastName: formData.lastName,
       dateOfBirth: formData.dateOfBirth,
       placeOfBirth: formData.placeOfBirth,
-      regionOfOrigin: '',
-  branch: formData.branchId,
+      // prefer explicit value from formData, fallback to local region state
+      regionOfOrigin: (formData as any).regionOfOrigin || region || '',
+      // branch expected as 'branch' by backend
+      branch: formData.branchId,
       phoneNumber: formData.phoneNumber,
       gender: (formData.gender as 'Male' | 'Female'),
       email: formData.email,
       program: formData.programId,
       department: formData.departmentId,
       profilePicture: formData.profilePicture,
+      // include academicYear; fallback to current batch range if not provided
+      academicYear: (formData as any).academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+  // include tuitionPlan id if selected
+  tuitionPlan: (formData as any).tuitionPlanId || undefined,
+      // include any selected payment plan ids
+      paymentPlans: selectedPaymentPlans.length ? selectedPaymentPlans : undefined,
       guardian: {
         name: formData.guardianName,
         address: formData.guardianAddress,
@@ -279,7 +299,9 @@ export const StudentRegistrationPage: React.FC = () => {
           setUploading(true);
           const form = new FormData();
           form.append('file', selectedFile);
-          const resp = await fetch('/api/uploads/profile', { method: 'POST', body: form });
+          // attach Authorization header if token present
+          const token = fetchClient.getAuthToken ? fetchClient.getAuthToken() : null;
+          const resp = await fetch('/api/uploads/profile', { method: 'POST', body: form, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
           setUploading(false);
           if (!resp.ok) {
             // try to parse JSON error body, fall back to text
@@ -355,11 +377,14 @@ export const StudentRegistrationPage: React.FC = () => {
     programId: '',
     departmentId: '',
     session: '',
-    level: 1,
-    profilePicture: '',
+  regionOfOrigin: '',
+  academicYear: '',
+  level: 1,
+  profilePicture: '',
     guardianName: '',
     guardianAddress: '',
     guardianContact: ''
+  ,branchId: ''
   });
   setThumbnail(null);
   setSelectedFile(null);
@@ -603,8 +628,8 @@ export const StudentRegistrationPage: React.FC = () => {
                     required
                   >
                     <option value="">Select Branch</option>
-                    {branches.map(b => (
-                      <option key={b._id || (b as any).id} value={(b._id || (b as any).id) as string}>{b.name}</option>
+                    {Array.isArray(branches) && branches.map(b => (
+                      <option key={(b as any)._id || (b as any).id} value={((b as any)._id || (b as any).id) as string}>{(b as any).name}</option>
                     ))}
                   </select>
                   {errors.branchId && <p className="text-sm text-red-600 mt-1">{errors.branchId}</p>}
@@ -644,6 +669,42 @@ export const StudentRegistrationPage: React.FC = () => {
               {errors.departmentId && <p className="text-sm text-red-600 mt-1">{errors.departmentId}</p>}
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tuition Plan (optional)</label>
+              <select
+                name="tuitionPlanId"
+                value={(formData as any).tuitionPlanId || ''}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Use default / none</option>
+                {tuitionPlans.map((p: any) => (
+                  <option key={p._id || p.id} value={(p._id || p.id) as string}>
+                    {p.academicYear ? `${p.academicYear} - ` : ''}{p.program && p.program.name ? p.program.name : (p.department && p.department.name ? p.department.name : `Plan ${p._id}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Plans (optional)</label>
+              <div className="border rounded">
+                <div className="p-2 space-y-1 max-h-36 overflow-auto">
+                  {paymentPlans.length === 0 && <div className="text-sm text-gray-500">No payment plans available</div>}
+                  {paymentPlans.map(pp => (
+                    <label key={(pp._id || pp.id)} className="flex items-center space-x-2 px-2 py-1">
+                      <input type="checkbox" value={(pp._id || pp.id)} checked={selectedPaymentPlans.includes((pp._id || pp.id) as string)} onChange={(e) => {
+                        const id = String(e.target.value);
+                        setSelectedPaymentPlans(prev => e.target.checked ? [...prev, id] : prev.filter(p => p !== id));
+                      }} />
+                      <div className="text-sm">
+                        <div className="font-medium">{pp.name}</div>
+                        <div className="text-xs text-gray-500">{pp.description || ''} — {pp.targetAmount} XAF</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Session *</label>
               <select
                 name="session"
@@ -657,6 +718,24 @@ export const StudentRegistrationPage: React.FC = () => {
                 <option value="Evening">Evening</option>
               </select>
               {errors.session && <p className="text-sm text-red-600 mt-1">{errors.session}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year *</label>
+              <select
+                name="academicYear"
+                value={(formData as any).academicYear || ''}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Select Academic Year</option>
+                {(() => {
+                  const y = new Date().getFullYear();
+                  const opts = [ `${y}-${y+1}`, `${y-1}-${y}`, `${y+1}-${y+2}` ];
+                  return opts.map(o => <option key={o} value={o}>{o}</option>);
+                })()}
+              </select>
+              {errors.academicYear && <p className="text-sm text-red-600 mt-1">{errors.academicYear}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Level *</label>

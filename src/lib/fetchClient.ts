@@ -52,11 +52,8 @@ export async function get(path: string, options: any = {}) {
       ...options
     });
     
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
-    
-    return res;
+  // Return response even when not ok so callers can inspect body and status
+  return res;
   } catch (e) {
     try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
     throw e;
@@ -81,11 +78,8 @@ export async function put(path: string, body: any, options: any = {}) {
       ...options
     });
     
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
-    
-    return res;
+  // Return response even when not ok so callers can inspect body and status
+  return res;
   } catch (e) {
     try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
     throw e;
@@ -109,11 +103,8 @@ export async function del(path: string, options: any = {}) {
       ...options
     });
     
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
-    
-    return res;
+  // Return response even when not ok so callers can inspect body and status
+  return res;
   } catch (e) {
     try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
     throw e;
@@ -130,4 +121,4 @@ export function openWithAuth(url: string) {
   window.open(url, '_blank');
 }
 
-export default { getAuthToken, postJson, get, put, delete: del, openWithAuth };
+export default { getAuthToken, postJson, post: postJson, get, put, delete: del, openWithAuth };

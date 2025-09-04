@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Building2, MapPin, Phone, Mail, Eye, Edit, Trash2, Plus, Search, Filter, Users, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Branch } from '../../../types/school';
 import { getBranches, updateBranch, deleteBranch } from '../../../api/branches';
+import fetchClient from '../../../lib/fetchClient';
 
 export const AllBranchesPage: React.FC = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -22,7 +23,7 @@ export const AllBranchesPage: React.FC = () => {
     // fetch potential branch managers (Admins)
     const fetchManagers = async () => {
       try {
-        const res = await fetch('/api/users?type=Admin');
+    const res = await fetchClient.get('/api/users?type=Admin');
         const data = await res.json();
         setManagers(Array.isArray(data) ? data : []);
       } catch {
@@ -495,11 +496,7 @@ export const AllBranchesPage: React.FC = () => {
                       payload.manager = payload.managerId;
                     }
                     delete payload.managerId;
-                    const res = await fetch(`/api/branches/${(branchToEdit as any)._id}`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(payload)
-                    });
+                    const res = await fetchClient.put(`/api/branches/${(branchToEdit as any)._id}`, payload);
                     if (res.ok) {
                       const updated = await res.json();
                       setBranches(prev => prev.map(b => (b as any)._id === (branchToEdit as any)._id ? updated : b));

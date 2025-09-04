@@ -1,5 +1,9 @@
 import express from 'express';
 import Student from '../models/Student';
+import TuitionPlan from '../models/TuitionPlan';
+import PaymentPlan from '../models/PaymentPlan';
+import TuitionTransaction from '../models/TuitionTransaction';
+import Transaction from '../models/Transaction';
 import BranchModel from '../models/BranchModel';
 import mongoose from 'mongoose';
 import authMiddleware, { AuthRequest, requirePermission, requireBranchAccess } from '../middleware/auth';
@@ -428,6 +432,80 @@ router.post('/', authMiddleware, requirePermission('students'), requireBranchAcc
     createdBy: req.user?.id,
     branch: req.body.branch
   };
+
+  // If a tuitionPlan was provided in the payload, attempt to initialize
+  // per-student tuitionInstallments from the plan so the student document
+  // starts with installment breakdowns, totals and statuses.
+  if (studentData.tuitionPlan) {
+    // normalize tuitionPlan id
+    let tuitionPlanId = '';
+    if (typeof studentData.tuitionPlan === 'string') tuitionPlanId = studentData.tuitionPlan;
+    else if (studentData.tuitionPlan && typeof studentData.tuitionPlan === 'object') {
+      tuitionPlanId = String((studentData.tuitionPlan as any)._id || (studentData.tuitionPlan as any).id || studentData.tuitionPlan);
+    } else {
+      tuitionPlanId = String(studentData.tuitionPlan || '');
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(String(tuitionPlanId))) {
+      return res.status(400).json({ message: 'Invalid tuitionPlan id' });
+    }
+
+    const plan = await TuitionPlan.findById(String(tuitionPlanId));
+    if (!plan) return res.status(400).json({ message: 'Provided tuitionPlan does not exist' });
+
+    const installments = (plan.installments || []).map((it: any) => ({
+      key: it.key,
+      label: it.label || '',
+      amountDue: Number(it.amount || 0),
+      paid: 0,
+      dueDate: it.dueDate || null,
+      status: 'Pending'
+    }));
+
+    studentData.tuitionInstallments = installments;
+    studentData.totalPaid = 0;
+    studentData.balanceDue = installments.reduce((s: number, it: any) => s + (it.amountDue || 0), 0);
+  }
+  
+  // If one or more paymentPlans were provided, fetch them and initialize
+  // per-student installments derived from each selected PaymentPlan. Each
+  // PaymentPlan becomes a single installment entry (labelled with the plan
+  // name) whose amountDue is the plan.targetAmount. This keeps the model
+  // simple: paymentPlans act like named invoice items.
+  if (studentData.paymentPlans && Array.isArray(studentData.paymentPlans) && studentData.paymentPlans.length) {
+    // coerce ids to strings and validate
+    const ids = (studentData.paymentPlans || []).map((p: any) => {
+      if (typeof p === 'string') return p;
+      if (p && typeof p === 'object') return String(p._id || p.id || p);
+      return String(p || '');
+    }).filter((x: string) => x && mongoose.Types.ObjectId.isValid(x));
+
+    if (!ids.length) return res.status(400).json({ message: 'No valid paymentPlan ids provided' });
+
+    const plans = await PaymentPlan.find({ _id: { $in: ids } });
+    if (!plans || !plans.length) return res.status(400).json({ message: 'Provided paymentPlans do not exist' });
+
+    // Build installments from plans
+    const planInstallments = plans.map((pl: any) => ({
+      key: `plan_${pl._id}`,
+      label: pl.name || `Plan ${pl._id}`,
+      amountDue: Number(pl.targetAmount || 0),
+      paid: 0,
+      dueDate: pl.dueDate || null,
+      status: 'Pending'
+    }));
+
+    // If tuitionInstallments already set from tuitionPlan, append; otherwise assign
+    if (studentData.tuitionInstallments && Array.isArray(studentData.tuitionInstallments) && studentData.tuitionInstallments.length) {
+      studentData.tuitionInstallments = studentData.tuitionInstallments.concat(planInstallments);
+    } else {
+      studentData.tuitionInstallments = planInstallments;
+    }
+
+    // Recompute totals
+    studentData.totalPaid = 0;
+    studentData.balanceDue = (studentData.tuitionInstallments || []).reduce((s: number, it: any) => s + (it.amountDue || 0), 0);
+  }
   
   // ensure profilePicture is a URL if provided
   if (studentData.profilePicture && typeof studentData.profilePicture !== 'string') {
@@ -466,6 +544,116 @@ router.get('/:id', authMiddleware, requirePermission('students'), requireBranchA
     return res.status(500).json({ message: 'Failed to fetch student' });
   }
 });
+
+// Return tuition summary for a student
+router.get('/:id/tuition', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
+  try {
+    const student = await Student.findById(req.params.id).populate('tuitionPlan payments');
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    // If student has a plan, compute expected totals per installment
+    let plan = null;
+    if (student.tuitionPlan) plan = await TuitionPlan.findById(student.tuitionPlan);
+
+    return res.json({ student, plan });
+  } catch (e) {
+    console.error('Error fetching tuition summary:', e);
+    return res.status(500).json({ message: 'Failed to fetch tuition summary' });
+  }
+});
+
+// Record a payment for student
+router.post('/:id/payments', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
+  try {
+    const { amount, currency, installmentKey, method, notes } = req.body;
+    if (!amount || Number(amount) <= 0) return res.status(400).json({ message: 'amount is required' });
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+      // compute expected remaining for the chosen installment (if any)
+      let expectedRemaining: number | null = null;
+      if (installmentKey) {
+        const ins = (student.tuitionInstallments || []).find((i: any) => i.key === installmentKey);
+        if (ins) {
+          expectedRemaining = Math.max(0, (ins.amountDue || 0) - (ins.paid || 0));
+        }
+      }
+      const isAdv = expectedRemaining !== null && Number(amount) < (expectedRemaining || 0);
+      const tx = new TuitionTransaction({ student: student._id, amount: Number(amount), currency: currency || 'XAF', installmentKey, method, notes, createdBy: req.user?.id, isAdvance: Boolean(isAdv), expectedAmount: expectedRemaining });
+      await tx.save();
+
+      // Apply payment: if installmentKey provided, apply there; otherwise apply to earliest unpaid installment
+      let remaining = Number(amount);
+      const installments = student.tuitionInstallments || [];
+      if (installmentKey) {
+        const ins = installments.find(i => i.key === installmentKey);
+        if (ins) {
+          const toApply = Math.min(remaining, Math.max(0, (ins.amountDue || 0) - (ins.paid || 0)));
+          ins.paid = (ins.paid || 0) + toApply;
+          remaining -= toApply;
+          ins.status = ins.paid >= (ins.amountDue || 0) ? 'Paid' : 'Partial';
+        }
+      }
+      // apply remaining amount to earliest unpaid installments
+      for (const ins of installments) {
+        if (remaining <= 0) break;
+        const due = (ins.amountDue || 0) - (ins.paid || 0);
+        if (due <= 0) continue;
+        const apply = Math.min(remaining, due);
+        ins.paid = (ins.paid || 0) + apply;
+        remaining -= apply;
+        ins.status = ins.paid >= (ins.amountDue || 0) ? 'Paid' : 'Partial';
+      }
+
+      // Update student totals from installments
+      student.totalPaid = (student.tuitionInstallments || []).reduce((s, it) => s + (it.paid || 0), 0);
+      student.balanceDue = (student.tuitionInstallments || []).reduce((s, it) => s + ((it.amountDue || 0) - (it.paid || 0)), 0);
+      student.payments = student.payments || [];
+      student.payments.push(tx._id);
+      // mark overdue installments whose dueDate has passed and not fully paid
+      const now = new Date();
+      for (const ins of student.tuitionInstallments || []) {
+        if (ins.status !== 'Paid' && ins.dueDate && new Date(ins.dueDate) < now) {
+          ins.status = 'Overdue';
+        }
+      }
+      // update overall tuitionStatus
+      if ((student.balanceDue || 0) <= 0) student.tuitionStatus = 'Paid';
+      else if ((student.tuitionInstallments || []).some(i => i.status === 'Overdue')) student.tuitionStatus = 'Overdue';
+      else if ((student.totalPaid || 0) > 0) student.tuitionStatus = 'Partial';
+      else student.tuitionStatus = 'Pending';
+
+      await student.save();
+
+    // Also create an accounting transaction so the accounting page reflects this payment
+    try {
+      const creator = req.user ? { id: req.user.id || null, name: (req.user as any).name || null, email: (req.user as any).email || null } : 'system';
+      const acctDesc = `Tuition payment for ${student.names || student.studentId}${notes ? ` — ${notes}` : ''}`;
+      const acctTx = new Transaction({
+        type: 'income',
+        category: 'Tuition Fees',
+        amount: Number(amount),
+        description: acctDesc,
+        date: tx.createdAt || new Date(),
+        studentId: student._id,
+        createdBy: creator,
+        createdAt: new Date()
+      });
+      await acctTx.save();
+      try { emitEvent('accounting.transaction.created', { transaction: acctTx, studentId: student._id }); } catch (e) {}
+    } catch (acctErr) {
+      console.error('Failed to create accounting transaction for tuition payment:', acctErr);
+      // Don't fail the overall payment flow if accounting entry fails; just log
+    }
+
+    try { emitEvent('student.tuition.paid', { student: student._id, tx }); } catch (e) {}
+    res.status(201).json({ tx, student });
+  } catch (e) {
+    console.error('Error recording payment:', e);
+    return res.status(500).json({ message: 'Failed to record payment' });
+  }
+});
+
 
 router.put('/:id', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
   try {
@@ -531,6 +719,54 @@ router.delete('/:id', authMiddleware, requirePermission('students'), requireBran
   } catch (e) {
     console.error('Error deleting student:', e);
     return res.status(500).json({ message: 'Failed to delete student' });
+  }
+});
+
+// Restore a soft-deleted student
+router.post('/:id/restore', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
+  try {
+    const existing = await Student.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Student not found' });
+
+    // If already active, return the student
+    if (existing.isActive) {
+      return res.json(existing);
+    }
+
+    const updated = await Student.findByIdAndUpdate(req.params.id, { isActive: true, lastModifiedBy: req.user?.id }, { new: true })
+      .populate('program department branch createdBy lastModifiedBy');
+
+    // Update branch student count if applicable
+    if (existing.branch) {
+      try { await BranchModel.findByIdAndUpdate(existing.branch, { $inc: { studentCount: 1 } }); } catch (e) { console.error('Failed to increment branch count on restore', e); }
+    }
+
+    try { emitEvent('student.restored', { id: req.params.id, student: updated }); } catch (e) {}
+    return res.json(updated);
+  } catch (e) {
+    console.error('Error restoring student:', e);
+    return res.status(500).json({ message: 'Failed to restore student' });
+  }
+});
+
+// Update enrollment status (allow partial update for enrollment changes)
+router.post('/:id/enrollment', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
+  try {
+    const { enrollmentStatus } = req.body;
+    const allowed = ['Active', 'Suspended', 'Graduated', 'Withdrawn'];
+    if (!enrollmentStatus || !allowed.includes(String(enrollmentStatus))) {
+      return res.status(400).json({ message: 'Invalid or missing enrollmentStatus' });
+    }
+
+    const updated = await Student.findByIdAndUpdate(req.params.id, { enrollmentStatus: String(enrollmentStatus), lastModifiedBy: req.user?.id }, { new: true })
+      .populate('program department branch createdBy lastModifiedBy');
+
+    if (!updated) return res.status(404).json({ message: 'Student not found' });
+    try { emitEvent('student.enrollment.updated', { id: req.params.id, enrollmentStatus }); } catch (e) {}
+    return res.json(updated);
+  } catch (e) {
+    console.error('Error updating enrollment status:', e);
+    return res.status(500).json({ message: 'Failed to update enrollment status' });
   }
 });
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import fetchClient from '../../../lib/fetchClient';
 import { Plus, Search } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { formatXAF } from '../../../utils/currency';
@@ -13,6 +14,9 @@ interface Transaction {
   date: string;
   reference?: string;
   createdBy?: string;
+}
+
+const OfficeAccountingPage: React.FC = () => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const { setCurrentPage, setBreadcrumb } = useNavigation();
     const [loading, setLoading] = useState(false);
@@ -42,7 +46,7 @@ interface Transaction {
     const fetchTransactions = async (p = 1) => {
       try {
         setLoading(true);
-        const resp = await fetch(`/api/transactions?page=${p}&limit=${limit}`);
+        const resp = await fetchClient.get(`/api/transactions?page=${p}&limit=${limit}`);
         if (!resp.ok) throw new Error('Failed to load transactions');
         const wrapper = await resp.json();
         const data = wrapper.data || [];
@@ -81,11 +85,11 @@ interface Transaction {
     const totalExpenses = transactions.filter(t => t.type === 'Expense').reduce((s, t) => s + t.amount, 0);
     const net = totalIncome - totalExpenses;
 
-    const formatCurrency = (amount: number) => formatXAF(amount);
+  const formatCurrency = (amount: number) => formatXAF(amount);
 
-    return (
-      <div className="p-4 md:p-6 h-[calc(100vh-96px)] flex flex-col space-y-4">
-        {/* Top row: compact KPIs (left) + centered toolbar + actions (right) */}
+  return (
+    <>
+    {/* Top row: compact KPIs (left) + centered toolbar + actions (right) */}
         <div className="flex items-start space-x-4">
           <div className="flex-shrink-0 hidden lg:flex lg:space-x-3">
             <div className="bg-white p-3 rounded shadow-sm border w-48">
@@ -141,7 +145,7 @@ interface Transaction {
                   try {
                     if (exportFormat === 'email') {
                       if (!exportEmail) { setError('Provide email'); return; }
-                      const resp = await fetch(`/api/transactions/export?format=email&email=${encodeURIComponent(exportEmail)}`);
+                      const resp = await fetchClient.get(`/api/transactions/export?format=email&email=${encodeURIComponent(exportEmail)}`);
                       if (!resp.ok) throw new Error('Email failed');
                       setError('Email queued');
                     } else {
@@ -156,7 +160,7 @@ interface Transaction {
                 <button onClick={async () => {
                   if (!importFile) { setError('Select file'); return; }
                   const fd = new FormData(); fd.append('file', importFile);
-                  try { const res = await fetch('/api/transactions/import', { method: 'POST', body: fd }); if (!res.ok) throw new Error('Import failed'); const j = await res.json(); setError(`Imported ${j.created || j.created.length || j.created} records`); await fetchTransactions(1); } catch (err: any) { setError(err.message || 'Import failed'); }
+                      try { const res = await fetchClient.postJson('/api/transactions/import', fd as any); if (!res.ok) throw new Error('Import failed'); const j = await res.json(); setError(`Imported ${j.created || j.created.length || j.created} records`); await fetchTransactions(1); } catch (err: any) { setError(err.message || 'Import failed'); }
                 }} className="px-3 py-1 bg-green-600 text-white rounded text-sm">Upload</button>
               </div>
             </div>
@@ -212,7 +216,7 @@ interface Transaction {
                         <button onClick={async () => {
                           if (!transaction._id) return;
                           if (!confirm('Delete this transaction?')) return;
-                          try { const resp = await fetch(`/api/transactions/${transaction._id}`, { method: 'DELETE' }); if (!resp.ok) throw new Error('Delete failed'); await fetchTransactions(1); } catch (err: any) { setError(err.message || 'Delete failed'); }
+                          try { const resp = await fetchClient.delete(`/api/transactions/${transaction._id}`); if (!resp.ok) throw new Error('Delete failed'); await fetchTransactions(1); } catch (err: any) { setError(err.message || 'Delete failed'); }
                         }} className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">Delete</button>
                       </div>
                     </td>
@@ -271,7 +275,7 @@ interface Transaction {
                   if (!newTransaction.category || newTransaction.amount <= 0 || !newTransaction.description) { setError('Please fill required fields'); return; }
                   try {
                     const payload = { type: newTransaction.type.toLowerCase(), category: newTransaction.category, amount: newTransaction.amount, description: newTransaction.description, date: newTransaction.date };
-                    const res = await fetch('/api/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    const res = await fetchClient.postJson('/api/transactions', payload);
                     if (!res.ok) throw new Error('Failed to add transaction');
                     await fetchTransactions(1);
                     setShowAddForm(false);
@@ -319,15 +323,23 @@ interface Transaction {
               <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
                 <button onClick={() => { setShowEditForm(false); setEditTransaction(null); }} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg">Cancel</button>
                 <button onClick={async () => {
-                  if (!editTransaction || !editTransaction._id) return; try { const payload: any = { type: editTransaction.type.toLowerCase(), category: editTransaction.category, amount: editTransaction.amount, description: editTransaction.description, date: editTransaction.date }; const res = await fetch(`/api/transactions/${editTransaction._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!res.ok) throw new Error('Failed to update transaction'); setShowEditForm(false); setEditTransaction(null); await fetchTransactions(1); } catch (err: any) { console.error(err); setError(err.message || 'Update failed'); }
+                  if (!editTransaction || !editTransaction._id) return;
+                  try {
+                    const payload: any = { type: editTransaction.type.toLowerCase(), category: editTransaction.category, amount: editTransaction.amount, description: editTransaction.description, date: editTransaction.date };
+                    const res = await fetchClient.put(`/api/transactions/${editTransaction._id}`, payload);
+                    if (!res.ok) throw new Error('Failed to update transaction');
+                    setShowEditForm(false);
+                    setEditTransaction(null);
+                    await fetchTransactions(1);
+                  } catch (err: any) { console.error(err); setError(err.message || 'Update failed'); }
                 }} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Save Changes</button>
               </div>
             </div>
           </div>
         )}
       </div>
+      </>
     );
-  };
-    </div>
-  );
 };
+
+export default OfficeAccountingPage;

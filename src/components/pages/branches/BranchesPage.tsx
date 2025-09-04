@@ -54,6 +54,7 @@ export const BranchesPage: React.FC = () => {
   const { user } = useAuth();
   const { selectedBranch } = useBranch();
   const { showToast } = useUI();
+  const isSuperAdmin = (user as any)?.role === 'SuperAdmin' || (user as any)?.type === 'SuperAdmin';
   
   const [branches, setBranches] = useState<Branch[]>([]);
   const [stats, setStats] = useState<BranchStats | null>(null);
@@ -79,6 +80,9 @@ export const BranchesPage: React.FC = () => {
   const [selectedBranchForModal, setSelectedBranchForModal] = useState<Branch | null>(null);
   const [availableManagers, setAvailableManagers] = useState<Array<{_id: string; name: string; email: string}>>([]);
   const [loadingManagers, setLoadingManagers] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
+  const [branchToDeleteStats, setBranchToDeleteStats] = useState<{ studentCount: number; staffCount: number } | null>(null);
 
   // Fetch available managers for branch assignment
   const fetchAvailableManagers = async () => {
@@ -155,7 +159,7 @@ export const BranchesPage: React.FC = () => {
         description: formData.get('description') as string,
       };
 
-      const response = await fetchClient.post('/api/branches', branchData);
+  const response = await fetchClient.postJson('/api/branches', branchData);
       if (response.ok) {
         showToast('Branch created successfully!', 'success');
         setShowCreateModal(false);
@@ -163,9 +167,11 @@ export const BranchesPage: React.FC = () => {
         fetchStats();
       } else {
         const errorData = await response.json();
+        console.error('Branch creation failed:', errorData); // Log full error response
         showToast(errorData.error || 'Failed to create branch', 'error');
       }
     } catch (err: any) {
+      console.error('Branch creation exception:', err); // Log exception
       showToast(err.message || 'Failed to create branch', 'error');
     }
   };
@@ -217,6 +223,24 @@ export const BranchesPage: React.FC = () => {
     }
 
     try {
+      // Pre-check branch stats to avoid backend 400 when branch still has students/staff
+      const statsRes = await fetchClient.get(`/api/branches/${branchId}/stats`);
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        const studentCount = statsData.studentCount || 0;
+        const staffCount = statsData.staffCount || 0;
+        if (studentCount > 0 || staffCount > 0) {
+          showToast(`Cannot delete branch. It has ${studentCount} students and ${staffCount} staff members. Please reassign them first.`, 'error');
+          return;
+        }
+      } else {
+        // If we couldn't get stats, show the backend message (if any) and abort
+        const err = await statsRes.json().catch(() => ({}));
+        showToast(err.error || 'Unable to verify branch usage before delete', 'error');
+        return;
+      }
+
+      // Proceed with delete (safe now)
       const response = await fetchClient.delete(`/api/branches/${branchId}`);
       if (response.ok) {
         showToast('Branch deleted successfully!', 'success');
@@ -229,6 +253,15 @@ export const BranchesPage: React.FC = () => {
     } catch (err: any) {
       showToast(err.message || 'Failed to delete branch', 'error');
     }
+  };
+
+  const confirmDeleteSelectedBranch = async () => {
+    if (!branchToDelete) return;
+    // call the same handler
+    await handleDeleteBranch(branchToDelete._id);
+    setShowDeleteModal(false);
+    setBranchToDelete(null);
+    setBranchToDeleteStats(null);
   };
 
   // Export branches
@@ -276,12 +309,32 @@ export const BranchesPage: React.FC = () => {
     fetchAvailableManagers();
   }, [page, pageSize, searchTerm, filterStatus, showActiveOnly]);
 
+  // When delete modal opens, fetch stats for that branch
+  useEffect(() => {
+    if (!showDeleteModal || !branchToDelete) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetchClient.get(`/api/branches/${branchToDelete._id}/stats`);
+        if (res.ok) {
+          const data = await res.json();
+          if (mounted) setBranchToDeleteStats({ studentCount: data.studentCount || 0, staffCount: data.staffCount || 0 });
+        } else {
+          setBranchToDeleteStats(null);
+        }
+      } catch (err) {
+        setBranchToDeleteStats(null);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [showDeleteModal, branchToDelete]);
+
   // Test backend connectivity
   useEffect(() => {
     const testBackend = async () => {
       try {
         console.log('Testing backend connectivity...');
-        const response = await fetch('/api/health');
+        const response = await fetchClient.get('/api/health');
         console.log('Backend health check:', response.status);
       } catch (err) {
         console.error('Backend not accessible:', err);
@@ -310,7 +363,7 @@ export const BranchesPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Branches Management</h1>
           <p className="text-gray-600">Manage school branches and locations</p>
         </div>
-        {user?.type === 'SuperAdmin' && (
+  {isSuperAdmin && (
           <div className="flex space-x-3">
             <button
               onClick={() => setShowCreateModal(true)}
@@ -545,7 +598,7 @@ export const BranchesPage: React.FC = () => {
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      {user?.type === 'SuperAdmin' && (
+                      {isSuperAdmin && (
                         <>
                           <button
                             onClick={() => {
@@ -557,7 +610,10 @@ export const BranchesPage: React.FC = () => {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeleteBranch(branch._id)}
+                            onClick={() => {
+                              setBranchToDelete(branch);
+                              setShowDeleteModal(true);
+                            }}
                             className="text-red-600 hover:text-red-900"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -610,7 +666,7 @@ export const BranchesPage: React.FC = () => {
               ? 'Try adjusting your filters to see more results.'
               : 'Get started by adding a new branch.'}
           </p>
-          {!searchTerm && !filterStatus && user?.type === 'SuperAdmin' && (
+          {!searchTerm && !filterStatus && isSuperAdmin && (
             <div className="mt-6">
               <button
                 onClick={() => setShowCreateModal(true)}
@@ -1157,6 +1213,29 @@ export const BranchesPage: React.FC = () => {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && branchToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Confirm Delete Branch</h3>
+            <p className="text-sm text-gray-600 mb-4">You are about to delete <strong>{branchToDelete.name}</strong>.</p>
+            {branchToDeleteStats ? (
+              <div className="mb-4">
+                <p className="text-sm text-gray-700">Students: {branchToDeleteStats.studentCount}</p>
+                <p className="text-sm text-gray-700">Staff: {branchToDeleteStats.staffCount}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600 mb-4">Checking branch usage...</p>
+            )}
+            <div className="flex justify-end space-x-3">
+              <button onClick={() => { setShowDeleteModal(false); setBranchToDelete(null); setBranchToDeleteStats(null); }} className="px-4 py-2 bg-gray-100 rounded">Cancel</button>
+              <a href={`/students?branch=${branchToDelete._id}`} className="px-4 py-2 text-sm text-blue-700 underline">View Students</a>
+              <button onClick={confirmDeleteSelectedBranch} className="px-4 py-2 bg-red-600 text-white rounded">Delete</button>
             </div>
           </div>
         </div>

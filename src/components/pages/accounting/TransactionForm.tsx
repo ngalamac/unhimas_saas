@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Save, Calendar, DollarSign, FileText, CreditCard } from 'lucide-react';
+import { X, Save, Calendar, DollarSign, FileText } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
 import fetchClient from '../../../lib/fetchClient';
@@ -15,12 +15,15 @@ interface TransactionFormProps {
   onCreated?: () => void;
   onCancel?: () => void;
   initialData?: any;
+  // when false, TransactionForm will not render its internal "Add Transaction" trigger button
+  showTrigger?: boolean;
 }
 
-const TransactionForm: React.FC<TransactionFormProps> = ({ onCreated, onCancel, initialData }) => {
+const TransactionForm: React.FC<TransactionFormProps> = ({ onCreated, onCancel, initialData, showTrigger }) => {
   const [formData, setFormData] = useState({
     type: 'income' as 'income' | 'expense',
-    category: '',
+  category: '',
+  categoryId: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
     description: '',
@@ -31,12 +34,33 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onCreated, onCancel, 
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
+  // showTrigger prop controls whether the internal "Add Transaction" trigger is shown.
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
   const { user } = useAuth();
-  const { currentBranch } = useBranch();
+  const { currentBranch, managedBranches } = useBranch();
+  const isSuperAdmin = (user as any)?.role === 'SuperAdmin' || (user as any)?.type === 'SuperAdmin' || (user as any)?.isSuperAdmin === true;
+  const [branch, setBranch] = useState<string | undefined>(currentBranch ? (currentBranch as any)._id || (currentBranch as any).id : undefined);
+  const [availableBranches, setAvailableBranches] = useState<any[]>(managedBranches && managedBranches.length ? managedBranches : []);
+
+  const fetchBranches = async () => {
+    try {
+      const res = await fetchClient.get('/api/branches');
+      if (res.ok) {
+        const data = await res.json();
+        // backend returns { data: branches, meta: ... } — normalize to an array
+        const list = Array.isArray(data) ? data : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+        setAvailableBranches(list);
+        if (!branch && list && list.length) {
+          setBranch((list[0]._id || list[0].id));
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching branches', err);
+    }
+  };
 
   useEffect(() => {
     fetchCategories();
@@ -45,12 +69,53 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onCreated, onCancel, 
     }
   }, [initialData]);
 
+  useEffect(() => {
+    if (isSuperAdmin) {
+      if (managedBranches && (Array.isArray(managedBranches) ? managedBranches.length : Array.isArray((managedBranches as any)?.data) ? (managedBranches as any).data.length : 0)) {
+        const list = Array.isArray(managedBranches) ? managedBranches : ((managedBranches as any)?.data || []);
+        setAvailableBranches(list);
+        if (!branch && list.length) setBranch(list[0]._id || list[0].id);
+      } else {
+        fetchBranches();
+      }
+    }
+  }, [isSuperAdmin, managedBranches]);
+
+  // Fallback category sets (from user-provided list) used when backend returns none
+  const fallbackExpenseCategories = [
+    'Payroll Expenses',
+    'Utilities',
+    'Publicity Expense',
+    'Examination expenses',
+    'Repairs & maintenance',
+    'Teaching materials',
+    'Laboratory supplies',
+  'Internship expense',
+    'Transport',
+    'Events & extracurricular activities',
+    'Administrative expenses',
+    'Miscellaneous'
+  ];
+
+  const fallbackIncomeCategories = [
+    'Registration fees',
+    'Tuition Fees',
+    'Examination fees',
+    'Internship fees',
+    'Cafeteria income',
+    'Donations, grants, and sponsorships',
+    'Rent of Campus',
+    'IT Boot camp',
+    'Miscellaneous'
+  ];
+
   const fetchCategories = async () => {
     try {
       const response = await fetchClient.get('/api/accounting/categories');
       if (response.ok) {
         const data = await response.json();
-        setCategories(data);
+  // backend returns array of category objects
+  setCategories(Array.isArray(data) ? data : (data?.data || []));
       }
     } catch (err) {
       console.error('Error fetching categories:', err);
@@ -62,21 +127,45 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onCreated, onCancel, 
     setLoading(true);
     setError(null);
 
+    // client-side validations
+    if (!formData.category) {
+      setError('Please select a category');
+      setLoading(false);
+      return;
+    }
+    const amt = parseFloat(String(formData.amount));
+    if (isNaN(amt) || amt <= 0) {
+      setError('Please enter a valid amount greater than 0');
+      setLoading(false);
+      return;
+    }
+    // Ensure branch is provided when SuperAdmin is creating a transaction
+    if (isSuperAdmin && !branch) {
+      setError('Please select a branch');
+      setLoading(false);
+      return;
+    }
     try {
-      const payload = {
+      const payload: any = {
         ...formData,
+        category: typeof formData.category === 'string' ? formData.category.trim() : formData.category,
         amount: parseFloat(formData.amount),
-        branch: currentBranch ? (currentBranch as any)._id || (currentBranch as any).id : undefined,
+        branch: isSuperAdmin ? branch : (currentBranch ? (currentBranch as any)._id || (currentBranch as any).id : undefined),
         linkedStudent: formData.linkedStudent || undefined,
         linkedStaff: formData.linkedStaff || undefined
       };
+      // Only include categoryId when it looks like a real Mongo ObjectId (24 hex chars)
+      if (formData.categoryId && /^[a-f\d]{24}$/.test(String(formData.categoryId))) {
+        payload.categoryId = formData.categoryId;
+      }
 
       const response = await fetchClient.post('/api/accounting', payload);
       
-      if (response.ok) {
+  if (response.ok) {
         setFormData({
           type: 'income',
           category: '',
+          categoryId: '',
           amount: '',
           date: new Date().toISOString().split('T')[0],
           description: '',
@@ -85,11 +174,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onCreated, onCancel, 
           linkedStudent: '',
           linkedStaff: ''
         });
-        setIsOpen(false);
-        onCreated?.();
+  setIsOpen(false);
+  onCreated?.();
       } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to create transaction');
+        // try to read server error body for debugging
+        let errorData: any = null;
+        try { errorData = await response.json(); } catch (e) { }
+        console.error('Create transaction failed', response.status, errorData);
+        setError((errorData && (errorData.error || errorData.message)) || 'Failed to create transaction');
       }
     } catch (err) {
       setError('Error creating transaction');
@@ -98,23 +190,32 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onCreated, onCancel, 
     }
   };
 
-  const filteredCategories = categories.filter(cat => cat.type === formData.type);
+  let filteredCategories = categories.filter(cat => cat.type === formData.type);
+  // If backend returned no categories, use fallback lists
+  if (!filteredCategories || filteredCategories.length === 0) {
+    filteredCategories = (formData.type === 'income' ? fallbackIncomeCategories : fallbackExpenseCategories).map((name, idx) => ({ _id: `fallback-${formData.type}-${idx}`, name, type: formData.type as 'income' | 'expense' } as Category));
+  }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-CM', {
-      style: 'currency',
-      currency: 'XAF',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
+  useEffect(() => {
+    // ensure branch state follows currentBranch when available
+    if (!isSuperAdmin && currentBranch) {
+      setBranch((currentBranch as any)._id || (currentBranch as any).id);
+    }
+  }, [currentBranch, isSuperAdmin]);
 
-  if (!isOpen && !initialData) {
+  // formatCurrency removed (unused) — kept formatting in other components
+
+  // Determine whether to render the internal trigger button.
+  // Default: show trigger when no explicit prop provided (legacy behavior).
+  const shouldShowTrigger = typeof showTrigger === 'boolean' ? showTrigger : true;
+
+  if (!isOpen && !initialData && shouldShowTrigger) {
     return (
       <button
         onClick={() => setIsOpen(true)}
         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
       >
-        <Plus className="w-4 h-4" />
+        <span className="w-4 h-4">+</span>
         <span>Add Transaction</span>
       </button>
     );
@@ -154,7 +255,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onCreated, onCancel, 
               onChange={(e) => setFormData(prev => ({ 
                 ...prev, 
                 type: e.target.value as 'income' | 'expense',
-                category: '' // Reset category when type changes
+                category: '', // Reset category when type changes
+                categoryId: ''
               }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
@@ -170,14 +272,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onCreated, onCancel, 
               Category *
             </label>
             <select
-              value={formData.category}
-              onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+              value={formData.categoryId || formData.category}
+              onChange={(e) => {
+                const val = e.target.value;
+                // find the picked category by _id or name (handle fallback name values)
+                const picked = filteredCategories.find(c => String(c._id) === val || c.name === val);
+                // debug info to diagnose selection issues
+                try { console.debug && console.debug('Category select changed', { val, picked, filteredCategoriesLength: filteredCategories.length }); } catch (e) {}
+                // if this is a fallback synthetic id (starts with 'fallback-'), don't set categoryId
+                const isFallback = picked && String(picked._id).startsWith('fallback-');
+                setFormData(prev => ({ ...prev, categoryId: isFallback ? '' : (picked?._id || ''), category: picked?.name || val }));
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
               <option value="">Select a category</option>
               {filteredCategories.map((category) => (
-                <option key={category._id} value={category.name}>
+                <option key={category._id} value={(category._id && !String(category._id).startsWith('fallback-')) ? category._id : category.name}>
                   {category.name}
                 </option>
               ))}
@@ -301,12 +412,28 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onCreated, onCancel, 
         </div>
 
         {/* Branch Info */}
-        {currentBranch && (
-          <div className="p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700">
-              <strong>Branch:</strong> {(currentBranch as any).name}
-            </p>
+        {isSuperAdmin ? (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Branch</label>
+            <select
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            >
+              <option value="">-- Select Branch --</option>
+              {availableBranches.map((b: any) => (
+                <option key={b._id || b.id} value={b._id || b.id}>{b.name}</option>
+              ))}
+            </select>
           </div>
+        ) : (
+          currentBranch && (
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Branch:</strong> {(currentBranch as any).name}
+              </p>
+            </div>
+          )
         )}
 
         {/* Form Actions */}
