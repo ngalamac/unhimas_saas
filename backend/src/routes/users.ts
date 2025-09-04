@@ -16,10 +16,34 @@ router.get('/', authMiddleware, requireUserManagement(), async (req: AuthRequest
     const filter: any = { isActive: true };
 
     // SuperAdmin can see all users, Branch Managers can only see users in their branch
-    if (!req.user?.isSuperAdmin && req.user?.branch) {
-      filter.branch = req.user.branch;
+    console.log('[users] Debug - User check:', { 
+      userType: req.user?.type, 
+      isSuperAdmin: req.user?.isSuperAdmin, 
+      branch: req.user?.branch,
+      condition: !req.user?.isSuperAdmin
+    });
+    
+    if (!req.user?.isSuperAdmin) {
       // Branch Managers should not see SuperAdmin users
       filter.type = { $ne: 'SuperAdmin' };
+      
+      // If user has a branch, filter by branch
+      if (req.user?.branch) {
+        filter.branch = req.user?.branch;
+      }
+      
+      console.log('[users] Branch Manager filter applied:', { 
+        userType: req.user?.type, 
+        isSuperAdmin: req.user?.isSuperAdmin, 
+        branch: req.user?.branch, 
+        filter 
+      });
+    } else {
+      console.log('[users] SuperAdmin access:', { 
+        userType: req.user?.type, 
+        isSuperAdmin: req.user?.isSuperAdmin, 
+        branch: req.user?.branch 
+      });
     }
 
     // Optional filters
@@ -168,6 +192,11 @@ router.put('/:id', authMiddleware, requireUserManagement(), async (req: AuthRequ
       return res.status(403).json({ error: 'Cannot modify SuperAdmin user' });
     }
 
+    // Prevent Branch Managers from changing their own role or other users' roles
+    if (!req.user?.isSuperAdmin && req.body.type && req.body.type !== user.type) {
+      return res.status(403).json({ error: 'Only SuperAdmin can change user roles' });
+    }
+
     const updates = req.body;
     
     // Hash password if provided
@@ -179,6 +208,13 @@ router.put('/:id', authMiddleware, requireUserManagement(), async (req: AuthRequ
     delete updates._id;
     delete updates.createdAt;
     delete updates.updatedAt;
+
+    // Branch Managers cannot change user types/roles - only SuperAdmin can
+    if (!req.user?.isSuperAdmin) {
+      delete updates.type;
+      delete updates.branch; // Branch Managers cannot reassign users to different branches
+      delete updates.createdBy; // Cannot change who created the user
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id, 
@@ -213,6 +249,16 @@ router.put('/:id/permissions', authMiddleware, requireUserManagement(), async (r
       return res.status(403).json({ error: 'Cannot modify SuperAdmin permissions' });
     }
 
+    // Prevent users from modifying their own permissions
+    console.log('[users] Permission check:', { 
+      targetUserId: user._id.toString(), 
+      currentUserId: req.user?.id,
+      areEqual: user._id.toString() === req.user?.id 
+    });
+    if (user._id.toString() === req.user?.id) {
+      return res.status(403).json({ error: 'Cannot modify your own permissions' });
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id, 
       { permissions }, 
@@ -242,6 +288,16 @@ router.delete('/:id', authMiddleware, requireUserManagement(), async (req: AuthR
     // Prevent deletion of SuperAdmin
     if (user.type === 'SuperAdmin') {
       return res.status(403).json({ error: 'Cannot delete SuperAdmin user' });
+    }
+
+    // Prevent users from deleting themselves
+    console.log('[users] Delete check:', { 
+      targetUserId: user._id.toString(), 
+      currentUserId: req.user?.id,
+      areEqual: user._id.toString() === req.user?.id 
+    });
+    if (user._id.toString() === req.user?.id) {
+      return res.status(403).json({ error: 'Cannot delete your own account' });
     }
 
     // Soft delete by setting isActive to false

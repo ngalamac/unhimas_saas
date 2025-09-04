@@ -99,19 +99,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const getUserPermissions = () => {
     if (!user) return [];
     if (user.permissions && (user.permissions.includes?.('all') || user.role === 'SuperAdmin')) return ['all'];
-    if (user.permissions && typeof user.permissions === 'object') {
-      const perms = user.permissions as Record<string, any>;
-      return Object.keys(perms).flatMap(feature => {
-        const actions = perms[feature];
-        if (Array.isArray(actions)) {
-          return actions.map((action: string) => `${feature}:${action}`.toLowerCase());
-        } else if (typeof actions === 'string') {
-          return [`${feature}:${actions}`.toLowerCase()];
-        } else {
-          return [];
-        }
-      });
+    
+    // AuthContext now provides permissions as an array of "feature:action" strings
+    if (user.permissions && Array.isArray(user.permissions)) {
+      return user.permissions;
     }
+    
     return [];
   };
 
@@ -121,50 +114,79 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const [filteredSidebarItems, setFilteredSidebarItems] = useState<SidebarItem[]>(sidebarItems);
 
   useEffect(() => {
-    // Development shortcut: show all items so features can be inspected without special permissions
-    if (import.meta.env.DEV) {
-      setFilteredSidebarItems(sidebarItems);
-      // Auto-expand students menu for convenience in dev
-      setExpandedItems(prev => prev.includes('students') ? prev : [...prev, 'students']);
-      return;
-    }
-
+    console.log('[Sidebar] User permissions debug:', {
+      user: user?.role,
+      userPermissions,
+      totalPermissions: userPermissions.length,
+      rawUserPermissions: user?.permissions,
+      userType: user?.role
+    });
+    
     let items = sidebarItems;
+    
+    // SuperAdmin always sees everything
     if (user?.role === 'SuperAdmin') {
       items = sidebarItems;
+      console.log('[Sidebar] SuperAdmin - showing all items');
     } else if (userPermissions.includes('all')) {
       items = sidebarItems;
+      console.log('[Sidebar] User has all permissions - showing all items');
     } else {
-      // Strip numeric prefixes from user permissions
-      const normalizedUserPerms = userPermissions.map(p => {
-        const parts = p.split(":");
-        if (parts.length === 3) {
-          // Format: N:module:action
-          return `${parts[1]}:${parts[2]}`;
-        } else if (parts.length === 2) {
-          // Format: module:action
-          return p;
-        } else {
-          return p;
-        }
-      }).map(p => p.toLowerCase());
-
+      // Filter items based on user permissions
       items = sidebarItems.filter(item => {
+        // If no permissions required, show the item
         if (!sidebarPermissionMap[item.id] || sidebarPermissionMap[item.id].length === 0) {
+          console.log(`[Sidebar] Item ${item.id} has no required permissions - showing`);
           return true;
         }
-        const requiredPermsLower = sidebarPermissionMap[item.id].map(p => p.toLowerCase());
-        return requiredPermsLower.some(perm => normalizedUserPerms.includes(perm));
+        
+        // Check if user has any of the required permissions for this item
+        const requiredPerms = sidebarPermissionMap[item.id];
+        const hasPermission = requiredPerms.some(requiredPerm => {
+          // Check if user has this specific permission
+          return userPermissions.some(userPerm => {
+            // Handle different permission formats
+            if (userPerm === 'all') return true;
+            
+            // Normalize permissions for comparison
+            const normalizedUserPerm = userPerm.toLowerCase();
+            const normalizedRequiredPerm = requiredPerm.toLowerCase();
+            
+            // Direct match
+            if (normalizedUserPerm === normalizedRequiredPerm) return true;
+            
+            // Check if user has the required permission pattern
+            // e.g., user has 'students:read' and item requires 'students:read'
+            if (normalizedUserPerm.includes(normalizedRequiredPerm) || 
+                normalizedRequiredPerm.includes(normalizedUserPerm)) {
+              return true;
+            }
+            
+            return false;
+          });
+        });
+        
+        console.log(`[Sidebar] Item ${item.id} (${item.label}):`, {
+          requiredPerms,
+          userPermissions,
+          hasPermission
+        });
+        
+        return hasPermission;
       });
+      
+      console.log('[Sidebar] Filtered items:', items.map(item => item.label));
     }
+    
     setFilteredSidebarItems(items);
+    
     // Auto-expand students menu for SuperAdmin or when viewing student pages
     if (user?.role === 'SuperAdmin') {
       setExpandedItems(prev => prev.includes('students') ? prev : [...prev, 'students']);
     } else if (['all-students', 'student-registration', 'student-details'].includes((window.location.hash || '').replace('#/', ''))) {
       setExpandedItems(prev => prev.includes('students') ? prev : [...prev, 'students']);
     }
-  }, [user, userPermissions.length]);
+  }, [user, userPermissions]);
 
   return (
     <>

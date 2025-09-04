@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createBranch } from '../../../api/branches';
 import { Branch } from '../../../types/school';
 import { Save, Building2 } from 'lucide-react';
+import fetchClient from '../../../lib/fetchClient';
 
 export const CreateBranchPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -13,16 +14,32 @@ export const CreateBranchPage: React.FC = () => {
     establishedDate: ''
   });
   const [managers, setManagers] = useState<any[]>([]);
+  const [loadingManagers, setLoadingManagers] = useState(false);
 
   // Fetch managers (admins) from API
   React.useEffect(() => {
     const fetchManagers = async () => {
       try {
-        const res = await fetch('/api/users?type=Admin');
-        const data = await res.json();
-        setManagers(Array.isArray(data) ? data : []);
-      } catch {
+        setLoadingManagers(true);
+        console.log('Fetching available managers...');
+        
+        const response = await fetchClient.get('/api/users?type=Admin&isActive=true');
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Available managers data:', data);
+        
+        setManagers(data.data || []);
+        console.log('Available managers set:', data.data || []);
+      } catch (err) {
+        console.error('Failed to fetch available managers:', err);
         setManagers([]);
+      } finally {
+        setLoadingManagers(false);
       }
     };
     fetchManagers();
@@ -140,14 +157,68 @@ export const CreateBranchPage: React.FC = () => {
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
+                disabled={loadingManagers || managers.length === 0}
               >
-                <option value="">Select Manager</option>
+                <option value="">
+                  {loadingManagers 
+                    ? 'Loading managers...' 
+                    : managers.length === 0 
+                      ? 'No Admin users available' 
+                      : 'Select a branch manager'
+                  }
+                </option>
                 {managers.map(manager => (
                   <option key={manager._id} value={manager._id}>
-                    {manager.firstName || manager.name} {manager.lastName || ''} - {manager.type || manager.role}
+                    {manager.name} ({manager.email})
                   </option>
                 ))}
               </select>
+              {managers.length === 0 && !loadingManagers && (
+                <div className="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm text-orange-800 font-medium mb-1">
+                    No Branch Managers Available
+                  </p>
+                  <p className="text-sm text-orange-700">
+                    You need to create users with the "Admin" role first before creating branches.
+                  </p>
+                  <div className="mt-2 flex space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Navigate to user management page
+                        window.location.href = '/roles';
+                      }}
+                      className="text-sm text-orange-700 hover:text-orange-900 underline"
+                    >
+                      Go to User Management →
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Refresh managers
+                        const fetchManagers = async () => {
+                          try {
+                            setLoadingManagers(true);
+                            const response = await fetchClient.get('/api/users?type=Admin&isActive=true');
+                            if (response.ok) {
+                              const data = await response.json();
+                              setManagers(data.data || []);
+                            }
+                          } catch (err) {
+                            console.error('Failed to refresh managers:', err);
+                          } finally {
+                            setLoadingManagers(false);
+                          }
+                        };
+                        fetchManagers();
+                      }}
+                      className="text-sm text-orange-700 hover:text-orange-900 underline"
+                    >
+                      Refresh Managers
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Established Date *</label>

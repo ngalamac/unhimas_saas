@@ -295,23 +295,29 @@ export const AdminDashboard: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Branch Overview</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {mockBranches.map((branch) => (
-            <div key={branch.id} className="border rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-gray-900">{branch.name}</h4>
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                  branch.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {branch.isActive ? 'Active' : 'Inactive'}
-                </span>
+          {managedBranches.length > 0 ? (
+            managedBranches.map((branch) => (
+              <div key={branch._id || branch.id} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-gray-900">{branch.name}</h4>
+                  <span className={`px-2 py-1 text-xs rounded-full ${
+                    branch.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {branch.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <div>Students: {branch.studentCount || 0}</div>
+                  <div>Staff: {branch.staffCount || 0}</div>
+                  <div>Manager: {((branch.manager as any)?.firstName ? `${(branch.manager as any).firstName} ${(branch.manager as any).lastName || ''}` : ((branch.manager as any).name || '—'))}</div>
+                </div>
               </div>
-              <div className="space-y-1 text-sm text-gray-600">
-                <div>Students: {branch.studentCount}</div>
-                <div>Staff: {branch.staffCount}</div>
-                <div>Manager: {((branch.manager as any)?.firstName ? `${(branch.manager as any).firstName} ${(branch.manager as any).lastName || ''}` : ((branch.manager as any).name || '—'))}</div>
-              </div>
+            ))
+          ) : (
+            <div className="col-span-full text-center text-gray-500 py-8">
+              {user?.isSuperAdmin ? 'No branches created yet' : 'No branches assigned to you'}
             </div>
-          ))}
+          )}
         </div>
       </div>
     </>
