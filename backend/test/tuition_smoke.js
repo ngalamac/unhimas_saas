@@ -1,113 +1,167 @@
-const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
-let fetchFn;
-async function initFetch() {
-  if (typeof fetch === 'function') fetchFn = fetch;
-  else {
-    const nf = await import('node-fetch');
-    fetchFn = nf.default;
-  }
-  return fetchFn;
+const axios = require('axios');
+
+const API_BASE_URL = 'http://localhost:5000/api';
+
+async function login(email, password) {
+  const res = await axios.post(`${API_BASE_URL}/auth/login`, { email, password });
+  if (res.status !== 200) throw new Error('Login failed');
+  return res.data.token;
 }
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://unhimas4:n673927826@cluster0.xeab0d2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+async function createAdminUser(token) {
+  const payload = {
+    name: 'Tuition Smoke Admin',
+    email: `tuition-smoke-admin-${Date.now()}@example.com`,
+    password: 'password123',
+    type: 'Admin'
+  };
+  const res = await axios.post(`${API_BASE_URL}/users`, payload, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (res.status !== 201) throw new Error('Create admin user failed');
+  return res.data;
+}
 
-async function insertTuitionPlan() {
-  await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 30000 });
-  const coll = mongoose.connection.collection('tuitionplans');
-  const doc = {
-    program: null,
-    department: null,
-    level: '1',
-    academicYear: `${new Date().getFullYear()}-${new Date().getFullYear()+1}`,
+async function createBranch(token, managerId) {
+  const payload = {
+    name: `Tuition Smoke Branch ${Date.now()}`,
+    address: '456 Smoke Test Ave',
+    phoneNumber: '555-555-5556',
+    email: `tuition-smoke-branch-${Date.now()}@example.com`,
+    manager: managerId,
+    establishedDate: new Date().toISOString()
+  };
+  const res = await axios.post(`${API_BASE_URL}/branches`, payload, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (res.status !== 201) throw new Error('Create branch failed');
+  return res.data;
+}
+
+async function createProgram(token) {
+  const payload = {
+    name: 'Tuition Smoke Program',
+    type: 'Undergraduate'
+  };
+  const res = await axios.post(`${API_BASE_URL}/programs`, payload, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (res.status !== 201) throw new Error('Create program failed');
+  return res.data;
+}
+
+async function createDepartment(token, programId) {
+  const payload = {
+    name: 'Tuition Smoke Dept',
+    program: programId
+  };
+  const res = await axios.post(`${API_BASE_URL}/departments`, payload, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (res.status !== 201) throw new Error('Create department failed');
+  return res.data;
+}
+
+async function createTuitionPlan(token) {
+  const payload = {
+    name: `Tuition Smoke Plan ${Date.now()}`,
+    academicYear: '2024-2025',
+    level: '100',
     installments: [
       { key: 'registration', label: 'Registration', amount: 100000 },
       { key: 'first', label: 'First Installment', amount: 50000 }
-    ],
-    active: true,
-    notes: 'Smoke test plan',
-    createdAt: new Date(),
-    updatedAt: new Date()
+    ]
   };
-  const r = await coll.insertOne(doc);
-  await mongoose.disconnect();
-  return r.insertedId.toString();
-}
-
-async function createProgram() {
-  const res = await (fetchFn || fetch)('http://localhost:5000/api/programs', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Smoke Program', type: 'Undergraduate', duration: 2 })
+  const res = await axios.post(`${API_BASE_URL}/tuition/plans`, payload, {
+    headers: { Authorization: `Bearer ${token}` }
   });
-  if (!res.ok) throw new Error('Create program failed: ' + res.statusText);
-  return res.json();
+  if (res.status !== 201) throw new Error('Create tuition plan failed');
+  return res.data;
 }
 
-async function createDepartment() {
-  const res = await (fetchFn || fetch)('http://localhost:5000/api/departments', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Smoke Dept', code: 'SMK' })
-  });
-  if (!res.ok) throw new Error('Create department failed: ' + res.statusText);
-  return res.json();
-}
-
-async function createStudent(programId, departmentId, tuitionPlanId) {
+async function createStudent(token, branchId, programId, departmentId, tuitionPlanId) {
   const payload = {
     firstName: 'TuitionSmoke',
     lastName: 'Test',
-    nationalIdName: 'Tuition Smoke Test',
-    gender: 'Male',
-    placeOfBirth: 'Yaounde',
-    dateOfBirth: '2000-01-01',
-    phoneNumber: '+237612345678',
-    email: 'tuition-smoke@example.com',
+    dateOfBirth: '2001-01-01',
+    placeOfBirth: 'Douala',
+    regionOfOrigin: 'Littoral',
+    phoneNumber: '6' + Math.random().toString().slice(2, 10),
+    gender: 'Female',
+    email: `tuition-smoke-student-${Date.now()}@example.com`,
     program: programId,
     department: departmentId,
-    profilePicture: null,
-    guardian: { name: 'Guardian', address: 'Address', contact: '+237612345678' },
-    branch: null,
-    academicYear: `${new Date().getFullYear()}-${new Date().getFullYear()+1}`,
+    branch: branchId,
+    guardian: { name: 'Guardian', contact: '6' + Math.random().toString().slice(2, 10) },
+    academicYear: '2024-2025',
     tuitionPlan: tuitionPlanId
   };
-  const res = await (fetchFn || fetch)('http://localhost:5000/api/students', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+  const res = await axios.post(`${API_BASE_URL}/students`, payload, {
+    headers: { Authorization: `Bearer ${token}` }
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error('Create student failed: ' + res.status + ' ' + text);
-  return JSON.parse(text);
+  if (res.status !== 201) throw new Error('Create student failed: ' + res.data.message);
+  return res.data;
 }
 
-async function getStudent(id) {
-  const res = await (fetchFn || fetch)(`http://localhost:5000/api/students/${id}`);
-  const txt = await res.text();
-  if (!res.ok) throw new Error('Fetch student failed: ' + res.status + ' ' + txt);
-  return JSON.parse(txt);
+async function getStudent(token, id) {
+  const res = await axios.get(`${API_BASE_URL}/students/${id}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (res.status !== 200) throw new Error('Fetch student failed');
+  return res.data;
 }
 
 (async () => {
+  let token;
   try {
     console.log('Tuition smoke test starting...');
-    await initFetch();
-    const planId = await insertTuitionPlan();
-    console.log('Inserted tuition plan id ->', planId);
-    const program = await createProgram();
-    const dept = await createDepartment();
-    console.log('Created program/department ->', program._id || program.id, dept._id || dept.id);
-    const student = await createStudent(program._id || program.id, dept._id || dept.id, planId);
-    console.log('Created student ->', student._id || student.id);
-    const fetched = await getStudent(student._id || student.id);
+
+    console.log('Logging in as Super Admin...');
+    token = await login('superadminunhimas@gmail.com', 'ca@5G2024');
+    console.log('Logged in successfully.');
+
+    console.log('Creating Admin user...');
+    const adminUser = await createAdminUser(token);
+    console.log('Created admin user ->', adminUser._id);
+
+    console.log('Creating Branch...');
+    const branch = await createBranch(token, adminUser._id);
+    console.log('Created branch ->', branch._id);
+
+    console.log('Creating Program...');
+    const program = await createProgram(token);
+    console.log('Created program ->', program._id);
+
+    console.log('Creating Department...');
+    const dept = await createDepartment(token, program._id);
+    console.log('Created department ->', dept._id);
+
+    console.log('Creating Tuition Plan...');
+    const plan = await createTuitionPlan(token);
+    console.log('Created tuition plan ->', plan._id);
+
+    console.log('Creating Student...');
+    const student = await createStudent(token, branch._id, program._id, dept._id, plan._id);
+    console.log('Created student ->', student._id);
+
+    console.log('Fetching student to verify tuition installments...');
+    const fetched = await getStudent(token, student._id);
     console.log('Fetched student has tuitionInstallments:', Array.isArray(fetched.tuitionInstallments));
     if (!Array.isArray(fetched.tuitionInstallments) || fetched.tuitionInstallments.length === 0) {
       throw new Error('tuitionInstallments missing or empty on created student');
     }
-    const balance = fetched.balanceDue || fetched.balance || null;
+    const balance = fetched.balanceDue;
     console.log('Balance due on student:', balance);
+    if (balance !== 150000) {
+        throw new Error(`Expected balance to be 150000, but was ${balance}`);
+    }
     console.log('Tuition smoke test finished successfully.');
+
   } catch (err) {
-    console.error('Tuition smoke test failed:', err && err.message ? err.message : err);
+    console.error('Tuition smoke test failed:', err.response ? err.response.data : err.message);
+    if (err.response && err.response.config && err.response.config.data) {
+      console.error('Request payload:', err.response.config.data);
+    }
     process.exit(1);
   }
 })();

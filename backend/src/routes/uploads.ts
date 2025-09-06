@@ -23,6 +23,7 @@ router.post('/profile', upload.single('file'), async (req: Request & { file?: Ex
     bufferStream.end(req.file.buffer);
     bufferStream.pipe(uploadStream);
     uploadStream.on('error', (err: any) => {
+      console.error('GridFS upload stream error:', err);
       return res.status(500).json({ message: 'Upload error', error: err?.message });
     });
     uploadStream.on('finish', () => {
@@ -32,6 +33,7 @@ router.post('/profile', upload.single('file'), async (req: Request & { file?: Ex
       return res.json({ id, url: relative });
     });
   } catch (e: any) {
+    console.error('Upload route error:', e);
     return res.status(500).json({ message: 'Upload error', error: e?.message });
   }
 });
@@ -51,12 +53,14 @@ router.get('/file/:id', async (req: Request, res) => {
     downloadStream.on('error', () => res.status(500).end());
     downloadStream.pipe(res);
   } catch (e: any) {
+    console.error('File stream error:', e);
     return res.status(400).json({ message: 'Invalid file id', error: e?.message });
   }
 });
 
 // multer / generic error handler
 router.use((err: any, _req: any, res: any, _next: any) => {
+  console.error('Upload middleware error:', err);
   if (err && err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({ message: 'File too large. Max size is 5MB.' });
   }
