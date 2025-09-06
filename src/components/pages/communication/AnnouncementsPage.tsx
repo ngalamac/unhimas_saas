@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Megaphone, Plus, Eye, Edit, Trash2, Send, Calendar, Users } from 'lucide-react';
-import { mockAnnouncements } from '../../../data/mockData';
 import { Announcement } from '../../../types/school';
 
 export const AnnouncementsPage: React.FC = () => {

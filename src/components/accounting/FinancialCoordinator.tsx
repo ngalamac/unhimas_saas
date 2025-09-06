@@ -11,7 +11,9 @@ import {
   ArrowDownRight,
   Target,
   Zap,
-  BarChart3
+  BarChart3,
+  Shield,
+  FileText
 } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
@@ -60,68 +62,42 @@ const FinancialCoordinator: React.FC = () => {
   const [data, setData] = useState<CoordinationData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Mock Quick Access links
+  const filteredLinks = [
+    {
+      id: 'payroll',
+      title: 'Process Payroll',
+      icon: <Users className="w-5 h-5 text-blue-600" />,
+      color: 'bg-blue-100',
+    },
+    {
+      id: 'tuition',
+      title: 'Review Payments',
+      icon: <DollarSign className="w-5 h-5 text-green-600" />,
+      color: 'bg-green-100',
+    },
+    {
+      id: 'reports',
+      title: 'View Report',
+      icon: <FileText className="w-5 h-5 text-purple-600" />,
+      color: 'bg-purple-100',
+    },
+  ];
+
   useEffect(() => {
-    fetchCoordinationData();
+  fetchCoordinationData();
   }, [currentBranch]);
 
   const fetchCoordinationData = async () => {
     try {
       setLoading(true);
-      
-      // Mock comprehensive coordination data
-      const mockData: CoordinationData = {
-        studentFinancials: {
-          totalOwed: 45000000,
-          totalPaid: 125000000,
-          pendingCount: 156,
-          overdueCount: 23,
-          recentPayments: [
-            { studentName: 'Alain Kamga', amount: 525000, date: '2024-12-15', status: 'completed' },
-            { studentName: 'Grace Mballa', amount: 300000, date: '2024-12-14', status: 'completed' },
-            { studentName: 'Emmanuel Biya', amount: 200000, date: '2024-12-13', status: 'pending' }
-          ]
-        },
-        staffFinancials: {
-          monthlyPayroll: 35000000,
-          pendingPayroll: 8500000,
-          staffCount: 89,
-          lastPayrollDate: '2024-11-30'
-        },
-        branchFinancials: {
-          totalRevenue: 125000000,
-          totalExpenses: 45000000,
-          netIncome: 80000000,
-          monthlyGrowth: 12.5
-        },
-        alerts: [
-          {
-            id: '1',
-            type: 'urgent',
-            title: 'Overdue Student Payments',
-            description: '23 students have overdue payments totaling 5.2M XAF',
-            action: 'Review Payments',
-            targetPage: 'tuition-management'
-          },
-          {
-            id: '2',
-            type: 'warning',
-            title: 'Payroll Due Soon',
-            description: 'Monthly staff payroll of 35M XAF is due in 3 days',
-            action: 'Process Payroll',
-            targetPage: 'payroll'
-          },
-          {
-            id: '3',
-            type: 'info',
-            title: 'Monthly Report Ready',
-            description: 'December financial report is ready for review',
-            action: 'View Report',
-            targetPage: 'reports'
-          }
-        ]
-      };
-
-      setData(mockData);
+      // TODO: Replace with actual API call
+      // Example:
+      // const response = await fetch('/api/coordination');
+      // const liveData = await response.json();
+      // setData(liveData);
+      // For now, setData(null) to avoid using mockData
+      setData(null);
     } catch (error) {
       console.error('Failed to fetch coordination data:', error);
     } finally {
@@ -257,7 +233,7 @@ const FinancialCoordinator: React.FC = () => {
                 {filteredLinks.map((link) => (
                   <button
                     key={link.id}
-                    onClick={() => handleNavigation(link)}
+                    onClick={() => handleNavigation(link.id, [link.title])}
                     className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center space-x-3">

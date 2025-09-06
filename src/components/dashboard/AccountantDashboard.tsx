@@ -1,6 +1,5 @@
 import React from 'react';
 import { DollarSign, CreditCard, TrendingUp, AlertCircle, FileText, Users } from 'lucide-react';
-import { mockPayments, mockFeeStructures, mockStudents, getCurrentBatchData } from '../../data/mockData';
 import { formatXAF } from '../../utils/currency';
 
 export const AccountantDashboard: React.FC = () => {

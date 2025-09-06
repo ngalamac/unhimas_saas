@@ -493,11 +493,11 @@ export const StudentsPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Total Students</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.total.toLocaleString()}</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{(stats?.total ?? 0).toLocaleString()}</p>
                     <div className="flex items-center space-x-2 mt-2">
                       <div className="flex items-center space-x-1">
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-xs text-gray-600">{stats.enrollment.active} active</span>
+                        <span className="text-xs text-gray-600">{(stats?.enrollment?.active ?? 0)} active</span>
                       </div>
                     </div>
                   </div>
@@ -510,7 +510,7 @@ export const StudentsPage: React.FC = () => {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-blue-700 font-medium">Enrollment Rate</span>
                   <span className="text-blue-800 font-bold">
-                    {((stats.enrollment.active / stats.total) * 100).toFixed(1)}%
+                    {(((stats?.enrollment?.active ?? 0) / (stats?.total ?? 1)) * 100).toFixed(1)}%
                   </span>
                 </div>
               </div>
@@ -521,7 +521,7 @@ export const StudentsPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Active Students</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.enrollment.active.toLocaleString()}</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{(stats?.enrollment?.active ?? 0).toLocaleString()}</p>
                     <div className="flex items-center space-x-2 mt-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
                       <span className="text-xs text-green-600">Currently enrolled</span>
@@ -545,7 +545,7 @@ export const StudentsPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Paid Tuition</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.tuition.paid.toLocaleString()}</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{(stats?.tuition?.paid ?? 0).toLocaleString()}</p>
                     <div className="flex items-center space-x-2 mt-2">
                       <CreditCard className="w-4 h-4 text-green-500" />
                       <span className="text-xs text-green-600">Fully paid</span>
@@ -560,7 +560,7 @@ export const StudentsPage: React.FC = () => {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-green-700 font-medium">Collection Rate</span>
                   <span className="text-green-800 font-bold">
-                    {((stats.tuition.paid / stats.total) * 100).toFixed(1)}%
+                    {(((stats?.tuition?.paid ?? 0) / (stats?.total ?? 1)) * 100).toFixed(1)}%
                   </span>
                 </div>
               </div>
@@ -571,7 +571,7 @@ export const StudentsPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Overdue Tuition</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.tuition.overdue.toLocaleString()}</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{(stats?.tuition?.overdue ?? 0).toLocaleString()}</p>
                     <div className="flex items-center space-x-2 mt-2">
                       <AlertCircle className="w-4 h-4 text-red-500" />
                       <span className="text-xs text-red-600">Needs attention</span>
@@ -586,7 +586,7 @@ export const StudentsPage: React.FC = () => {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-red-700 font-medium">Requires Follow-up</span>
                   <span className="text-red-800 font-bold">
-                    {((stats.tuition.overdue / stats.total) * 100).toFixed(1)}%
+                    {(((stats?.tuition?.overdue ?? 0) / (stats?.total ?? 1)) * 100).toFixed(1)}%
                   </span>
                 </div>
               </div>

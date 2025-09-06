@@ -66,7 +66,7 @@ const AccountingMasterControl: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   useEffect(() => {
-    fetchMasterControlData();
+  fetchMasterControlData();
   }, [currentBranch]);
 
   const fetchMasterControlData = async () => {
@@ -301,40 +301,29 @@ const AccountingMasterControl: React.FC = () => {
               </div>
             </div>
             <div className="p-6">
-              <div className="mb-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={commandSearch}
-                    onChange={(e) => setCommandSearch(e.target.value)}
-                    placeholder="Search commands..."
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                {filteredCommands.map((command) => (
-                  <button
-                    key={command.id}
-                    onClick={() => handleCommand(command)}
-                    className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left group border border-gray-200 hover:border-blue-300"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-white p-2 rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
-                        {command.icon}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                          {command.command}
-                        </p>
-                        <p className="text-xs text-gray-600">{command.description}</p>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
+              {data?.quickCommands?.filter(cmd => selectedCategory === 'all' || cmd.category === selectedCategory).map(command => (
+                <button
+                  key={command.id}
+                  onClick={() => {
+                    setCurrentPage(command.page);
+                    setBreadcrumb(command.breadcrumb);
+                  }}
+                  className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 group transition-colors mb-2"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 rounded-lg bg-blue-100">
+                      {command.icon}
                     </div>
-                  </button>
-                ))}
-              </div>
+                    <div>
+                      <p className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                        {command.command}
+                      </p>
+                      <p className="text-xs text-gray-600">{command.description}</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                </button>
+              ))}
             </div>
           </div>
         </>

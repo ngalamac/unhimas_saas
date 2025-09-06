@@ -1,6 +1,5 @@
 import React from 'react';
 import { GraduationCap, Users, BookOpen, TrendingUp, Award, Calendar } from 'lucide-react';
-import { mockPrograms, mockStudents, mockCourses, mockGrades, getCurrentBatchData } from '../../data/mockData';
 
 export const DeanDashboard: React.FC = () => {
   const currentBatch = getCurrentBatchData();

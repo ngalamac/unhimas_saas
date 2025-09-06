@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { QrCode, Camera, Users, Clock, CheckCircle, XCircle } from 'lucide-react';
-import { mockAttendance, mockStudents, mockCourses } from '../../../data/mockData';
 
 export const QRAttendancePage: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);

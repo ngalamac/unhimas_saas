@@ -134,7 +134,7 @@ export const AccountingDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDashboardData();
+  fetchDashboardData();
   }, [dateRange, currentBranch]);
 
   const getAlertIcon = (type: string) => {
@@ -217,31 +217,19 @@ export const AccountingDashboard: React.FC = () => {
           <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
             <Download className="w-4 h-4" />
             <span>Export</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Key Metrics */}
-      {dashboardData && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-sm font-medium">Total Income</p>
-                <p className="text-2xl font-bold">{formatXAF(dashboardData.summary.totalIncome)}</p>
-                <p className="text-green-100 text-xs mt-1">
-                  ↗ +{dashboardData.summary.monthlyGrowth}% this month
-                </p>
-              </div>
-              <div className="bg-white bg-opacity-20 p-3 rounded-lg">
-                <TrendingUp className="w-8 h-8" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-r from-red-500 to-red-600 p-6 rounded-xl text-white">
-            <div className="flex items-center justify-between">
-              <div>
+          try {
+            setLoading(true);
+            // TODO: Replace with actual API call
+            // Example:
+            // const response = await fetch('/api/accounting-dashboard');
+            // const liveData = await response.json();
+            // setDashboardData(liveData);
+            setDashboardData(null);
+          } catch (error) {
+            console.error('Failed to fetch dashboard data:', error);
+          } finally {
+            setLoading(false);
+          }
                 <p className="text-red-100 text-sm font-medium">Total Expenses</p>
                 <p className="text-2xl font-bold">{formatXAF(dashboardData.summary.totalExpenses)}</p>
                 <p className="text-red-100 text-xs mt-1">

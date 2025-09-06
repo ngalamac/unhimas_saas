@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Shield, Users, Plus, Edit, Trash2, Eye, UserCheck } from 'lucide-react';
-import { mockRoles, mockPermissions } from '../../../data/mockData';
 import { Role, Permission } from '../../../types/school';
 
 export const RolePermissionPage: React.FC = () => {

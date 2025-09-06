@@ -1,6 +1,5 @@
 import React from 'react';
 import { Users, GraduationCap, Users2, UserCheck, Building2, QrCode, CreditCard, FileText } from 'lucide-react';
-import { mockStudents, mockEmployees, mockPrograms, mockDepartments, mockPayments, mockBranches, getCurrentBatchData } from '../../data/mockData';
 import { formatXAF } from '../../utils/currency';
 
 export const DashboardStats: React.FC = () => {

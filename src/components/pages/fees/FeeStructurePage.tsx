@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { DollarSign, Plus, Edit, Trash2, Eye, Search, Filter, Copy, Calculator } from 'lucide-react';
-import { mockFeeStructures, mockPrograms } from '../../../data/mockData';
 import { formatXAF } from '../../../utils/currency';
 import { FeeStructure } from '../../../types/school';
 

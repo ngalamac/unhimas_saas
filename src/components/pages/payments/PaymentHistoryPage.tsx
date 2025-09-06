@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { CreditCard, Search, Filter, Download, Eye, CheckCircle, Clock, XCircle } from 'lucide-react';
-import { mockPayments, mockStudents } from '../../../data/mockData';
 import { formatXAF } from '../../../utils/currency';
 import { Payment } from '../../../types/school';
 
