@@ -307,7 +307,7 @@ const ReportsPage: React.FC = () => {
                     <div>
                       <p className="text-sm text-green-600 font-medium">Total Income</p>
                       <p className="text-2xl font-bold text-green-700">
-                        {formatXAF(reportData.total || reportData.totalIncome || 0)}
+                        {formatXAF(reportData.summary?.totalIncome ?? reportData.totalIncome ?? reportData.total ?? 0)}
                       </p>
                     </div>
                   </div>
@@ -319,7 +319,7 @@ const ReportsPage: React.FC = () => {
                     <div>
                       <p className="text-sm text-red-600 font-medium">Total Expenses</p>
                       <p className="text-2xl font-bold text-red-700">
-                        {formatXAF(reportData.totalExpenses || 0)}
+                        {formatXAF(reportData.summary?.totalExpenses ?? reportData.totalExpenses ?? 0)}
                       </p>
                     </div>
                   </div>
@@ -335,7 +335,7 @@ const ReportsPage: React.FC = () => {
                           ? 'text-blue-700'
                           : 'text-red-700'
                       }`}>
-                        {formatXAF((reportData.total || reportData.totalIncome || 0) - (reportData.totalExpenses || 0))}
+                        {formatXAF((reportData.summary?.netIncome ?? ((reportData.summary?.totalIncome ?? reportData.totalIncome ?? reportData.total ?? 0) - (reportData.summary?.totalExpenses ?? reportData.totalExpenses ?? 0))))}
                       </p>
                     </div>
                   </div>
@@ -365,22 +365,30 @@ const ReportsPage: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {reportData.breakdown.map((item: any, index: number) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {item._id || item.category}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {formatXAF(item.total || item.amount || 0)}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.count || 0}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {((item.total || item.amount || 0) / (reportData.total || 1) * 100).toFixed(1)}%
-                            </td>
-                          </tr>
-                        ))}
+                        {reportData.breakdown.map((item: any, index: number) => {
+                          // Defensive: render category/type as string, not object
+                          let category = '';
+                          if (typeof item.category === 'string') category = item.category;
+                          else if (item._id && typeof item._id === 'object') {
+                            category = [item._id.category, item._id.type].filter(Boolean).join(' - ');
+                          } else if (typeof item._id === 'string') category = item._id;
+                          return (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {category}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {formatXAF(item.total || item.amount || 0)}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {item.count || 0}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {((item.total || item.amount || 0) / (reportData.total || 1) * 100).toFixed(1)}%
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

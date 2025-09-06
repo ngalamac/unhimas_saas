@@ -118,6 +118,29 @@ interface StudentStats {
 }
 
 export const StudentsPage: React.FC = () => {
+  // Program list for filter dropdown
+  const [programs, setPrograms] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Fetch all programs for filter dropdown
+    const fetchPrograms = async () => {
+      try {
+        const res = await fetchClient.get('/api/programs');
+        const data = await res.json();
+        setPrograms(data);
+      } catch (err) {
+        console.error('Failed to fetch programs', err);
+      }
+    };
+    fetchPrograms();
+  }, []);
+  // Example filter dropdown for programs (add to your filter UI):
+  // <select value={filterProgram} onChange={e => setFilterProgram(e.target.value)}>
+  //   <option value="">All Programs</option>
+  //   {programs.map(p => (
+  //     <option key={p._id} value={p._id}>{p.name}</option>
+  //   ))}
+  // </select>
   const { user } = useAuth();
   const { selectedBranch } = useBranch();
   const { showToast } = useUI();

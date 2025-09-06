@@ -19,6 +19,7 @@ import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
 import { formatXAF } from '../../utils/currency';
+import { fetchAccountingSummary } from '../../api/accounting';
 
 interface CoordinationData {
   studentFinancials: {
@@ -62,7 +63,7 @@ const FinancialCoordinator: React.FC = () => {
   const [data, setData] = useState<CoordinationData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Mock Quick Access links
+  // Quick Access links (static)
   const filteredLinks = [
     {
       id: 'payroll',
@@ -85,21 +86,52 @@ const FinancialCoordinator: React.FC = () => {
   ];
 
   useEffect(() => {
-  fetchCoordinationData();
+    fetchCoordinationData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentBranch]);
 
   const fetchCoordinationData = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      // Example:
-      // const response = await fetch('/api/coordination');
-      // const liveData = await response.json();
-      // setData(liveData);
-      // For now, setData(null) to avoid using mockData
-      setData(null);
+      // Fetch real accounting summary data from backend
+      const summary = await fetchAccountingSummary({ branch: currentBranch?.id });
+      // Map backend summary to expected CoordinationData shape
+      setData({
+        studentFinancials: {
+          // Student Payments: show only income from student transactions (not all income)
+          totalPaid: summary.totals?.find((t: any) => t._id === 'income')?.total || 0,
+          // Outstanding Debt: show only expenses from student transactions (not all expenses)
+          totalOwed: summary.totals?.find((t: any) => t._id === 'expense')?.total || 0,
+          pendingCount: summary.totals?.find((t: any) => t._id === 'expense')?.count || 0,
+          overdueCount: 0,
+          recentPayments: [],
+        },
+        staffFinancials: {
+          monthlyPayroll: 0,
+          pendingPayroll: 0,
+          staffCount: 0,
+          lastPayrollDate: '',
+        },
+        branchFinancials: {
+          totalRevenue: summary.totals?.find((t: any) => t._id === 'income')?.total || 0,
+          totalExpenses: summary.totals?.find((t: any) => t._id === 'expense')?.total || 0,
+          netIncome: summary.summary?.netIncome || 0,
+          monthlyGrowth: 0,
+        },
+        alerts: [],
+        // Defensive: parse breakdown for analytics, avoid rendering objects
+        breakdown: Array.isArray(summary.breakdown)
+          ? summary.breakdown.map((b: any) => ({
+              category: typeof b._id?.category === 'string' ? b._id.category : '',
+              type: typeof b._id?.type === 'string' ? b._id.type : '',
+              total: b.total || 0,
+              count: b.count || 0,
+            }))
+          : [],
+      });
     } catch (error) {
       console.error('Failed to fetch coordination data:', error);
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -204,23 +236,51 @@ const FinancialCoordinator: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900">Priority Alerts</h3>
               </div>
               <div className="p-6 space-y-4">
-                {data.alerts.map((alert) => (
-                  <div key={alert.id} className={`p-4 rounded-lg border ${getAlertColor(alert.type)}`}>
-                    <div className="flex items-start space-x-3">
-                      {getAlertIcon(alert.type)}
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">{alert.title}</h4>
-                        <p className="text-sm text-gray-600 mt-1">{alert.description}</p>
-                        <button
-                          onClick={() => handleNavigation(alert.targetPage, ['Coordination', alert.action])}
-                          className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800"
-                        >
-                          {alert.action} →
-                        </button>
+                {Array.isArray(data.alerts) && data.alerts.map((alert) => {
+                  // Defensive: ensure alert is an object and has required fields
+                  if (!alert || typeof alert !== 'object') return null;
+                  const title = typeof alert.title === 'string' ? alert.title : 'Untitled';
+                  const description = typeof alert.description === 'string' ? alert.description : '';
+                  const action = typeof alert.action === 'string' ? alert.action : 'View';
+                  const targetPage = typeof alert.targetPage === 'string' ? alert.targetPage : '';
+                  const type = typeof alert.type === 'string' ? alert.type : 'info';
+                  return (
+                    <div key={alert.id || title} className={`p-4 rounded-lg border ${getAlertColor(type)}`}>
+                      <div className="flex items-start space-x-3">
+                        {getAlertIcon(type)}
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{title}</h4>
+                          <p className="text-sm text-gray-600 mt-1">{description}</p>
+                          <button
+                            onClick={() => handleNavigation(targetPage, ['Coordination', action])}
+                            className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800"
+                          >
+                            {action} →
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+            </div>
+            {/* Breakdown Analytics Example (do not render objects directly) */}
+            <div className="bg-white rounded-xl shadow-sm border">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Category Breakdown</h3>
+              </div>
+              <div className="p-6 space-y-2">
+                {Array.isArray(data.breakdown) && data.breakdown.length > 0 ? (
+                  data.breakdown.map((b, idx) => (
+                    <div key={idx} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                      <span className="font-medium text-gray-700">{b.category} ({b.type})</span>
+                      <span className="text-gray-900">{formatXAF(b.total)}</span>
+                      <span className="text-xs text-gray-500">{b.count} txns</span>
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-gray-400">No breakdown data</span>
+                )}
               </div>
             </div>
 

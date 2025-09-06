@@ -1,3 +1,9 @@
+// Helper for GET requests that returns parsed JSON
+export async function getJson(path: string, options: any = {}) {
+  const res = await get(path, options);
+  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
+  return res.json();
+}
 export const getAuthToken = () => {
   try { return localStorage.getItem('token'); } catch (e) { return null; }
 };

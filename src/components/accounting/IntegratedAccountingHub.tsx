@@ -14,7 +14,8 @@ import {
   Target,
   Zap,
   Shield,
-  Calendar
+  Calendar,
+  CheckCircle
 } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';

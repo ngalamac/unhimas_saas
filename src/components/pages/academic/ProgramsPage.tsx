@@ -35,6 +35,113 @@ interface ProgramStats {
 }
 
 export const ProgramsPage: React.FC = () => {
+  // Modal state for create/edit/view
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null);
+  const [modalProgram, setModalProgram] = useState<Program | null>(null);
+
+  // Form state for create/edit
+  const [formName, setFormName] = useState('');
+  const [formCode, setFormCode] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formDuration, setFormDuration] = useState(12);
+  const [formLevel, setFormLevel] = useState('');
+  const [formIsActive, setFormIsActive] = useState(true);
+
+  // Open modal for create/edit/view
+  const openModal = (mode: 'create' | 'edit' | 'view', program?: Program) => {
+    setModalMode(mode);
+    setModalProgram(program || null);
+    if (mode === 'edit' && program) {
+      setFormName(program.name);
+      setFormCode(program.code);
+      setFormDescription(program.description);
+      setFormDuration(program.duration);
+      setFormLevel(program.level);
+      setFormIsActive(program.isActive);
+    } else if (mode === 'create') {
+      setFormName('');
+      setFormCode('');
+      setFormDescription('');
+      setFormDuration(12);
+      setFormLevel('');
+      setFormIsActive(true);
+    }
+  };
+
+  // Save program (create or edit)
+  const handleSaveProgram = async () => {
+    if (!formName.trim() || !formCode.trim() || !formLevel.trim()) {
+      showToast('Name, code, and level are required', 'error');
+      return;
+    }
+    try {
+      if (modalMode === 'create') {
+        const payload = {
+          name: formName,
+          code: formCode,
+          description: formDescription,
+          duration: formDuration,
+          level: formLevel,
+          isActive: formIsActive
+        };
+        await fetchClient.post('/api/programs', payload);
+        showToast('Program created successfully', 'success');
+      } else if (modalMode === 'edit' && modalProgram) {
+        const payload = {
+          name: formName,
+          code: formCode,
+          description: formDescription,
+          duration: formDuration,
+          level: formLevel,
+          isActive: formIsActive
+        };
+        await fetchClient.put(`/api/programs/${modalProgram._id}`, payload);
+        showToast('Program updated successfully', 'success');
+      }
+      setModalMode(null);
+      fetchPrograms();
+      fetchStats();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to save program', 'error');
+    }
+  };
+
+  // Modal component
+  const ProgramModal = () => {
+    if (!modalMode) return null;
+    const isView = modalMode === 'view';
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+        <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
+          <h2 className="text-xl font-bold mb-4">{modalMode === 'create' ? 'Add Program' : modalMode === 'edit' ? 'Edit Program' : 'View Program'}</h2>
+          <div className="space-y-4">
+            <input disabled={isView} value={formName} onChange={e => setFormName(e.target.value)} placeholder="Program Name" className="w-full px-3 py-2 border rounded" />
+            <input disabled={isView} value={formCode} onChange={e => setFormCode(e.target.value)} placeholder="Code" className="w-full px-3 py-2 border rounded" />
+            <textarea disabled={isView} value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Description" className="w-full px-3 py-2 border rounded" />
+            <input disabled={isView} type="number" value={formDuration} onChange={e => setFormDuration(Number(e.target.value))} placeholder="Duration (months)" className="w-full px-3 py-2 border rounded" />
+            <select disabled={isView} value={formLevel} onChange={e => setFormLevel(e.target.value)} className="w-full px-3 py-2 border rounded">
+              <option value="">Select Level</option>
+              <option value="Certificate">Certificate</option>
+              <option value="Diploma">Diploma</option>
+              <option value="Bachelor">Bachelor</option>
+              <option value="Master">Master</option>
+              <option value="PhD">PhD</option>
+            </select>
+            <label className="flex items-center space-x-2">
+              <input disabled={isView} type="checkbox" checked={formIsActive} onChange={e => setFormIsActive(e.target.checked)} />
+              <span>Active</span>
+            </label>
+          </div>
+          <div className="mt-6 flex justify-end space-x-2">
+            <button onClick={() => setModalMode(null)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+            {!isView && (
+              <button onClick={handleSaveProgram} className="px-4 py-2 bg-orange-600 text-white rounded">Save</button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
   const { user } = useAuth();
   const { selectedBranch } = useBranch();
   const { showToast } = useUI();
@@ -183,6 +290,7 @@ export const ProgramsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <ProgramModal />
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -191,7 +299,7 @@ export const ProgramsPage: React.FC = () => {
         </div>
         <div className="flex space-x-3">
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => openModal('create')}
             className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors flex items-center space-x-2"
           >
             <Plus className="w-4 h-4" />
@@ -422,19 +530,13 @@ export const ProgramsPage: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => {
-                          setSelectedProgram(program);
-                          setShowViewModal(true);
-                        }}
+                        onClick={() => openModal('view', program)}
                         className="text-blue-600 hover:text-blue-900"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => {
-                          setSelectedProgram(program);
-                          setShowEditModal(true);
-                        }}
+                        onClick={() => openModal('edit', program)}
                         className="text-orange-600 hover:text-orange-900"
                       >
                         <Edit className="w-4 h-4" />

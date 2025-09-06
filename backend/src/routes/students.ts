@@ -63,6 +63,13 @@ router.get('/', authMiddleware, requirePermission('students'), requireBranchAcce
     if (req.query.academicYear) {
       query.academicYear = String(req.query.academicYear);
     }
+      // Add support for level and gender filters
+      if (req.query.level) {
+        query.level = String(req.query.level);
+      }
+      if (req.query.gender) {
+        query.gender = String(req.query.gender);
+      }
     if (req.query.isActive !== undefined) {
       query.isActive = req.query.isActive === 'true';
     }

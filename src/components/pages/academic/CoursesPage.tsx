@@ -14,6 +14,17 @@ export const CoursesPage: React.FC = () => {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedProgramId, setSelectedProgramId] = useState<string>('');
+    // Modal state for create/edit/view
+    const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null);
+    const [modalCourse, setModalCourse] = useState<Course | null>(null);
+    const [formTitle, setFormTitle] = useState('');
+    const [formCode, setFormCode] = useState('');
+    const [formCredit, setFormCredit] = useState(3);
+    const [formProgramId, setFormProgramId] = useState('');
+    const [formDepartmentId, setFormDepartmentId] = useState('');
+    const [formSemester, setFormSemester] = useState(1);
+    const [formCAWeight, setFormCAWeight] = useState(0.3);
+    const [formExamWeight, setFormExamWeight] = useState(0.7);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
   const [semester, setSemester] = useState<number>(1);
   const [credit, setCredit] = useState<number>(3);
@@ -27,6 +38,30 @@ export const CoursesPage: React.FC = () => {
   }, []);
 
   const filteredCourses = courses.filter(course => {
+    // Open modal for create/edit/view
+    const openModal = (mode: 'create' | 'edit' | 'view', course?: Course) => {
+      setModalMode(mode);
+      setModalCourse(course || null);
+      if (mode === 'edit' && course) {
+        setFormTitle(course.title);
+        setFormCode(course.code);
+        setFormCredit(course.credit || 3);
+        setFormProgramId((course.program as any)?._id || (course.program as any)?.id || '');
+        setFormDepartmentId((course.department as any)?._id || (course.department as any)?.id || '');
+        setFormSemester(course.semester || 1);
+        setFormCAWeight(course.caWeight ?? 0.3);
+        setFormExamWeight(course.examWeight ?? 0.7);
+      } else if (mode === 'create') {
+        setFormTitle('');
+        setFormCode('');
+        setFormCredit(3);
+        setFormProgramId('');
+        setFormDepartmentId('');
+        setFormSemester(1);
+        setFormCAWeight(0.3);
+        setFormExamWeight(0.7);
+      }
+    };
     const matchesDepartment = !filterDepartment || ((course.department as any)?.id === filterDepartment || (course.department as any)?._id === filterDepartment);
     const matchesLevel = !filterLevel || (course.level ? course.level.toString() === filterLevel : false);
     return matchesDepartment && matchesLevel;
@@ -59,7 +94,84 @@ export const CoursesPage: React.FC = () => {
   const handleDelete = async (id?: string) => {
     if (!id) return;
     await deleteCourse(id);
+    const handleSaveCourse = async () => {
+      if (!formTitle.trim() || !formCode.trim() || !formProgramId || !formDepartmentId || !formCredit || formSemester < 1) {
+        alert('All fields are required');
+        return;
+      }
+      if (Math.abs(formCAWeight + formExamWeight - 1) > 1e-6) {
+        alert('CA and Exam weights must sum to 1');
+        return;
+      }
+      try {
+        if (modalMode === 'create') {
+          const payload = {
+            title: formTitle,
+            code: formCode,
+            credit: formCredit,
+            program: formProgramId,
+            department: formDepartmentId,
+            semester: formSemester,
+            caWeight: formCAWeight,
+            examWeight: formExamWeight
+          };
+          const c = await createCourse(payload as any);
+          setCourses(prev => [c, ...prev]);
+        } else if (modalMode === 'edit' && modalCourse) {
+          const payload = {
+            title: formTitle,
+            code: formCode,
+            credit: formCredit,
+            program: formProgramId,
+            department: formDepartmentId,
+            semester: formSemester,
+            caWeight: formCAWeight,
+            examWeight: formExamWeight
+          };
+          // You may need to implement updateCourse in your api/courses
+          const c = await fetchClient.put(`/api/courses/${modalCourse._id || modalCourse.id}`, payload).then(res => res.json());
+          setCourses(prev => prev.map(course => (course._id || course.id) === (c._id || c.id) ? c : course));
+        }
+        setModalMode(null);
+      } catch (e) {
+        alert('Failed to save course');
+      }
+    };
     setCourses(prev => prev.filter(c => (c._id || c.id) !== id));
+    // Modal component
+    const CourseModal = () => {
+      if (!modalMode) return null;
+      const isView = modalMode === 'view';
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
+            <h2 className="text-xl font-bold mb-4">{modalMode === 'create' ? 'Add Course' : modalMode === 'edit' ? 'Edit Course' : 'View Course'}</h2>
+            <div className="space-y-4">
+              <input disabled={isView} value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Course Title" className="w-full px-3 py-2 border rounded" />
+              <input disabled={isView} value={formCode} onChange={e => setFormCode(e.target.value)} placeholder="Code" className="w-full px-3 py-2 border rounded" />
+              <input disabled={isView} type="number" value={formCredit} onChange={e => setFormCredit(Number(e.target.value))} placeholder="Credit" className="w-full px-3 py-2 border rounded" />
+              <select disabled={isView} value={formProgramId} onChange={e => setFormProgramId(e.target.value)} className="w-full px-3 py-2 border rounded">
+                <option value="">Select Program</option>
+                {programs.map(p => <option key={p._id || p.id} value={p._id || p.id}>{p.name}</option>)}
+              </select>
+              <select disabled={isView} value={formDepartmentId} onChange={e => setFormDepartmentId(e.target.value)} className="w-full px-3 py-2 border rounded">
+                <option value="">Select Department</option>
+                {departments.map(d => <option key={d._id || d.id} value={d._id || d.id}>{d.name}</option>)}
+              </select>
+              <input disabled={isView} type="number" value={formSemester} onChange={e => setFormSemester(Number(e.target.value))} placeholder="Semester" className="w-full px-3 py-2 border rounded" />
+              <input disabled={isView} type="number" step="0.01" value={formCAWeight} onChange={e => setFormCAWeight(Number(e.target.value))} placeholder="CA Weight" className="w-full px-3 py-2 border rounded" />
+              <input disabled={isView} type="number" step="0.01" value={formExamWeight} onChange={e => setFormExamWeight(Number(e.target.value))} placeholder="Exam Weight" className="w-full px-3 py-2 border rounded" />
+            </div>
+            <div className="mt-6 flex justify-end space-x-2">
+              <button onClick={() => setModalMode(null)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+              {!isView && (
+                <button onClick={handleSaveCourse} className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
   };
 
   // edit/save flow not implemented yet for courses; update handler omitted to avoid unused symbol
@@ -72,7 +184,7 @@ export const CoursesPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Course Management</h1>
           <p className="text-gray-600">Manage all courses, credits, and lecturers</p>
         </div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2" onClick={() => openModal('create')}>
           <Plus className="w-4 h-4" />
           <span>Add New Course</span>
         </button>
