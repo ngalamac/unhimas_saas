@@ -290,3 +290,13 @@ router.get('/:id/stats', authMiddleware, requirePermission('branches'), async (r
 });
 
 export default router;
+// Stats overview endpoint
+router.get('/stats/overview', authMiddleware, requirePermission('branches'), async (req: AuthRequest, res) => {
+  try {
+    const totalBranches = await Branch.countDocuments({ isActive: true });
+    const activeBranches = await Branch.countDocuments({ isActive: true });
+    res.json({ totalBranches, activeBranches });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch branch stats' });
+  }
+});

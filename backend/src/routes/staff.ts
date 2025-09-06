@@ -35,3 +35,13 @@ router.delete('/:id', async (req, res) => {
 });
 
 export default router;
+// Stats overview endpoint
+router.get('/stats/overview', async (req, res) => {
+  try {
+    const totalStaff = await Staff.countDocuments();
+    const activeStaff = await Staff.countDocuments({ isActive: true });
+    res.json({ totalStaff, activeStaff });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch staff stats' });
+  }
+});

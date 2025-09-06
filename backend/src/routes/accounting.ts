@@ -698,3 +698,31 @@ router.get('/summary', authMiddleware, requirePermission('accounting'), async (r
 });
 
 export default router;
+// Summary overview endpoint
+router.get('/summary/overview', authMiddleware, requirePermission('accounting'), async (req: AuthRequest, res) => {
+  try {
+    const match: any = {};
+    if (req.query.from || req.query.to) {
+      match.date = {};
+      if (req.query.from) match.date.$gte = new Date(req.query.from as string);
+      if (req.query.to) match.date.$lte = new Date(req.query.to as string);
+    }
+    if (req.query.branch) match.branch = req.query.branch;
+    match.status = 'approved';
+    const totalIncome = await OfficeTransaction.aggregate([
+      { $match: { ...match, type: 'income' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalExpenses = await OfficeTransaction.aggregate([
+      { $match: { ...match, type: 'expense' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    res.json({
+      totalIncome: totalIncome[0]?.total || 0,
+      totalExpenses: totalExpenses[0]?.total || 0,
+      netIncome: (totalIncome[0]?.total || 0) - (totalExpenses[0]?.total || 0)
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch accounting summary' });
+  }
+});
