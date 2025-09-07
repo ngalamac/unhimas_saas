@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import User from '../models/User';
 import BranchModel from '../models/BranchModel';
 import { authMiddleware, requireUserManagement, requirePermission, AuthRequest } from '../middleware/auth';
+import { deleteFileFromGridFS } from '../services/fileService';
 
 const router = express.Router();
 
@@ -89,16 +90,8 @@ router.post('/', authMiddleware, requireUserManagement(), async (req: AuthReques
       department 
     } = req.body;
 
-    // Basic validation for core fields
     if (!name || !email || !password || !type) {
-      return res.status(400).json({ error: 'Missing required fields: name, email, password, type' });
-    }
-
-    // Enforce additional fields for non-SuperAdmin users
-    if (type !== 'SuperAdmin') {
-      if (!employeeId || !phoneNumber || !department) {
-        return res.status(400).json({ error: 'Missing required fields for this user type: employeeId, phoneNumber, department' });
-      }
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Check if email already exists
@@ -117,8 +110,8 @@ router.post('/', authMiddleware, requireUserManagement(), async (req: AuthReques
 
     // Determine branch assignment
     let branchId = branch;
-    if (req.user && !req.user.isSuperAdmin) {
-      branchId = req.user.branch; // Non-SuperAdmin users can only create users in their branch
+    if (!req.user?.isSuperAdmin) {
+      branchId = req.user?.branch; // Non-SuperAdmin users can only create users in their branch
     }
 
     // Verify branch exists
@@ -139,7 +132,7 @@ router.post('/', authMiddleware, requireUserManagement(), async (req: AuthReques
       type,
       permissions: permissions || {},
       branch: branchId,
-      createdBy: req.user ? req.user.id : undefined,
+      createdBy: req.user?.id,
       employeeId,
       phoneNumber,
       department
@@ -170,6 +163,11 @@ router.get('/:id', authMiddleware, requireUserManagement(), async (req: AuthRequ
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check if user can access this user (hierarchical access)
+    if (!req.user?.isSuperAdmin && user.branch && user.branch.toString() !== req.user?.branch) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     res.json(user);
   } catch (err) {
     console.error('GET /api/users/:id error', err);
@@ -183,6 +181,11 @@ router.put('/:id', authMiddleware, requireUserManagement(), async (req: AuthRequ
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if user can modify this user (hierarchical access)
+    if (!req.user?.isSuperAdmin && user.branch && user.branch.toString() !== req.user?.branch) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     // Prevent modification of SuperAdmin by non-SuperAdmin users
@@ -237,6 +240,11 @@ router.put('/:id/permissions', authMiddleware, requireUserManagement(), async (r
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check if user can modify this user (hierarchical access)
+    if (!req.user?.isSuperAdmin && user.branch && user.branch.toString() !== req.user?.branch) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     // Prevent modification of SuperAdmin permissions by non-SuperAdmin users
     if (user.type === 'SuperAdmin' && !req.user?.isSuperAdmin) {
       return res.status(403).json({ error: 'Cannot modify SuperAdmin permissions' });
@@ -271,6 +279,15 @@ router.delete('/:id', authMiddleware, requireUserManagement(), async (req: AuthR
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.profilePicture) {
+        await deleteFileFromGridFS(user.profilePicture);
+    }
+
+    // Check if user can delete this user (hierarchical access)
+    if (!req.user?.isSuperAdmin && user.branch && user.branch.toString() !== req.user?.branch) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     // Prevent deletion of SuperAdmin

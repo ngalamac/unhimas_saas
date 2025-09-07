@@ -1,7 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import cookieParser from 'cookie-parser';
 import authRouter from './routes/auth';
 import accountingRouter from './routes/accounting';
 import paymentPlansRouter from './routes/paymentPlans';
@@ -18,25 +17,15 @@ import staffRouter from './routes/staff';
 import payrollRouter from './routes/payroll';
 import { eventsHandler } from './lib/events';
 import path from 'path';
-import { addCsrfToken, verifyCsrfToken } from './middleware/csrf';
 
 const app = express();
 app.use(cors());
-app.use(cookieParser());
 // allow larger JSON payloads (some clients may include base64 previews) up to 10MB
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// CSRF Protection
-app.use(addCsrfToken);
-app.use('/api', verifyCsrfToken);
-
 // MongoDB connection
-const MONGO_URI = process.env.MONGO_URI;
-if (!MONGO_URI) {
-    console.error('FATAL ERROR: MONGO_URI is not defined.');
-    process.exit(1);
-}
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://unhimas4:n673927826@cluster0.xeab0d2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 mongoose.connection.on('connected', () => {
   console.log('✅ MongoDB connection established successfully.');
 });
@@ -116,12 +105,8 @@ import User from './models/User';
 import bcrypt from 'bcryptjs';
 
 async function seedSuperAdmin() {
-  const email = process.env.SUPERADMIN_EMAIL || 'superadminunhimas@gmail.com';
-  const password = process.env.SUPERADMIN_PASSWORD;
-  if (!password) {
-    console.warn('SUPERADMIN_PASSWORD not set. Skipping super admin seeding.');
-    return;
-  }
+  const email = 'superadminunhimas@gmail.com';
+  const password = 'ca@5G2024';
   const existing = await User.findOne({ email });
   if (!existing) {
     const hashed = await bcrypt.hash(password, 10);

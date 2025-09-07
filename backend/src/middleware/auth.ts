@@ -8,16 +8,6 @@ dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'unhimas_secret';
 
-// Define the role hierarchy. Lower number = higher rank.
-const roleHierarchy: Record<string, number> = {
-    'SuperAdmin': 0,
-    'Admin': 1,
-    'Dean of Studies': 2,
-    'Head Of Department': 3,
-    'Accountant': 4,
-    'Lecturer': 5,
-};
-
 export interface AuthRequest extends Request {
   user?: { 
     id?: string; 
@@ -95,128 +85,89 @@ export default authMiddleware;
 
 // Enhanced permissions middleware with hierarchical support
 export function requirePermission(permission: string) {
-    return async (req: AuthRequest, res: Response, next: NextFunction) => {
-        if (!req.user) {
-            return res.status(401).json({ error: 'Authentication required' });
-        }
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
 
-        // SuperAdmin has all permissions
-        if (req.user.isSuperAdmin) {
-            return next();
-        }
+    // SuperAdmin has all permissions
+    if (req.user.isSuperAdmin) {
+      return next();
+    }
 
-        const [feature, action] = permission.split(':');
-        if (!feature || !action) {
-            console.warn(`[auth] Invalid permission format: ${permission}`);
-            return res.status(403).json({ error: 'Insufficient permissions' });
-        }
+    // Check if user has the specific permission
+    const userPermissions = req.user.permissions || {};
+    const hasPermission = Object.keys(userPermissions).some(feature => {
+      const actions = userPermissions[feature];
+      if (typeof actions === 'object') {
+        return Object.values(actions).some(Boolean);
+      }
+      return false;
+    });
 
-        const userPermissions = req.user.permissions || {};
-        const featurePermissions = userPermissions[feature];
+    // Check for specific permission in the format "feature:action"
+    const [feature, action] = permission.split(':');
+    if (feature && action) {
+      const featurePermissions = userPermissions[feature];
+      if (featurePermissions && featurePermissions[action]) {
+        return next();
+      }
+    }
 
-        if (featurePermissions && featurePermissions[action]) {
-            return next(); // User has the specific permission
-        }
+    // Check for general permission
+    if (userPermissions[permission] || hasPermission) {
+      return next();
+    }
 
-        if (process.env.AUTH_DEBUG === 'true') {
-            console.debug('[auth] Permission denied', {
-                userId: req.user.id,
-                required: permission,
-                actual: userPermissions
-            });
-        }
-
-        return res.status(403).json({ error: 'Insufficient permissions' });
-    };
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  };
 }
 
 // Middleware to ensure user can only access their branch data
-export function requireBranchAccess(paramName: string = 'branchId') {
-    return async (req: AuthRequest, res: Response, next: NextFunction) => {
-        if (!req.user) {
-            return res.status(401).json({ error: 'Authentication required' });
-        }
+export function requireBranchAccess() {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
 
-        // SuperAdmin can access all branches
-        if (req.user.isSuperAdmin) {
-            return next();
-        }
+    // SuperAdmin can access all branches
+    if (req.user.isSuperAdmin) {
+      return next();
+    }
 
-        const requestedBranch = req.params[paramName] || req.body[paramName] || req.query[paramName] || req.body.branch || req.query.branch;
+    // For non-SuperAdmin users, ensure they can only access their branch data
+    const requestedBranch = req.query.branch || req.body.branch || req.params.branchId;
 
-        // If a branch is specified in the request, it must match the user's branch
-        if (requestedBranch) {
-            if (requestedBranch !== req.user.branch) {
-                return res.status(403).json({ error: 'Access denied: You do not have permission to access this branch.' });
-            }
-        }
+    if (requestedBranch && requestedBranch !== req.user.branch) {
+      return res.status(403).json({ error: 'Access denied: Branch mismatch' });
+    }
 
-        // For list queries, if no branch is specified, we should default to the user's branch
-        // to prevent accidental data leakage from other branches.
-        if ((req.method === 'GET' || req.method === 'HEAD') && !req.query.branch && req.user.branch) {
-            // This is a potential source of bugs if not all list routes are designed to use `query.branch`.
-            // However, it's a good defensive measure.
-            req.query.branch = req.user.branch;
-        }
+    // If no branch specified, use user's branch
+    if (!requestedBranch && req.user.branch) {
+      req.query.branch = req.user.branch;
+    }
 
-        return next();
-    };
+    return next();
+  };
 }
 
 // Middleware to check if user can manage other users
 export function requireUserManagement() {
-    return async (req: AuthRequest, res: Response, next: NextFunction) => {
-        if (!req.user) {
-            return res.status(401).json({ error: 'Authentication required' });
-        }
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
 
-        // SuperAdmin can manage all users
-        if (req.user.isSuperAdmin) {
-            return next();
-        }
+    // SuperAdmin can manage all users
+    if (req.user.isSuperAdmin) {
+      return next();
+    }
 
-        // A user must have a role to manage other users
-        if (!req.user.type) {
-            return res.status(403).json({ error: 'Insufficient permissions: User role not defined' });
-        }
+    // Branch managers can only manage users in their branch
+    if (req.user.isBranchManager) {
+      return next();
+    }
 
-        // For operations on a specific user, enforce branch and role hierarchy
-        if (req.params.id) {
-            // Prevent users from managing themselves
-            if (req.params.id === req.user.id) {
-                return res.status(403).json({ error: 'You cannot manage your own account' });
-            }
-
-            try {
-                const userToManage = await User.findById(req.params.id).select('branch type');
-                if (!userToManage) {
-                    return res.status(404).json({ error: 'User to manage not found' });
-                }
-
-                // Branch managers can only manage users in their own branch
-                if (req.user.isBranchManager && userToManage.branch?.toString() !== req.user.branch) {
-                    return res.status(403).json({ error: 'Access denied: You can only manage users in your own branch.' });
-                }
-
-                // Enforce role hierarchy
-                const currentUserRoleLevel = roleHierarchy[req.user.type];
-                const targetUserRoleLevel = roleHierarchy[userToManage.type];
-
-                if (currentUserRoleLevel === undefined || targetUserRoleLevel === undefined) {
-                    return res.status(500).json({ error: 'Server error: Unknown user role encountered' });
-                }
-
-                if (currentUserRoleLevel >= targetUserRoleLevel) {
-                    return res.status(403).json({ error: 'Access denied: You cannot manage users with an equal or higher role.' });
-                }
-
-            } catch (error) {
-                console.error('[auth] Error in requireUserManagement:', error);
-                return res.status(500).json({ error: 'Server error during user management check' });
-            }
-        }
-
-        // For creating users (no req.params.id), role/branch checks are handled in the route.
-        return next();
-    };
+    return res.status(403).json({ error: 'Insufficient permissions for user management' });
+  };
 }

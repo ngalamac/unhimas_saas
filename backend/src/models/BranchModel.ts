@@ -30,21 +30,10 @@ export interface IBranch extends Document {
 }
 
 const BranchSchema: Schema = new Schema({
-  name: { type: String, required: true, unique: true, trim: true, minlength: 2 },
-  address: { type: String, required: true, trim: true },
-  phoneNumber: {
-    type: String,
-    required: true,
-    trim: true,
-    match: [/^\+?[1-9]\d{1,14}$/, 'Please fill a valid phone number']
-  },
-  email: {
-    type: String,
-    required: true,
-    lowercase: true,
-    trim: true,
-    match: [/.+\@.+\..+/, 'Please fill a valid email address']
-  },
+  name: { type: String, required: true, unique: true },
+  address: { type: String, required: true },
+  phoneNumber: { type: String, required: true },
+  email: { type: String, required: true },
   manager: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   isActive: { type: Boolean, default: true },
   establishedDate: { type: Date, required: true },

@@ -55,7 +55,5 @@ CourseSchema.pre('save', async function(next) {
 });
 
 CourseSchema.index({ program: 1, code: 1 }, { unique: true });
-CourseSchema.index({ department: 1 });
-CourseSchema.index({ program: 1 });
 
 export default mongoose.model<ICourse>('Course', CourseSchema);

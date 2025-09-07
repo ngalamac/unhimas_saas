@@ -4,11 +4,7 @@ import path from 'path';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const MONGO_URI = process.env.MONGO_URI;
-if (!MONGO_URI) {
-    console.error('FATAL ERROR: MONGO_URI is not defined.');
-    process.exit(1);
-}
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://unhimas4:n673927826@cluster0.xeab0d2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 
 async function run() {
   try {

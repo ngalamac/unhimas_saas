@@ -14,8 +14,4 @@ const DepartmentSchema: Schema = new Schema({
   program: { type: Schema.Types.ObjectId, ref: 'Program', required: true }
 }, { timestamps: true });
 
-DepartmentSchema.index({ name: 1 });
-DepartmentSchema.index({ code: 1 });
-DepartmentSchema.index({ program: 1 });
-
 export default mongoose.model<IDepartment>('Department', DepartmentSchema);

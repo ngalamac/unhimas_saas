@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import Counter from './Counter';
 
 export interface IGuardian {
   name: string;
@@ -86,14 +87,24 @@ const AddressSchema = new Schema({
 
 const StudentSchema: Schema = new Schema({
   firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
+  lastName: { type: String, required: true, trim: true },
   names: { type: String },
   dateOfBirth: { type: Date, required: true },
-  placeOfBirth: { type: String, required: true },
-  regionOfOrigin: { type: String, required: true },
-  phoneNumber: { type: String, required: true },
+  placeOfBirth: { type: String, required: true, trim: true },
+  regionOfOrigin: { type: String, required: true, trim: true },
+  phoneNumber: {
+    type: String,
+    required: true,
+    trim: true,
+    match: [/^\+?[1-9]\d{1,14}$/, 'Please fill a valid phone number']
+  },
   gender: { type: String, enum: ['Male', 'Female'], required: true },
-  email: { type: String },
+  email: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    match: [/.+\@.+\..+/, 'Please fill a valid email address']
+  },
   program: { type: Schema.Types.ObjectId, ref: 'Program', required: true },
   department: { type: Schema.Types.ObjectId, ref: 'Department', required: true },
   profilePicture: { type: String },
@@ -156,11 +167,23 @@ StudentSchema.index({ branch: 1, isActive: 1 });
 StudentSchema.index({ branch: 1, enrollmentStatus: 1 });
 
 // Generate derived fields before validation so required checks see them
-StudentSchema.pre<IStudent>('validate', function(next) {
+StudentSchema.pre<IStudent>('validate', async function(next) {
   this.names = `${this.firstName} ${this.lastName}`;
-  if (!this.studentId) {
-    this.studentId = `S-${Date.now().toString().slice(-6)}`;
+
+  if (this.isNew && !this.studentId) {
+    try {
+      const counter = await Counter.findByIdAndUpdate(
+        { _id: 'studentId' },
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+      );
+      const year = new Date().getFullYear().toString().slice(-2);
+      this.studentId = `S${year}${counter.seq.toString().padStart(4, '0')}`;
+    } catch (error: any) {
+      return next(error);
+    }
   }
+
   // compute a simple identity hash used to detect duplicates: lowercase trimmed concat of key fields
   try {
     const fn = (this.firstName || '').toString().trim().toLowerCase();

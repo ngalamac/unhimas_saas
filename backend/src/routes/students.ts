@@ -8,6 +8,9 @@ import BranchModel from '../models/BranchModel';
 import mongoose from 'mongoose';
 import authMiddleware, { AuthRequest, requirePermission, requireBranchAccess } from '../middleware/auth';
 import { emitEvent } from '../lib/events';
+import { deleteFileFromGridFS } from '../services/fileService';
+import { calculateGpa } from '../services/gradeService';
+import { generateTranscript } from '../services/transcriptService';
 
 const router = express.Router();
 
@@ -383,6 +386,17 @@ router.post('/', authMiddleware, requirePermission('students'), requireBranchAcc
     return res.status(400).json({ message: 'Invalid branch id' });
   }
 
+  // Duplicate detection
+  const fn = (firstName || '').toString().trim().toLowerCase();
+  const ln = (lastName || '').toString().trim().toLowerCase();
+  const dob = dateOfBirth ? new Date(dateOfBirth).toISOString().slice(0,10) : '';
+  const pob = (placeOfBirth || '').toString().trim().toLowerCase();
+  const identityHash = `${fn}|${ln}|${dob}|${pob}`;
+  const existing = await Student.findOne({ identityHash });
+  if (existing) {
+    return res.status(409).json({ message: 'A student with the same name, date of birth and place of birth already exists' });
+  }
+
   // validate branch exists
   try {
   const b = await BranchModel.findById(branchCandidate);
@@ -708,6 +722,10 @@ router.delete('/:id', authMiddleware, requirePermission('students'), requireBran
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
+
+    if (student.profilePicture) {
+        await deleteFileFromGridFS(student.profilePicture);
+    }
     
     // Soft delete - set isActive to false instead of hard delete
     const updatedStudent = await Student.findByIdAndUpdate(
@@ -846,6 +864,35 @@ router.get('/stats/overview', authMiddleware, requirePermission('students'), req
     console.error('Error fetching student statistics:', e);
     return res.status(500).json({ message: 'Failed to fetch student statistics' });
   }
+});
+
+router.get('/:id/gpa', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
+    try {
+        const gpaData = await calculateGpa(req.params.id);
+        res.json(gpaData);
+    } catch (e) {
+        console.error('Error calculating GPA:', e);
+        return res.status(500).json({ message: 'Failed to calculate GPA' });
+    }
+});
+
+router.get('/:id/transcript', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
+    try {
+        const student = await Student.findById(req.params.id);
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+
+        const pdfBuffer = await generateTranscript(student);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=transcript-${student.studentId}.pdf`);
+        res.send(pdfBuffer);
+
+    } catch (e) {
+        console.error('Error generating transcript:', e);
+        return res.status(500).json({ message: 'Failed to generate transcript' });
+    }
 });
 
 export default router;

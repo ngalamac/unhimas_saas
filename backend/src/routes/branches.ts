@@ -2,7 +2,7 @@ import express from 'express';
 import Branch from '../models/BranchModel';
 import User from '../models/User';
 import Student from '../models/Student';
-import { authMiddleware, requirePermission, requireBranchAccess, AuthRequest } from '../middleware/auth';
+import { authMiddleware, requirePermission, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -121,7 +121,7 @@ router.post('/', authMiddleware, requirePermission('branches'), async (req: Auth
 });
 
 // Get single branch
-router.get('/:id', authMiddleware, requirePermission('branches'), requireBranchAccess('id'), async (req: AuthRequest, res) => {
+router.get('/:id', authMiddleware, requirePermission('branches'), async (req: AuthRequest, res) => {
   try {
     const branch = await Branch.findById(req.params.id)
       .populate('manager', 'name email type')
@@ -129,6 +129,11 @@ router.get('/:id', authMiddleware, requirePermission('branches'), requireBranchA
 
     if (!branch) {
       return res.status(404).json({ error: 'Branch not found' });
+    }
+
+    // Check if user can access this branch (hierarchical access)
+    if (!req.user?.isSuperAdmin && branch._id.toString() !== req.user?.branch) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     // Get current counts
@@ -143,11 +148,16 @@ router.get('/:id', authMiddleware, requirePermission('branches'), requireBranchA
 });
 
 // Update a branch
-router.put('/:id', authMiddleware, requirePermission('branches'), requireBranchAccess('id'), async (req: AuthRequest, res) => {
+router.put('/:id', authMiddleware, requirePermission('branches'), async (req: AuthRequest, res) => {
   try {
     const branch = await Branch.findById(req.params.id);
     if (!branch) {
       return res.status(404).json({ error: 'Branch not found' });
+    }
+
+    // Check if user can modify this branch (hierarchical access)
+    if (!req.user?.isSuperAdmin && branch._id.toString() !== req.user?.branch) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     // If manager is being changed, validate new manager
@@ -224,11 +234,16 @@ router.delete('/:id', authMiddleware, requirePermission('branches'), async (req:
 });
 
 // Get branch statistics
-router.get('/:id/stats', authMiddleware, requirePermission('branches'), requireBranchAccess('id'), async (req: AuthRequest, res) => {
+router.get('/:id/stats', authMiddleware, requirePermission('branches'), async (req: AuthRequest, res) => {
   try {
     const branch = await Branch.findById(req.params.id);
     if (!branch) {
       return res.status(404).json({ error: 'Branch not found' });
+    }
+
+    // Check if user can access this branch (hierarchical access)
+    if (!req.user?.isSuperAdmin && branch._id.toString() !== req.user?.branch) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     const studentCount = await Student.countDocuments({ branch: req.params.id });

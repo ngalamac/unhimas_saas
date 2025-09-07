@@ -148,46 +148,11 @@ router.post('/login', async (req, res) => {
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
-
-    // Create JWT
-    const accessToken = jwt.sign({ id: user._id, type: user.type }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = crypto.randomBytes(40).toString('hex');
-
-    // Save refresh token to user
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    // Send refresh token as HttpOnly cookie
-    res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
-
-    res.json({ accessToken, user });
+    const token = jwt.sign({ id: user._id, type: user.type }, JWT_SECRET, { expiresIn: '1d' });
+    res.json({ token, user });
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });
   }
-});
-
-router.post('/refresh-token', async (req, res) => {
-    const { refreshToken } = req.cookies;
-    if (!refreshToken) {
-        return res.status(401).json({ error: 'Refresh token not found' });
-    }
-
-    try {
-        const user = await User.findOne({ refreshToken });
-        if (!user) {
-            return res.status(403).json({ error: 'Invalid refresh token' });
-        }
-
-        const accessToken = jwt.sign({ id: user._id, type: user.type }, JWT_SECRET, { expiresIn: '15m' });
-        res.json({ accessToken });
-    } catch (err) {
-        res.status(500).json({ error: 'Failed to refresh token' });
-    }
 });
 
 // Password reset request
