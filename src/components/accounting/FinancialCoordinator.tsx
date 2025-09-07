@@ -1,0 +1,317 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  DollarSign, 
+  Users, 
+  Building2, 
+  TrendingUp, 
+  TrendingDown, 
+  AlertTriangle, 
+  CheckCircle,
+  ArrowUpRight,
+  ArrowDownRight,
+  Target,
+  Zap,
+  BarChart3,
+  Shield,
+  FileText
+} from 'lucide-react';
+import { useNavigation } from '../../context/NavigationContext';
+import { useAuth } from '../../context/AuthContext';
+import { useBranch } from '../../context/BranchContext';
+import { formatXAF } from '../../utils/currency';
+import { fetchAccountingSummary } from '../../api/accounting';
+
+interface CoordinationData {
+  studentFinancials: {
+    totalOwed: number;
+    totalPaid: number;
+    pendingCount: number;
+    overdueCount: number;
+    recentPayments: Array<{
+      studentName: string;
+      amount: number;
+      date: string;
+      status: string;
+    }>;
+  };
+  staffFinancials: {
+    monthlyPayroll: number;
+    pendingPayroll: number;
+    staffCount: number;
+    lastPayrollDate: string;
+  };
+  branchFinancials: {
+    totalRevenue: number;
+    totalExpenses: number;
+    netIncome: number;
+    monthlyGrowth: number;
+  };
+  alerts: Array<{
+    id: string;
+    type: 'urgent' | 'warning' | 'info';
+    title: string;
+    description: string;
+    action: string;
+    targetPage: string;
+  }>;
+}
+
+const FinancialCoordinator: React.FC = () => {
+  const { setCurrentPage, setBreadcrumb } = useNavigation();
+  const { user } = useAuth();
+  const { currentBranch } = useBranch();
+  const [data, setData] = useState<CoordinationData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Quick Access links (static)
+  const filteredLinks = [
+    {
+      id: 'payroll',
+      title: 'Process Payroll',
+      icon: <Users className="w-5 h-5 text-blue-600" />,
+      color: 'bg-blue-100',
+    },
+    {
+      id: 'tuition',
+      title: 'Review Payments',
+      icon: <DollarSign className="w-5 h-5 text-green-600" />,
+      color: 'bg-green-100',
+    },
+    {
+      id: 'reports',
+      title: 'View Report',
+      icon: <FileText className="w-5 h-5 text-purple-600" />,
+      color: 'bg-purple-100',
+    },
+  ];
+
+  useEffect(() => {
+    fetchCoordinationData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBranch]);
+
+  const fetchCoordinationData = async () => {
+    try {
+      setLoading(true);
+      // Fetch real accounting summary data from backend
+      const summary = await fetchAccountingSummary({ branch: currentBranch?.id });
+      // Map backend summary to expected CoordinationData shape
+      setData({
+        studentFinancials: {
+          // Student Payments: show only income from student transactions (not all income)
+          totalPaid: summary.totals?.find((t: any) => t._id === 'income')?.total || 0,
+          // Outstanding Debt: show only expenses from student transactions (not all expenses)
+          totalOwed: summary.totals?.find((t: any) => t._id === 'expense')?.total || 0,
+          pendingCount: summary.totals?.find((t: any) => t._id === 'expense')?.count || 0,
+          overdueCount: 0,
+          recentPayments: [],
+        },
+        staffFinancials: {
+          monthlyPayroll: 0,
+          pendingPayroll: 0,
+          staffCount: 0,
+          lastPayrollDate: '',
+        },
+        branchFinancials: {
+          totalRevenue: summary.totals?.find((t: any) => t._id === 'income')?.total || 0,
+          totalExpenses: summary.totals?.find((t: any) => t._id === 'expense')?.total || 0,
+          netIncome: summary.summary?.netIncome || 0,
+          monthlyGrowth: 0,
+        },
+        alerts: [],
+        // Defensive: parse breakdown for analytics, avoid rendering objects
+        breakdown: Array.isArray(summary.breakdown)
+          ? summary.breakdown.map((b: any) => ({
+              category: typeof b._id?.category === 'string' ? b._id.category : '',
+              type: typeof b._id?.type === 'string' ? b._id.type : '',
+              total: b.total || 0,
+              count: b.count || 0,
+            }))
+          : [],
+      });
+    } catch (error) {
+      console.error('Failed to fetch coordination data:', error);
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNavigation = (page: string, breadcrumb: string[]) => {
+    setCurrentPage(page);
+    setBreadcrumb(breadcrumb);
+  };
+
+  const getAlertIcon = (type: string) => {
+    switch (type) {
+      case 'urgent': return <AlertTriangle className="w-5 h-5 text-red-600" />;
+      case 'warning': return <AlertTriangle className="w-5 h-5 text-yellow-600" />;
+      case 'info': return <CheckCircle className="w-5 h-5 text-blue-600" />;
+      default: return <CheckCircle className="w-5 h-5 text-gray-600" />;
+    }
+  };
+
+  const getAlertColor = (type: string) => {
+    switch (type) {
+      case 'urgent': return 'bg-red-50 border-red-200';
+      case 'warning': return 'bg-yellow-50 border-yellow-200';
+      case 'info': return 'bg-blue-50 border-blue-200';
+      default: return 'bg-gray-50 border-gray-200';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <Shield className="w-8 h-8 text-white" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900">Financial & Access Coordination</h2>
+        <p className="text-gray-600 mt-2">Integrated management of roles, permissions, and financial operations</p>
+      </div>
+
+      {data && (
+        <>
+          {/* Key Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-xl text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm font-medium">Student Payments</p>
+                  <p className="text-2xl font-bold">{formatXAF(data.studentFinancials.totalPaid)}</p>
+                  <p className="text-green-100 text-xs mt-1">Collected this period</p>
+                </div>
+                <ArrowUpRight className="w-8 h-8 bg-white bg-opacity-20 p-2 rounded-lg" />
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-r from-red-500 to-red-600 p-6 rounded-xl text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-red-100 text-sm font-medium">Outstanding Debt</p>
+                  <p className="text-2xl font-bold">{formatXAF(data.studentFinancials.totalOwed)}</p>
+                  <p className="text-red-100 text-xs mt-1">{data.studentFinancials.pendingCount} students</p>
+                </div>
+                <ArrowDownRight className="w-8 h-8 bg-white bg-opacity-20 p-2 rounded-lg" />
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 rounded-xl text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-sm font-medium">Staff Payroll</p>
+                  <p className="text-2xl font-bold">{formatXAF(data.staffFinancials.monthlyPayroll)}</p>
+                  <p className="text-blue-100 text-xs mt-1">{data.staffFinancials.staffCount} staff members</p>
+                </div>
+                <Users className="w-8 h-8 bg-white bg-opacity-20 p-2 rounded-lg" />
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-6 rounded-xl text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-100 text-sm font-medium">Net Income</p>
+                  <p className="text-2xl font-bold">{formatXAF(data.branchFinancials.netIncome)}</p>
+                  <p className="text-purple-100 text-xs mt-1">+{data.branchFinancials.monthlyGrowth}% growth</p>
+                </div>
+                <TrendingUp className="w-8 h-8 bg-white bg-opacity-20 p-2 rounded-lg" />
+              </div>
+            </div>
+          </div>
+
+          {/* Alerts and Actions */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Priority Alerts */}
+            <div className="bg-white rounded-xl shadow-sm border">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Priority Alerts</h3>
+              </div>
+              <div className="p-6 space-y-4">
+                {Array.isArray(data.alerts) && data.alerts.map((alert) => {
+                  // Defensive: ensure alert is an object and has required fields
+                  if (!alert || typeof alert !== 'object') return null;
+                  const title = typeof alert.title === 'string' ? alert.title : 'Untitled';
+                  const description = typeof alert.description === 'string' ? alert.description : '';
+                  const action = typeof alert.action === 'string' ? alert.action : 'View';
+                  const targetPage = typeof alert.targetPage === 'string' ? alert.targetPage : '';
+                  const type = typeof alert.type === 'string' ? alert.type : 'info';
+                  return (
+                    <div key={alert.id || title} className={`p-4 rounded-lg border ${getAlertColor(type)}`}>
+                      <div className="flex items-start space-x-3">
+                        {getAlertIcon(type)}
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{title}</h4>
+                          <p className="text-sm text-gray-600 mt-1">{description}</p>
+                          <button
+                            onClick={() => handleNavigation(targetPage, ['Coordination', action])}
+                            className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800"
+                          >
+                            {action} →
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {/* Breakdown Analytics Example (do not render objects directly) */}
+            <div className="bg-white rounded-xl shadow-sm border">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Category Breakdown</h3>
+              </div>
+              <div className="p-6 space-y-2">
+                {Array.isArray(data.breakdown) && data.breakdown.length > 0 ? (
+                  data.breakdown.map((b, idx) => (
+                    <div key={idx} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                      <span className="font-medium text-gray-700">{b.category} ({b.type})</span>
+                      <span className="text-gray-900">{formatXAF(b.total)}</span>
+                      <span className="text-xs text-gray-500">{b.count} txns</span>
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-gray-400">No breakdown data</span>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Access */}
+            <div className="bg-white rounded-xl shadow-sm border">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Quick Access</h3>
+              </div>
+              <div className="p-6 space-y-3">
+                {filteredLinks.map((link) => (
+                  <button
+                    key={link.id}
+                    onClick={() => handleNavigation(link.id, [link.title])}
+                    className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-lg ${link.color}`}>
+                        {link.icon}
+                      </div>
+                      <span className="font-medium text-gray-900">{link.title}</span>
+                    </div>
+                    <ArrowUpRight className="w-4 h-4 text-gray-400" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+export default FinancialCoordinator;
