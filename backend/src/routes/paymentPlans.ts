@@ -9,10 +9,10 @@ const router = express.Router();
 router.get('/', authMiddleware, requirePermission('students'), async (req: AuthRequest, res) => {
   try {
     const plans = await PaymentPlan.find().sort({ createdAt: -1 });
-    res.json(plans);
+    res.json({ data: plans });
   } catch (e) {
     console.error('GET /api/payment-plans error', e);
-    res.status(500).json({ error: 'Failed to fetch payment plans' });
+    res.status(500).json({ error: { message: 'Failed to fetch payment plans' } });
   }
 });
 
@@ -23,11 +23,11 @@ router.post('/', authMiddleware, requirePermission('students'), async (req: Auth
     if (!name || !targetAmount) return res.status(400).json({ error: 'Missing required fields' });
     const p = new PaymentPlan({ name, targetAmount: Number(targetAmount), description, dueDate, createdBy: req.user?.id });
     await p.save();
-  res.status(201).json(p);
-  try { emitEvent('paymentPlan.created', { plan: p }); } catch (e) {}
+  res.status(201).json({ data: p });
+  try { emitEvent('general', 'paymentPlan.created', { plan: p }); } catch (e) {}
   } catch (e) {
     console.error('POST /api/payment-plans error', e);
-    res.status(500).json({ error: 'Failed to create payment plan' });
+    res.status(500).json({ error: { message: 'Failed to create payment plan' } });
   }
 });
 
@@ -35,11 +35,11 @@ router.post('/', authMiddleware, requirePermission('students'), async (req: Auth
 router.get('/:id', authMiddleware, requirePermission('students'), async (req: AuthRequest, res) => {
   try {
     const p = await PaymentPlan.findById(req.params.id);
-    if (!p) return res.status(404).json({ error: 'Not found' });
-    res.json(p);
+    if (!p) return res.status(404).json({ error: { message: 'Not found' } });
+    res.json({ data: p });
   } catch (e) {
     console.error('GET /api/payment-plans/:id error', e);
-    res.status(500).json({ error: 'Failed to fetch payment plan' });
+    res.status(500).json({ error: { message: 'Failed to fetch payment plan' } });
   }
 });
 
@@ -48,12 +48,12 @@ router.put('/:id', authMiddleware, requirePermission('students'), async (req: Au
   try {
     const update = { ...(req.body || {}) };
     const p = await PaymentPlan.findByIdAndUpdate(req.params.id, update, { new: true });
-    if (!p) return res.status(404).json({ error: 'Not found' });
-    res.json(p);
-    try { emitEvent('paymentPlan.updated', { plan: p }); } catch (e) {}
+    if (!p) return res.status(404).json({ error: { message: 'Not found' } });
+    res.json({ data: p });
+    try { emitEvent('general', 'paymentPlan.updated', { plan: p }); } catch (e) {}
   } catch (e) {
     console.error('PUT /api/payment-plans/:id error', e);
-    res.status(500).json({ error: 'Failed to update payment plan' });
+    res.status(500).json({ error: { message: 'Failed to update payment plan' } });
   }
 });
 
@@ -61,12 +61,12 @@ router.put('/:id', authMiddleware, requirePermission('students'), async (req: Au
 router.delete('/:id', authMiddleware, requirePermission('students'), async (req: AuthRequest, res) => {
   try {
     const p = await PaymentPlan.findByIdAndDelete(req.params.id);
-    if (!p) return res.status(404).json({ error: 'Not found' });
-    res.json({ ok: true });
-    try { emitEvent('paymentPlan.deleted', { id: req.params.id }); } catch (e) {}
+    if (!p) return res.status(404).json({ error: { message: 'Not found' } });
+    res.json({ message: 'Payment plan deleted successfully' });
+    try { emitEvent('general', 'paymentPlan.deleted', { id: req.params.id }); } catch (e) {}
   } catch (e) {
     console.error('DELETE /api/payment-plans/:id error', e);
-    res.status(500).json({ error: 'Failed to delete payment plan' });
+    res.status(500).json({ error: { message: 'Failed to delete payment plan' } });
   }
 });
 

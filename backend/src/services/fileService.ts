@@ -12,13 +12,24 @@ export const deleteFileFromGridFS = async (fileId: string) => {
     }
 
     const bucket = new mongoose.mongo.GridFSBucket(db, { bucketName: 'uploads' });
+    const filesColl = db.collection('uploads.files');
+    const objectId = new mongoose.Types.ObjectId(fileId);
+
     try {
-        await bucket.delete(new mongoose.Types.ObjectId(fileId));
+        await bucket.delete(objectId);
     } catch (error: any) {
-        // If the file doesn't exist, GridFS throws an error. We can ignore this.
-        if (error.code === 'ENOENT') {
-            return;
+        if (error.code !== 'ENOENT') {
+            console.error(`Failed to delete file ${fileId} from GridFS:`, error);
         }
-        console.error(`Failed to delete file ${fileId} from GridFS:`, error);
+    }
+
+    // Also delete the thumbnail
+    try {
+        const thumbnail = await filesColl.findOne({ 'metadata.originalFileId': fileId });
+        if (thumbnail) {
+            await bucket.delete(thumbnail._id);
+        }
+    } catch (error) {
+        console.error(`Failed to delete thumbnail for file ${fileId}:`, error);
     }
 };

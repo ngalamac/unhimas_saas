@@ -71,7 +71,7 @@ router.get('/', authMiddleware, requireUserManagement(), async (req: AuthRequest
     res.json({ data: users, meta: { total, page, limit } });
   } catch (err) {
     console.error('GET /api/users error', err);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    res.status(500).json({ error: { message: 'Failed to fetch users' } });
   }
 });
 
@@ -145,10 +145,10 @@ router.post('/', authMiddleware, requireUserManagement(), async (req: AuthReques
       .populate('branch', 'name')
       .populate('createdBy', 'name email');
 
-    res.status(201).json(populatedUser);
+    res.status(201).json({ data: populatedUser });
   } catch (err) {
     console.error('POST /api/users error', err);
-    res.status(500).json({ error: 'Failed to create user' });
+    res.status(500).json({ error: { message: 'Failed to create user' } });
   }
 });
 
@@ -165,13 +165,13 @@ router.get('/:id', authMiddleware, requireUserManagement(), async (req: AuthRequ
 
     // Check if user can access this user (hierarchical access)
     if (!req.user?.isSuperAdmin && user.branch && user.branch.toString() !== req.user?.branch) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: { message: 'Access denied' } });
     }
 
-    res.json(user);
+    res.json({ data: user });
   } catch (err) {
     console.error('GET /api/users/:id error', err);
-    res.status(500).json({ error: 'Failed to fetch user' });
+    res.status(500).json({ error: { message: 'Failed to fetch user' } });
   }
 });
 
@@ -199,6 +199,11 @@ router.put('/:id', authMiddleware, requireUserManagement(), async (req: AuthRequ
     }
 
     const updates = req.body;
+
+    // If profile picture is being updated, delete the old one
+    if (updates.profilePicture && user.profilePicture && updates.profilePicture !== user.profilePicture) {
+        await deleteFileFromGridFS(user.profilePicture);
+    }
     
     // Hash password if provided
     if (updates.password) {
@@ -223,10 +228,10 @@ router.put('/:id', authMiddleware, requireUserManagement(), async (req: AuthRequ
       { new: true, runValidators: true }
     ).populate('branch', 'name').populate('createdBy', 'name email');
 
-    res.json(updatedUser);
+    res.json({ data: updatedUser });
   } catch (err) {
     console.error('PUT /api/users/:id error', err);
-    res.status(500).json({ error: 'Failed to update user' });
+    res.status(500).json({ error: { message: 'Failed to update user' } });
   }
 });
 
@@ -266,10 +271,10 @@ router.put('/:id/permissions', authMiddleware, requireUserManagement(), async (r
       { new: true }
     ).populate('branch', 'name').populate('createdBy', 'name email');
 
-    res.json(updatedUser);
+    res.json({ data: updatedUser });
   } catch (err) {
     console.error('PUT /api/users/:id/permissions error', err);
-    res.status(500).json({ error: 'Failed to update permissions' });
+    res.status(500).json({ error: { message: 'Failed to update permissions' } });
   }
 });
 
@@ -311,7 +316,7 @@ router.delete('/:id', authMiddleware, requireUserManagement(), async (req: AuthR
     res.json({ message: 'User deactivated successfully' });
   } catch (err) {
     console.error('DELETE /api/users/:id error', err);
-    res.status(500).json({ error: 'Failed to delete user' });
+    res.status(500).json({ error: { message: 'Failed to delete user' } });
   }
 });
 
@@ -348,7 +353,7 @@ router.get('/stats/overview', authMiddleware, requireUserManagement(), async (re
     });
   } catch (err) {
     console.error('GET /api/users/stats/overview error', err);
-    res.status(500).json({ error: 'Failed to fetch user statistics' });
+    res.status(500).json({ error: { message: 'Failed to fetch user statistics' } });
   }
 });
 

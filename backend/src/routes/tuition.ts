@@ -1,6 +1,7 @@
 import express from 'express';
 import TuitionPlan from '../models/TuitionPlan';
 import authMiddleware, { AuthRequest, requirePermission } from '../middleware/auth';
+import { emitEvent } from '../lib/events';
 
 const router = express.Router();
 
@@ -42,7 +43,7 @@ router.post('/plans', authMiddleware, requirePermission('students'), async (req:
     const doc = new TuitionPlan({ program, department, level, academicYear, installments, name, createdBy: req.user?.id });
     await doc.save();
     // emit event if available
-    try { const { emitEvent } = require('../lib/events'); emitEvent('tuition.plan.created', { plan: doc }); } catch (e) {}
+    try { emitEvent('general', 'tuition.plan.created', { plan: doc }); } catch (e) {}
     res.status(201).json(doc);
   } catch (e) {
     console.error('Error creating tuition plan', e);
@@ -62,7 +63,7 @@ router.put('/plans/:id', authMiddleware, requirePermission('students'), async (r
       if (body[k] !== undefined) (plan as any)[k] = body[k];
     });
     await plan.save();
-    try { const { emitEvent } = require('../lib/events'); emitEvent('tuition.plan.updated', { plan }); } catch (e) {}
+    try { emitEvent('general', 'tuition.plan.updated', { plan }); } catch (e) {}
     res.json(plan);
   } catch (e) {
     console.error('Error updating tuition plan', e);
@@ -76,7 +77,7 @@ router.delete('/plans/:id', authMiddleware, requirePermission('students'), async
     const id = req.params.id;
     const plan = await TuitionPlan.findByIdAndDelete(id);
     if (!plan) return res.status(404).json({ message: 'Tuition plan not found' });
-    try { const { emitEvent } = require('../lib/events'); emitEvent('tuition.plan.deleted', { planId: id }); } catch (e) {}
+    try { emitEvent('general', 'tuition.plan.deleted', { planId: id }); } catch (e) {}
     res.json({ ok: true });
   } catch (e) {
     console.error('Error deleting tuition plan', e);

@@ -15,6 +15,7 @@ import uploadsRouter from './routes/uploads';
 import communicationRouter from './routes/communication';
 import staffRouter from './routes/staff';
 import payrollRouter from './routes/payroll';
+import gradesRouter from './routes/grades';
 import { eventsHandler } from './lib/events';
 import path from 'path';
 
@@ -83,6 +84,7 @@ app.use('/api/staff', staffRouter);
 app.use('/api/payroll', payrollRouter);
 app.use('/api/accounting', accountingRouter);
 app.use('/api/payment-plans', paymentPlansRouter);
+app.use('/api/grades', gradesRouter);
 // server-sent events for realtime updates
 app.get('/api/events', eventsHandler);
 // serve uploaded files
@@ -93,11 +95,18 @@ app.use('/api/communication', communicationRouter);
 
 // Global error handler to return JSON for unexpected errors (avoid HTML error pages)
 app.use((err: any, _req: any, res: any, _next: any) => {
-  console.error('Unhandled error:', err);
-  if (err && err.code === 'ENOENT') {
-    return res.status(500).json({ message: `File system error: ${err.message}` });
-  }
-  return res.status(500).json({ message: err?.message || 'Internal server error' });
+    console.error('Unhandled error:', err);
+
+    if (err.name === 'ValidationError') {
+        const errors = Object.values(err.errors).map((el: any) => el.message);
+        return res.status(400).json({ error: { message: 'Validation error', details: errors } });
+    }
+
+    if (err && err.code === 'ENOENT') {
+        return res.status(500).json({ error: { message: `File system error: ${err.message}` } });
+    }
+
+    return res.status(500).json({ error: { message: err?.message || 'Internal server error' } });
 });
 
 // Seed default Super Admin if not present

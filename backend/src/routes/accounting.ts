@@ -187,7 +187,7 @@ router.post('/', authMiddleware, requireBranchAccess(), requirePermission('accou
       .populate('linkedStaff', 'firstName lastName employeeId');
 
     // Emit SSE so frontend can react in real-time
-    try { emitEvent('accounting.transaction.created', { transaction: populatedTx }); } catch (e) {}
+    try { emitEvent(branchId, 'accounting.transaction.created', { transaction: populatedTx }); } catch (e) {}
 
     res.status(201).json(populatedTx);
   } catch (err: any) {

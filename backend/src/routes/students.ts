@@ -96,10 +96,10 @@ router.get('/', authMiddleware, requirePermission('students'), requireBranchAcce
       pending: pendingCount, 
       overdue: overdueCount 
     };
-    return res.json({ data, total, page, pageSize, aggregates });
+    return res.json({ data, meta: { total, page, pageSize, aggregates } });
   } catch (e) {
     console.error('Error fetching students:', e);
-    return res.status(500).json({ message: 'Failed to fetch students' });
+    return res.status(500).json({ error: { message: 'Failed to fetch students' } });
   }
 });
 
@@ -540,8 +540,8 @@ router.post('/', authMiddleware, requirePermission('students'), requireBranchAcc
     // Update branch student count
     await BranchModel.findByIdAndUpdate(branch, { $inc: { studentCount: 1 } });
     
-    try { emitEvent('student.created', { id: student._id, student }); } catch (e) {}
-    return res.status(201).json(student);
+    try { emitEvent(student.branch.toString(), 'student.created', { id: student._id, student }); } catch (e) {}
+    return res.status(201).json({ data: student });
   } catch (e: any) {
     // handle duplicate key error coming from unique index
     if (e && e.code === 11000) {
@@ -556,13 +556,13 @@ router.get('/:id', authMiddleware, requirePermission('students'), requireBranchA
   try {
     const student = await Student.findById(req.params.id)
       .populate('program department branch createdBy lastModifiedBy');
-    if (!student) return res.status(404).json({ message: 'Student not found' });
+    if (!student) return res.status(404).json({ error: { message: 'Student not found' } });
     
     // Branch access is handled by requireBranchAccess middleware
-    res.json(student);
+    res.json({ data: student });
   } catch (e) {
     console.error('Error fetching student:', e);
-    return res.status(500).json({ message: 'Failed to fetch student' });
+    return res.status(500).json({ error: { message: 'Failed to fetch student' } });
   }
 });
 
@@ -570,16 +570,16 @@ router.get('/:id', authMiddleware, requirePermission('students'), requireBranchA
 router.get('/:id/tuition', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
   try {
     const student = await Student.findById(req.params.id).populate('tuitionPlan payments');
-    if (!student) return res.status(404).json({ message: 'Student not found' });
+    if (!student) return res.status(404).json({ error: { message: 'Student not found' } });
 
     // If student has a plan, compute expected totals per installment
     let plan = null;
     if (student.tuitionPlan) plan = await TuitionPlan.findById(student.tuitionPlan);
 
-    return res.json({ student, plan });
+    return res.json({ data: { student, plan } });
   } catch (e) {
     console.error('Error fetching tuition summary:', e);
-    return res.status(500).json({ message: 'Failed to fetch tuition summary' });
+    return res.status(500).json({ error: { message: 'Failed to fetch tuition summary' } });
   }
 });
 
@@ -661,17 +661,17 @@ router.post('/:id/payments', authMiddleware, requirePermission('students'), requ
         createdAt: new Date()
       });
       await acctTx.save();
-      try { emitEvent('accounting.transaction.created', { transaction: acctTx, studentId: student._id }); } catch (e) {}
+      try { emitEvent(student.branch.toString(), 'accounting.transaction.created', { transaction: acctTx, studentId: student._id }); } catch (e) {}
     } catch (acctErr) {
       console.error('Failed to create accounting transaction for tuition payment:', acctErr);
       // Don't fail the overall payment flow if accounting entry fails; just log
     }
 
-    try { emitEvent('student.tuition.paid', { student: student._id, tx }); } catch (e) {}
-    res.status(201).json({ tx, student });
+    try { emitEvent(student.branch.toString(), 'student.tuition.paid', { student: student._id, tx }); } catch (e) {}
+    res.status(201).json({ data: { tx, student } });
   } catch (e) {
     console.error('Error recording payment:', e);
-    return res.status(500).json({ message: 'Failed to record payment' });
+    return res.status(500).json({ error: { message: 'Failed to record payment' } });
   }
 });
 
@@ -697,6 +697,11 @@ router.put('/:id', authMiddleware, requirePermission('students'), requireBranchA
       lastModifiedBy: req.user?.id
     };
     
+    const studentBeforeUpdate = await Student.findById(req.params.id);
+    if (updateData.profilePicture && studentBeforeUpdate?.profilePicture && updateData.profilePicture !== studentBeforeUpdate.profilePicture) {
+        await deleteFileFromGridFS(studentBeforeUpdate.profilePicture);
+    }
+
     if (updateData.profilePicture && typeof updateData.profilePicture !== 'string') {
       delete updateData.profilePicture;
     }
@@ -705,14 +710,14 @@ router.put('/:id', authMiddleware, requirePermission('students'), requireBranchA
       .populate('program department branch createdBy lastModifiedBy');
     
     if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
+      return res.status(404).json({ error: { message: 'Student not found' } });
     }
     
-    try { emitEvent('student.updated', { id: student._id, student }); } catch (e) {}
-    res.json(student);
+    try { emitEvent(student.branch.toString(), 'student.updated', { id: student._id, student }); } catch (e) {}
+    res.json({ data: student });
   } catch (e) {
     console.error('Error updating student:', e);
-    return res.status(500).json({ message: 'Failed to update student' });
+    return res.status(500).json({ error: { message: 'Failed to update student' } });
   }
 });
 
@@ -739,11 +744,11 @@ router.delete('/:id', authMiddleware, requirePermission('students'), requireBran
       await BranchModel.findByIdAndUpdate(student.branch, { $inc: { studentCount: -1 } });
     }
     
-    try { emitEvent('student.deleted', { id: req.params.id, student: updatedStudent }); } catch (e) {}
+    try { emitEvent(student.branch.toString(), 'student.deleted', { id: req.params.id, student: updatedStudent }); } catch (e) {}
     res.status(200).json({ message: 'Student deactivated successfully' });
   } catch (e) {
     console.error('Error deleting student:', e);
-    return res.status(500).json({ message: 'Failed to delete student' });
+    return res.status(500).json({ error: { message: 'Failed to delete student' } });
   }
 });
 
@@ -755,7 +760,7 @@ router.post('/:id/restore', authMiddleware, requirePermission('students'), requi
 
     // If already active, return the student
     if (existing.isActive) {
-      return res.json(existing);
+      return res.json({ data: existing });
     }
 
     const updated = await Student.findByIdAndUpdate(req.params.id, { isActive: true, lastModifiedBy: req.user?.id }, { new: true })
@@ -766,11 +771,11 @@ router.post('/:id/restore', authMiddleware, requirePermission('students'), requi
       try { await BranchModel.findByIdAndUpdate(existing.branch, { $inc: { studentCount: 1 } }); } catch (e) { console.error('Failed to increment branch count on restore', e); }
     }
 
-    try { emitEvent('student.restored', { id: req.params.id, student: updated }); } catch (e) {}
-    return res.json(updated);
+    try { emitEvent(existing.branch.toString(), 'student.restored', { id: req.params.id, student: updated }); } catch (e) {}
+    return res.json({ data: updated });
   } catch (e) {
     console.error('Error restoring student:', e);
-    return res.status(500).json({ message: 'Failed to restore student' });
+    return res.status(500).json({ error: { message: 'Failed to restore student' } });
   }
 });
 
@@ -786,12 +791,12 @@ router.post('/:id/enrollment', authMiddleware, requirePermission('students'), re
     const updated = await Student.findByIdAndUpdate(req.params.id, { enrollmentStatus: String(enrollmentStatus), lastModifiedBy: req.user?.id }, { new: true })
       .populate('program department branch createdBy lastModifiedBy');
 
-    if (!updated) return res.status(404).json({ message: 'Student not found' });
-    try { emitEvent('student.enrollment.updated', { id: req.params.id, enrollmentStatus }); } catch (e) {}
-    return res.json(updated);
+    if (!updated) return res.status(404).json({ error: { message: 'Student not found' } });
+    try { emitEvent(updated.branch.toString(), 'student.enrollment.updated', { id: req.params.id, enrollmentStatus }); } catch (e) {}
+    return res.json({ data: updated });
   } catch (e) {
     console.error('Error updating enrollment status:', e);
-    return res.status(500).json({ message: 'Failed to update enrollment status' });
+    return res.status(500).json({ error: { message: 'Failed to update enrollment status' } });
   }
 });
 
@@ -859,20 +864,20 @@ router.get('/stats/overview', authMiddleware, requirePermission('students'), req
       byProgram: studentsByProgram
     };
 
-    res.json(stats);
+    res.json({ data: stats });
   } catch (e) {
     console.error('Error fetching student statistics:', e);
-    return res.status(500).json({ message: 'Failed to fetch student statistics' });
+    return res.status(500).json({ error: { message: 'Failed to fetch student statistics' } });
   }
 });
 
 router.get('/:id/gpa', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
     try {
         const gpaData = await calculateGpa(req.params.id);
-        res.json(gpaData);
+        res.json({ data: gpaData });
     } catch (e) {
         console.error('Error calculating GPA:', e);
-        return res.status(500).json({ message: 'Failed to calculate GPA' });
+        return res.status(500).json({ error: { message: 'Failed to calculate GPA' } });
     }
 });
 
@@ -880,7 +885,7 @@ router.get('/:id/transcript', authMiddleware, requirePermission('students'), req
     try {
         const student = await Student.findById(req.params.id);
         if (!student) {
-            return res.status(404).json({ message: 'Student not found' });
+            return res.status(404).json({ error: { message: 'Student not found' } });
         }
 
         const pdfBuffer = await generateTranscript(student);
@@ -891,7 +896,7 @@ router.get('/:id/transcript', authMiddleware, requirePermission('students'), req
 
     } catch (e) {
         console.error('Error generating transcript:', e);
-        return res.status(500).json({ message: 'Failed to generate transcript' });
+        return res.status(500).json({ error: { message: 'Failed to generate transcript' } });
     }
 });
 

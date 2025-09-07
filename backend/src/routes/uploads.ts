@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import mongoose from 'mongoose';
 import stream from 'stream';
+import sharp from 'sharp';
 
 const router = express.Router();
 
@@ -18,13 +19,14 @@ router.post('/profile', upload.single('file'), async (req: Request & { file?: Ex
         if (!db) return res.status(500).json({ message: 'Database not initialized' });
 
         const bucket = new mongoose.mongo.GridFSBucket(db, { bucketName: 'uploads' });
-        const ext = path.extname(req.file.originalname) || '.png';
-        const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
 
-        const uploadPromise = new Promise((resolve, reject) => {
+        // --- Upload original file ---
+        const originalUploadPromise = new Promise((resolve, reject) => {
+            const ext = path.extname(req.file.originalname) || '.png';
+            const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
             const uploadStream = bucket.openUploadStream(filename, {
                 contentType: req.file.mimetype,
-                metadata: { originalname: req.file.originalname },
+                metadata: { originalname: req.file.originalname, isThumbnail: false },
             });
             const bufferStream = new stream.PassThrough();
             bufferStream.end(req.file.buffer);
@@ -37,8 +39,33 @@ router.post('/profile', upload.single('file'), async (req: Request & { file?: Ex
                 });
         });
 
-        const result: any = await uploadPromise;
-        return res.json(result);
+        const originalResult: any = await originalUploadPromise;
+
+        // --- Create and upload thumbnail ---
+        const thumbnailBuffer = await sharp(req.file.buffer).resize(100, 100).toBuffer();
+        const thumbnailUploadPromise = new Promise((resolve, reject) => {
+            const thumbFilename = `thumb-${originalResult.id}.png`;
+            const uploadStream = bucket.openUploadStream(thumbFilename, {
+                contentType: 'image/png',
+                metadata: { originalFileId: originalResult.id, isThumbnail: true },
+            });
+            const bufferStream = new stream.PassThrough();
+            bufferStream.end(thumbnailBuffer);
+            bufferStream.pipe(uploadStream)
+                .on('error', (err) => reject(err))
+                .on('finish', () => {
+                    const id = uploadStream.id.toString();
+                    const relativeUrl = `/api/uploads/file/${id}`;
+                    resolve({ id, url: relativeUrl });
+                });
+        });
+
+        const thumbnailResult: any = await thumbnailUploadPromise;
+
+        return res.json({
+            original: originalResult,
+            thumbnail: thumbnailResult,
+        });
 
     } catch (e: any) {
         return res.status(500).json({ message: 'Upload error', error: e?.message });
