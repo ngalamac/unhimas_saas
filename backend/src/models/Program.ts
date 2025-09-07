@@ -20,4 +20,7 @@ const ProgramSchema: Schema = new Schema({
   departments: [{ type: Schema.Types.ObjectId, ref: 'Department' }]
 }, { timestamps: true });
 
+ProgramSchema.index({ name: 1 });
+ProgramSchema.index({ type: 1 });
+
 export default mongoose.model<IProgram>('Program', ProgramSchema);

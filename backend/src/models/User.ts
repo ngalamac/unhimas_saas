@@ -15,14 +15,22 @@ export interface IUser extends Document {
   phoneNumber?: string;
   department?: string;
   profilePicture?: string;
+  refreshToken?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const UserSchema: Schema = new Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  name: { type: String, required: true, trim: true, minlength: 2 },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+    match: [/.+\@.+\..+/, 'Please fill a valid email address']
+  },
+  password: { type: String, required: true, minlength: 8 },
   type: { 
     type: String, 
     required: true,
@@ -34,9 +42,14 @@ const UserSchema: Schema = new Schema({
   isActive: { type: Boolean, default: true },
   lastLogin: { type: Date },
   employeeId: { type: String, unique: true, sparse: true },
-  phoneNumber: { type: String },
+  phoneNumber: {
+    type: String,
+    trim: true,
+    match: [/^\+?[1-9]\d{1,14}$/, 'Please fill a valid phone number']
+  },
   department: { type: String },
   profilePicture: { type: String },
+  refreshToken: { type: String },
 }, { timestamps: true });
 
 // Index for efficient queries

@@ -36,8 +36,9 @@ const setup = async () => {
     mongod = await MongoMemoryServer.create();
     const mongoUri = mongod.getUri();
 
-    // Start the server with the in-memory DB
-    serverProcess = exec(`cross-env MONGO_URI=${mongoUri} npm run dev`);
+    // Start the server with the in-memory DB and a test password
+    const superadminPassword = 'testpassword';
+    serverProcess = exec(`cross-env MONGO_URI=${mongoUri} SUPERADMIN_PASSWORD=${superadminPassword} npm run dev`);
 
     await waitForServer();
 
@@ -61,7 +62,8 @@ const runTests = async () => {
             const data = await res.json();
             return data.token;
         };
-        const superAdminToken = await login('superadminunhimas@gmail.com', 'ca@5G2024');
+        const superAdminEmail = process.env.SUPERADMIN_EMAIL || 'superadminunhimas@gmail.com';
+        const superAdminToken = await login(superAdminEmail, 'testpassword');
         if (!superAdminToken) throw new Error('Failed to login as SuperAdmin');
 
 

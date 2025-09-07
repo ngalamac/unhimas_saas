@@ -18,4 +18,8 @@ const AccountSchema: Schema = new Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+AccountSchema.index({ name: 1 });
+AccountSchema.index({ code: 1 });
+AccountSchema.index({ type: 1 });
+
 export default mongoose.model<IAccount>('Account', AccountSchema);

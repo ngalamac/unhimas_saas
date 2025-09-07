@@ -11,7 +11,11 @@ async function initFetch() {
   return fetchFn;
 }
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://unhimas4:n673927826@cluster0.xeab0d2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+const MONGO_URI = process.env.MONGO_URI;
+if (!MONGO_URI) {
+    console.error('FATAL ERROR: MONGO_URI is not defined.');
+    process.exit(1);
+}
 
 async function insertTuitionPlan() {
   await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 30000 });
