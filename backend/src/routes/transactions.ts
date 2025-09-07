@@ -1,6 +1,7 @@
 import express from 'express';
-import Transaction from '../models/Transaction';
+import express from 'express';
 import { requirePermission } from '../middleware/auth';
+import { recordGenericTransaction } from '../services/accountingService';
 import { expenseCategories, incomeCategories } from '../data/accountingCategories';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
@@ -8,6 +9,7 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import nodemailer from 'nodemailer';
+import JournalEntry from '../models/JournalEntry';
 // json2csv doesn't ship types; require at runtime and treat as any
 // @ts-ignore
 const { Parser: Json2csvParser } = require('json2csv');
@@ -18,34 +20,19 @@ const router = express.Router();
 
 const allAllowedCategories = new Set([...expenseCategories.map(c => c.toLowerCase()), ...incomeCategories.map(c => c.toLowerCase())]);
 
-// Helper to build filter from query
-function buildFilter(query: any) {
-  const { type, from, to, category } = query;
-  const filter: any = {};
-  if (type && (type === 'income' || type === 'expense')) filter.type = type;
-  if (category) filter.category = category;
-  if (from || to) filter.date = {};
-  if (from) filter.date.$gte = new Date(from);
-  if (to) filter.date.$lte = new Date(to);
-  return filter;
-}
-
-// GET /api/transactions?page=1&limit=20&type=income&from=...&to=...
+// GET /api/transactions?page=1&limit=20
 router.get('/', async (req, res) => {
   try {
     const { page = '1', limit = '100' } = req.query as any;
     const p = Math.max(1, parseInt(page, 10) || 1);
     const l = Math.min(1000, Math.max(1, parseInt(limit, 10) || 100));
 
-    const filter = buildFilter(req.query);
-
-    const total = await Transaction.countDocuments(filter);
-    const transactions = await Transaction.find(filter)
+    const total = await JournalEntry.countDocuments();
+    const transactions = await JournalEntry.find()
       .sort({ date: -1, createdAt: -1 })
       .skip((p - 1) * l)
       .limit(l)
-      .populate('staffId', 'name email')
-      .populate('studentId', 'name email');
+      .populate('createdBy', 'name email');
 
     res.json({ data: transactions, meta: { total, page: p, limit: l } });
   } catch (err) {
@@ -56,10 +43,8 @@ router.get('/', async (req, res) => {
 
 // CSV export: GET /api/transactions/export?type=...&from=...&to=...
 router.get('/export', async (req, res) => {
-  try {
-    const filter = buildFilter(req.query);
-    const rows = await Transaction.find(filter).sort({ date: -1, createdAt: -1 });
-
+    return res.status(501).json({ error: 'Exporting journal entries is not implemented yet.' });
+    /*
     const format = String(req.query.format || 'csv').toLowerCase();
     // Map rows to simple objects
     const mapped = rows.map((r: any) => ({
@@ -186,8 +171,8 @@ router.get('/export', async (req, res) => {
 
 // Import endpoint: accept CSV/XLSX file and create transactions
 router.post('/import', requirePermission('accounting'), upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'Missing file' });
+    return res.status(501).json({ error: 'Importing journal entries is not implemented yet.' });
+    /*
     const ext = path.extname(req.file.originalname || '').toLowerCase();
     const filePath = req.file.path;
     const created: any[] = [];
@@ -262,38 +247,18 @@ router.post('/import', requirePermission('accounting'), upload.single('file'), a
 
 // Update transaction
 router.put('/:id', requirePermission('accounting'), async (req, res) => {
-  try {
-    const id = req.params.id;
-    const update = req.body;
-    if (update.category && !allAllowedCategories.has(String(update.category).toLowerCase())) {
-      return res.status(400).json({ error: 'Invalid category' });
-    }
-  const trx = await Transaction.findByIdAndUpdate(id, update, { new: true }).populate('staffId', 'name email').populate('studentId', 'name email');
-    if (!trx) return res.status(404).json({ error: 'Transaction not found' });
-    res.json(trx);
-  } catch (err) {
-    console.error('PUT /api/transactions/:id error', err);
-    res.status(500).json({ error: 'Failed to update transaction' });
-  }
+    return res.status(501).json({ error: 'Updating journal entries is not implemented yet.' });
 });
 
 // Delete transaction
 router.delete('/:id', requirePermission('accounting'), async (req, res) => {
-  try {
-    const id = req.params.id;
-    const trx = await Transaction.findByIdAndDelete(id);
-    if (!trx) return res.status(404).json({ error: 'Transaction not found' });
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('DELETE /api/transactions/:id error', err);
-    res.status(500).json({ error: 'Failed to delete transaction' });
-  }
+    return res.status(501).json({ error: 'Deleting journal entries is not implemented yet.' });
 });
 
 // GET /api/transactions/:id
 router.get('/:id', async (req, res) => {
   try {
-  const trx = await Transaction.findById(req.params.id).populate('staffId', 'name email').populate('studentId', 'name email');
+  const trx = await JournalEntry.findById(req.params.id).populate('createdBy', 'name email');
     if (!trx) return res.status(404).json({ error: 'Transaction not found' });
     res.json(trx);
   } catch (err) {
@@ -304,8 +269,8 @@ router.get('/:id', async (req, res) => {
 
 // Summary endpoint: GET /api/transactions/summary?from=...&to=...&type=income|expense
 router.get('/summary', async (req, res) => {
-  try {
-    const filter = buildFilter(req.query);
+    return res.status(501).json({ error: 'Summarizing journal entries is not implemented yet.' });
+    /*
     const groupBy = String(req.query.groupBy || '').toLowerCase();
 
     // Simple in-memory cache to avoid repeated heavy aggregations
@@ -372,35 +337,80 @@ router.get('/summary', async (req, res) => {
 });
 
 // Add a transaction
-router.post('/', requirePermission('accounting'), async (req: any, res) => {
-  try {
-  const { type, category, amount, description, date, reference, createdBy, staffId, studentId } = req.body;
-    if (!type || !category || !amount || !description || !date) {
-      return res.status(400).json({ error: 'Missing required fields' });
+router.post('/', requirePermission('accounting:create'), async (req: any, res) => {
+    try {
+        const { type, category, amount, description, date } = req.body;
+        const maxAmount = Number(process.env.MAX_TRANSACTION_AMOUNT) || 1000000;
+        if (amount > maxAmount) {
+            return res.status(400).json({ error: `Transaction amount exceeds the limit of ${maxAmount}` });
+        }
+        if (!type || !category || !amount || !description || !date) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        if (type !== 'income' && type !== 'expense') {
+            return res.status(400).json({ error: 'Invalid type' });
+        }
+
+        if (!allAllowedCategories.has(String(category).toLowerCase())) {
+            return res.status(400).json({ error: 'Invalid category' });
+        }
+
+        const journalEntry = await recordGenericTransaction(
+            req.user.branch,
+            req.user.id,
+            type,
+            category,
+            amount,
+            description,
+            new Date(date)
+        );
+
+        res.status(201).json(journalEntry);
+    } catch (err: any) {
+        console.error('POST /api/transactions error', err);
+        res.status(400).json({ error: 'Failed to add transaction', message: err.message });
     }
+});
 
-    // validate type
-    if (!(type === 'income' || type === 'expense')) {
-      return res.status(400).json({ error: 'Invalid type' });
+router.post('/:id/approve', requirePermission('accounting:approve'), async (req: any, res) => {
+    try {
+        const entry = await JournalEntry.findById(req.params.id);
+        if (!entry) {
+            return res.status(404).json({ error: 'Journal entry not found' });
+        }
+        if (entry.status !== 'pending') {
+            return res.status(400).json({ error: `Journal entry is already ${entry.status}` });
+        }
+        entry.status = 'approved';
+        entry.approvedBy = req.user.id;
+        entry.approvedAt = new Date();
+        await entry.save();
+        res.json(entry);
+    } catch (err: any) {
+        console.error('POST /api/transactions/:id/approve error', err);
+        res.status(500).json({ error: 'Failed to approve transaction', message: err.message });
     }
+});
 
-    // validate category against allowed list (case-insensitive)
-    if (!allAllowedCategories.has(String(category).toLowerCase())) {
-      return res.status(400).json({ error: 'Invalid category' });
+router.post('/:id/reject', requirePermission('accounting:approve'), async (req: any, res) => {
+    try {
+        const entry = await JournalEntry.findById(req.params.id);
+        if (!entry) {
+            return res.status(404).json({ error: 'Journal entry not found' });
+        }
+        if (entry.status !== 'pending') {
+            return res.status(400).json({ error: `Journal entry is already ${entry.status}` });
+        }
+        entry.status = 'rejected';
+        entry.approvedBy = req.user.id;
+        entry.approvedAt = new Date();
+        await entry.save();
+        res.json(entry);
+    } catch (err: any) {
+        console.error('POST /api/transactions/:id/reject error', err);
+        res.status(500).json({ error: 'Failed to reject transaction', message: err.message });
     }
-
-  // normalize date
-  const postingDate = date ? new Date(date) : new Date();
-  // prefer authenticated user info if present (req.user added by auth middleware when using JWT)
-  const creator = req.user ? { id: req.user.id || null, name: (req.user as any).name || null, email: (req.user as any).email || null } : (createdBy || 'system');
-
-  const transaction = new Transaction({ type, category, amount, description, date: postingDate, reference, createdBy: creator, staffId: staffId || undefined, studentId: studentId || undefined, createdAt: new Date() });
-  await transaction.save();
-  res.status(201).json(transaction);
-  } catch (err) {
-    console.error('POST /api/transactions error', err);
-    res.status(400).json({ error: 'Failed to add transaction' });
-  }
 });
 
 export default router;
