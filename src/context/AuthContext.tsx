@@ -69,50 +69,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: username, password }),
       });
-      const data = await res.json();
-      if (res.ok && data.token && data.user) {
+      const body = await res.json();
+      if (res.ok && body.data.token && body.data.user) {
+        const { token, user: userData } = body.data;
         // Optionally check role match
-        if (role && data.user.type !== role) {
+        if (role && userData.type !== role) {
           return false;
         }
         // Only include features with at least one action set to true
         // Extract granular permissions: 'feature:action' for all actions set to true
-        const featurePermissions = Object.entries(data.user.permissions || {})
+        const featurePermissions = Object.entries(userData.permissions || {})
           .flatMap(([feature, actions]) => {
             if (!actions || typeof actions !== 'object') return [];
             return Object.entries(actions)
               .filter(([action, value]) => value === true)
               .map(([action]) => `${feature.toLowerCase()}:${action.toLowerCase()}`);
           });
-  // permissions logged removed to reduce console noise in production/dev
         // Defensive name parsing in case name is missing or single-token
-        const fullName = typeof data.user.name === 'string' ? data.user.name.trim() : '';
+        const fullName = typeof userData.name === 'string' ? userData.name.trim() : '';
         const nameParts = fullName ? fullName.split(/\s+/) : [];
-        setUser({
-          id: data.user._id,
-          username: data.user.name || '',
-          email: data.user.email || '',
-          role: data.user.type || '',
+        const user = {
+          id: userData._id,
+          username: userData.name || '',
+          email: userData.email || '',
+          role: userData.type || '',
           firstName: nameParts[0] || '',
           lastName: nameParts[1] || '',
           permissions: featurePermissions,
-          department: data.user.department || '',
-          employeeId: data.user.employeeId || '',
-        });
+          department: userData.department || '',
+          employeeId: userData.employeeId || '',
+        };
+        setUser(user);
         setIsAuthenticated(true);
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify({
-          id: data.user._id,
-          username: data.user.name || '',
-          email: data.user.email || '',
-          role: data.user.type || '',
-          firstName: nameParts[0] || '',
-          lastName: nameParts[1] || '',
-          permissions: featurePermissions,
-          department: data.user.department || '',
-          employeeId: data.user.employeeId || '',
-        }));
-        // Do NOT use localStorage user for permissions anymore
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
         return true;
       }
       return false;

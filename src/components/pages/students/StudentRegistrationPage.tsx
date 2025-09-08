@@ -101,11 +101,11 @@ export const StudentRegistrationPage: React.FC = () => {
     } catch (e) {
       // ignore parse errors
     }
-    getPrograms().then(setPrograms).catch(() => {});
-    getDepartments().then(setDepartments).catch(() => {});
-    getBranches().then(setBranches).catch(() => {});
-  getTuitionPlans().then(setTuitionPlans).catch(() => {});
-  getPaymentPlans().then(setPaymentPlans).catch(() => {});
+    getPrograms().then(res => setPrograms(res.data)).catch(() => {});
+    getDepartments().then(res => setDepartments(res.data)).catch(() => {});
+    getBranches().then(res => setBranches(res.data)).catch(() => {});
+    getTuitionPlans().then(res => setTuitionPlans(res.data)).catch(() => {});
+    getPaymentPlans().then(res => setPaymentPlans(res.data)).catch(() => {});
     // prefill branch from context only when no draft provided
     if (!localStorage.getItem('studentFormDraft') && currentBranch) {
       setFormData(prev => ({ ...prev, branchId: (currentBranch as any)._id || (currentBranch as any).id || '' }));

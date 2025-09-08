@@ -31,15 +31,17 @@ export const AdminDashboard: React.FC = () => {
           studentParams.append('branch', currentBranch._id);
         }
         const studentResponse = await fetchClient.get(`/api/students/stats/overview?${studentParams}`);
-        const studentStats = await studentResponse.json();
+        const studentBody = await studentResponse.json();
+        const studentStats = studentBody.data;
 
         // Fetch financial data
         const financeParams = new URLSearchParams();
         if (currentBranch && !user?.isSuperAdmin) {
           financeParams.append('branch', currentBranch._id);
         }
-        const financeResponse = await fetchClient.get(`/api/accounting/summary/overview?${financeParams}`);
-        const financeStats = await financeResponse.json();
+        const financeResponse = await fetchClient.get(`/api/transactions/summary?${financeParams}`);
+        const financeBody = await financeResponse.json();
+        const financeStats = financeBody.data;
 
         // Fetch branch data
         const branchResponse = await fetchClient.get('/api/branches');

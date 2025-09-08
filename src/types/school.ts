@@ -1,32 +1,51 @@
+import { User } from './auth';
+
 export interface Student {
-  id?: string;
-  firstName: string;
-  lastName: string;
-  nationalIdName: string;
-  gender: 'Male' | 'Female';
-  placeOfBirth: string;
-  dateOfBirth: string;
-  motherName: string;
-  fatherName: string;
-  address: string;
-  phoneNumber: string;
-  email: string;
-  program: Program | string;
-  department: Department | string;
-  session: 'Day' | 'Evening';
-  level: number;
-  batch: string; // Academic year batch (e.g., "2024-2025")
-  registrationDate: string;
-  tuitionStatus: 'Paid' | 'Partial' | 'Unpaid';
-  profileImage?: string;
-  studentId: string; // Generated student ID
-  // Optional tuition/payment-related fields
-  tuitionPlan?: string | TuitionPlan;
-  paymentPlans?: Array<string | PaymentPlan>;
-  tuitionInstallments?: TuitionInstallment[];
-  totalPaid?: number;
-  balanceDue?: number;
-  payments?: Payment[] | Array<string>;
+    _id: string;
+    studentId: string;
+    firstName: string;
+    lastName: string;
+    names: string;
+    gender: 'Male' | 'Female' | 'Other';
+    dateOfBirth: string;
+    placeOfBirth: string;
+    regionOfOrigin: string;
+    nationality: string;
+    email?: string;
+    phoneNumber: string;
+    address: string;
+    enrollmentStatus: 'Active' | 'Suspended' | 'Graduated' | 'Withdrawn';
+    academicYear: string;
+    level: number;
+    session: 'Day' | 'Evening';
+    program: Program | string;
+    department: Department | string;
+    branch: Branch | string;
+    guardian: {
+        name: string;
+        relationship: string;
+        contact: string;
+    };
+    emergencyContact: {
+        name: string;
+        relationship: string;
+        contact: string;
+    };
+    notes?: string;
+    profilePicture?: string;
+    identityHash: string;
+    isActive: boolean;
+    createdBy: User | string;
+    lastModifiedBy?: User | string;
+    createdAt: string;
+    updatedAt: string;
+    tuitionStatus: 'Paid' | 'Partial' | 'Pending' | 'Overdue';
+    tuitionPlan?: TuitionPlan | string;
+    paymentPlans?: PaymentPlan[] | string[];
+    tuitionInstallments: TuitionInstallment[];
+    totalPaid: number;
+    balanceDue: number;
+    payments?: any[]; // Replace with a proper Payment type if needed
 }
 
 export interface Program {

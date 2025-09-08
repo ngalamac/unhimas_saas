@@ -155,7 +155,7 @@ router.post('/import', requirePermission('accounting:create'), upload.single('fi
             createdEntries.push(newEntry);
         }
 
-        res.json({ message: `${createdEntries.length} journal entries imported successfully` });
+        res.json({ data: { message: `${createdEntries.length} journal entries imported successfully` } });
 
     } catch (err: any) {
         res.status(500).json({ error: { message: 'Failed to import transactions', details: err.message } });
@@ -204,7 +204,7 @@ router.delete('/:id', requirePermission('accounting:delete'), async (req: any, r
         }
 
         await JournalEntry.findByIdAndDelete(req.params.id);
-        res.json({ message: 'Transaction deleted successfully' });
+        res.json({ data: { message: 'Transaction deleted successfully' } });
 
     } catch (err: any) {
         console.error('DELETE /api/transactions/:id error', err);
@@ -224,6 +224,57 @@ router.get('/:id', requirePermission('accounting:view'), async (req, res) => {
     } catch (err: any) {
         console.error('GET /api/transactions/:id error', err);
         res.status(500).json({ error: { message: 'Failed to fetch journal entry', details: err.message } });
+    }
+});
+
+// Approve a journal entry
+router.post('/:id/approve', requirePermission('accounting:approve'), async (req: any, res) => {
+    try {
+        const entry = await JournalEntry.findById(req.params.id);
+        if (!entry) {
+            return res.status(404).json({ error: { message: 'Journal entry not found' } });
+        }
+
+        if (entry.status !== 'pending') {
+            return res.status(400).json({ error: { message: `Only pending transactions can be approved. This transaction is already ${entry.status}` } });
+        }
+
+        entry.status = 'approved';
+        entry.approvedBy = req.user.id;
+        await entry.save();
+
+        res.json({ data: entry });
+    } catch (err: any) {
+        console.error('POST /api/transactions/:id/approve error', err);
+        res.status(500).json({ error: { message: 'Failed to approve transaction', details: err.message } });
+    }
+});
+
+// Reject a journal entry
+router.post('/:id/reject', requirePermission('accounting:approve'), async (req: any, res) => {
+    try {
+        const { reason } = req.body;
+        if (!reason) {
+            return res.status(400).json({ error: { message: 'Rejection reason is required' } });
+        }
+
+        const entry = await JournalEntry.findById(req.params.id);
+        if (!entry) {
+            return res.status(404).json({ error: { message: 'Journal entry not found' } });
+        }
+
+        if (entry.status !== 'pending') {
+            return res.status(400).json({ error: { message: `Only pending transactions can be rejected. This transaction is already ${entry.status}` } });
+        }
+
+        entry.status = 'rejected';
+        entry.rejectionReason = reason;
+        await entry.save();
+
+        res.json({ data: entry });
+    } catch (err: any) {
+        console.error('POST /api/transactions/:id/reject error', err);
+        res.status(500).json({ error: { message: 'Failed to reject transaction', details: err.message } });
     }
 });
 

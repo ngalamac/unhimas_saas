@@ -1,130 +1,92 @@
-// Helper for GET requests that returns parsed JSON
-export async function getJson(path: string, options: any = {}) {
-  const res = await get(path, options);
-  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
-  return res.json();
-}
 export const getAuthToken = () => {
-  try { return localStorage.getItem('token'); } catch (e) { return null; }
+    try { return localStorage.getItem('token'); } catch (e) { return null; }
 };
 
-const defaultHeaders = (extra?: Record<string,string>) => {
-  const token = getAuthToken();
-  const h: Record<string,string> = { ...(extra || {}) };
-  if (token) h['Authorization'] = `Bearer ${token}`;
-  return h;
+const defaultHeaders = (extra?: Record<string, string>) => {
+    const token = getAuthToken();
+    const h: Record<string, string> = { ...(extra || {}) };
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    return h;
 };
 
 const getBase = () => {
-  // in dev, target the backend running on port 5000 to avoid proxy config issues
-  try {
-    // Vite exposes import.meta.env.DEV
-    const dev = (import.meta as any)?.env?.DEV;
-    if (dev) return 'http://localhost:5000';
-  } catch (e) {}
-  return '';
+    try {
+        const dev = (import.meta as any)?.env?.DEV;
+        if (dev) return 'http://localhost:5000';
+    } catch (e) { }
+    return '';
 };
 
+async function fetchWithLoading(url: string, options: RequestInit) {
+    const bridge = (window as any).__UI_BRIDGE__;
+    let timer: any = null;
+    try {
+        timer = setTimeout(() => { try { bridge?.setGlobalLoading(true); } catch (e) { } }, 300);
+        const res = await fetch(url, options);
+        return res;
+    } catch (e) {
+        try { bridge?.showToast('Network error'); } catch (er) { }
+        throw e;
+    } finally {
+        if (timer) clearTimeout(timer);
+        try { bridge?.setGlobalLoading(false); } catch (e) { }
+    }
+}
+
+export async function handleFetchError(res: Response) {
+    if (res.status === 401) {
+        try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch (e) { }
+        try { window.location.hash = '#/login'; } catch (e) { }
+    }
+    try {
+        const err = await res.clone().json();
+        const message = err?.error?.message || JSON.stringify(err);
+        const e: any = new Error(message);
+        e.status = res.status;
+        throw e;
+    } catch (e) {
+        const txt = await res.clone().text();
+        const err = new Error(txt || `Request failed with status ${res.status}`) as any;
+        err.status = res.status;
+        throw err;
+    }
+}
+
 export async function postJson(path: string, body: any) {
-  const base = getBase();
-  const url = path.startsWith('http') ? path : `${base}${path}`;
-  const bridge = (window as any).__UI_BRIDGE__;
-  let timer: any = null;
-  try {
-    // If request takes longer than 300ms, show a global loader
-    timer = setTimeout(() => { try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(true); } catch (e) {} }, 300);
-    const res = await fetch(url, { method: 'POST', headers: defaultHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-    return res;
-  } catch (e) {
-    try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
-    throw e;
-  } finally {
-    if (timer) clearTimeout(timer);
-    try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(false); } catch (e) {}
-  }
+    const base = getBase();
+    const url = path.startsWith('http') ? path : `${base}${path}`;
+    return fetchWithLoading(url, { method: 'POST', headers: defaultHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
 }
 
 export async function get(path: string, options: any = {}) {
-  const base = getBase();
-  const url = path.startsWith('http') ? path : `${base}${path}`;
-  const bridge = (window as any).__UI_BRIDGE__;
-  let timer: any = null;
-  try {
-    // If request takes longer than 300ms, show a global loader
-    timer = setTimeout(() => { try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(true); } catch (e) {} }, 300);
-    const res = await fetch(url, { 
-      method: 'GET', 
-      headers: defaultHeaders(options.headers || {}),
-      ...options
+    const base = getBase();
+    const url = path.startsWith('http') ? path : `${base}${path}`;
+    return fetchWithLoading(url, {
+        method: 'GET',
+        headers: defaultHeaders(options.headers || {}),
+        ...options
     });
-    
-  // Return response even when not ok so callers can inspect body and status
-  return res;
-  } catch (e) {
-    try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
-    throw e;
-  } finally {
-    if (timer) clearTimeout(timer);
-    try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(false); } catch (e) {}
-  }
 }
 
-export async function put(path: string, body: any, options: any = {}) {
-  const base = getBase();
-  const url = path.startsWith('http') ? path : `${base}${path}`;
-  const bridge = (window as any).__UI_BRIDGE__;
-  let timer: any = null;
-  try {
-    // If request takes longer than 300ms, show a global loader
-    timer = setTimeout(() => { try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(true); } catch (e) {} }, 300);
-    const res = await fetch(url, { 
-      method: 'PUT', 
-      headers: defaultHeaders({ 'Content-Type': 'application/json', ...options.headers }),
-      body: JSON.stringify(body),
-      ...options
+export async function put(path:string, body: any, options: any = {}) {
+    const base = getBase();
+    const url = path.startsWith('http') ? path : `${base}${path}`;
+    return fetchWithLoading(url, {
+        method: 'PUT',
+        headers: defaultHeaders({ 'Content-Type': 'application/json', ...options.headers }),
+        body: JSON.stringify(body),
+        ...options
     });
-    
-  // Return response even when not ok so callers can inspect body and status
-  return res;
-  } catch (e) {
-    try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
-    throw e;
-  } finally {
-    if (timer) clearTimeout(timer);
-    try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(false); } catch (e) {}
-  }
 }
 
 export async function del(path: string, options: any = {}) {
-  const base = getBase();
-  const url = path.startsWith('http') ? path : `${base}${path}`;
-  const bridge = (window as any).__UI_BRIDGE__;
-  let timer: any = null;
-  try {
-    // If request takes longer than 300ms, show a global loader
-    timer = setTimeout(() => { try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(true); } catch (e) {} }, 300);
-    const res = await fetch(url, { 
-      method: 'DELETE', 
-      headers: defaultHeaders(options.headers || {}),
-      ...options
+    const base = getBase();
+    const url = path.startsWith('http') ? path : `${base}${path}`;
+    return fetchWithLoading(url, {
+        method: 'DELETE',
+        headers: defaultHeaders(options.headers || {}),
+        ...options
     });
-    
-  // Return response even when not ok so callers can inspect body and status
-  return res;
-  } catch (e) {
-    try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
-    throw e;
-  } finally {
-    if (timer) clearTimeout(timer);
-    try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(false); } catch (e) {}
-  }
 }
 
-export function openWithAuth(url: string) {
-  // use a temporary form to include Authorization as a query param? backend expects header.
-  // For downloads we open a new window with the user's current session; Authorization header will be present in XHR but not window.open.
-  // We'll just open the URL — backend should accept cookie/session or token in header; recommend backend allow token in query when necessary.
-  window.open(url, '_blank');
-}
-
-export default { getAuthToken, postJson, post: postJson, get, put, delete: del, openWithAuth };
+export default { getAuthToken, postJson, post: postJson, get, put, delete: del, handleFetchError };

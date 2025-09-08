@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import fetchClient from '../../../lib/fetchClient';
-import { Search, Filter, Eye, Edit, Trash2, Download, Plus, Users, UserPlus, Mail, Phone, CreditCard } from 'lucide-react';
+import { Search, Filter, Eye, Edit, Trash2, Download, Plus, Users, UserPlus, Mail, Phone, CreditCard, Award } from 'lucide-react';
 import { getStudents, deleteStudent } from '../../../api/students';
 import { getBranches } from '../../../api/branches';
 import { useBranch } from '../../../context/BranchContext';
@@ -8,6 +8,8 @@ import { Student } from '../../../types/school';
 import { useNavigation } from '../../../context/NavigationContext';
 import useSSE from '../../../lib/useSSE';
 import { useUI } from '../../../context/UIContext';
+import { getStudentGpa, downloadTranscript } from '../../../api/grades';
+import { GpaData } from '../../../types/grades';
 
 export const AllStudentsPage: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -25,6 +27,7 @@ export const AllStudentsPage: React.FC = () => {
   const [editForm, setEditForm] = useState<Partial<Student> | null>(null);
   const [actionModal, setActionModal] = useState<any>({ open: false });
   const [viewStudent, setViewStudent] = useState<Student | null>(null);
+  const [gpaData, setGpaData] = useState<GpaData | null>(null);
   const [emailModal, setEmailModal] = useState<{ open: boolean; recipients: string[]; subject: string; body: string; loading?: boolean; templateSelected?: boolean }>({ open: false, recipients: [], subject: '', body: '', templateSelected: false });
   const [emailContextStudent, setEmailContextStudent] = useState<Student | null>(null);
   const [smsModal, setSmsModal] = useState<{ open: boolean; recipients: string[]; body: string; loading?: boolean }>({ open: false, recipients: [], body: '' });
@@ -748,7 +751,10 @@ export const AllStudentsPage: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
                       <button
-                        onClick={() => setViewStudent(student)}
+                        onClick={() => {
+                            setViewStudent(student);
+                            getStudentGpa(getStudentId(student)).then(setGpaData).catch(() => setGpaData(null));
+                        }}
                         className="text-blue-600 hover:text-blue-900"
                         title="View Details"
                       >
@@ -907,9 +913,34 @@ export const AllStudentsPage: React.FC = () => {
                 <div className="text-sm text-gray-700">{(viewStudent as any).guardian?.contact || '—'}</div>
                 <div className="text-sm text-gray-700">{(viewStudent as any).guardian?.address || '—'}</div>
               </div>
+              <div>
+                  <h4 className="text-sm font-semibold">Academic Info</h4>
+                  {gpaData ? (
+                      <div className="text-sm text-gray-700">GPA: {gpaData.gpa.toFixed(2)}</div>
+                  ) : (
+                      <div className="text-sm text-gray-500">Loading GPA...</div>
+                  )}
+              </div>
             </div>
-            <div className="p-6 border-t flex justify-end">
-              <button onClick={() => setViewStudent(null)} className="px-4 py-2 border rounded">Close</button>
+            <div className="p-6 border-t flex justify-end space-x-2">
+              <button onClick={async () => {
+                  try {
+                      const blob = await downloadTranscript(getStudentId(viewStudent));
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `transcript-${viewStudent.studentId}.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                  } catch (err) {
+                      alert('Failed to download transcript');
+                  }
+              }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center space-x-2">
+                  <Download className="w-4 h-4" />
+                  <span>Transcript</span>
+              </button>
+              <button onClick={() => { setViewStudent(null); setGpaData(null); }} className="px-4 py-2 border rounded">Close</button>
             </div>
           </div>
         </div>
