@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark mode base styles */
+@layer base {
+  html {
+    @apply transition-colors duration-300;
+  }
+  
+  .dark {
+    color-scheme: dark;
+  }
+}
+
+/* Custom scrollbar for dark mode */
+@layer utilities {
+  .dark {
+    scrollbar-color: #374151 #1f2937;
+  }
+  
+  .dark::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .dark::-webkit-scrollbar-track {
+    @apply bg-gray-800;
+  }
+  
+  .dark::-webkit-scrollbar-thumb {
+    @apply bg-gray-600 rounded;
+  }
+  
+  .dark::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500;
+  }
+}
