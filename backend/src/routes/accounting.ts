@@ -1,7 +1,5 @@
 import express from 'express';
 import OfficeTransaction from '../models/OfficeTransaction';
-import JournalEntry from '../models/JournalEntry';
-import Account from '../models/Account';
 import Category from '../models/Category';
 import { requirePermission, authMiddleware, requireBranchAccess, AuthRequest } from '../middleware/auth';
 import BranchModel from '../models/BranchModel';
@@ -120,26 +118,18 @@ router.post('/', authMiddleware, requireBranchAccess(), requirePermission('accou
             return res.status(400).json({ error: 'Invalid category or category type mismatch', provided: { category: requestedName, categoryId } });
           }
 
-          // Auto-create category and a corresponding account
+          // Auto-create category for convenience if user has permission — attach to branch if provided and user is not creating global categories
           try {
-            const Account = mongoose.model('Account');
-            const newAccount = await Account.create({
-              name: requestedName,
-              type,
-              description: `Auto-generated account for category: ${requestedName}`
-            });
-
             const newCategory = await Category.create({
               name: requestedName,
               type,
-              account: newAccount._id, // Link to the new account
               description: '',
               branch: req.user?.isSuperAdmin ? (req.body.branch || null) : (req.user?.branch || null),
               createdBy: req.user?.id
             });
             cat = newCategory;
           } catch (createErr) {
-            console.error('Failed to auto-create category or account', createErr);
+            console.error('Failed to auto-create category', createErr);
             return res.status(500).json({ error: 'Failed to create missing category' });
           }
         }
@@ -198,42 +188,6 @@ router.post('/', authMiddleware, requireBranchAccess(), requirePermission('accou
 
     // Emit SSE so frontend can react in real-time
     try { emitEvent('accounting.transaction.created', { transaction: populatedTx }); } catch (e) {}
-
-    // --- Double-Entry Journaling ---
-    try {
-      if (cat.account) {
-        const assetAccountName = (paymentMethod === 'cash') ? 'Cash' : 'Bank';
-        const assetAccount = await Account.findOne({ name: assetAccountName, type: 'asset' });
-
-        if (assetAccount) {
-          const lines = [];
-          if (type === 'expense') {
-            lines.push({ account: cat.account, debit: tx.amount, credit: 0 });
-            lines.push({ account: assetAccount._id, debit: 0, credit: tx.amount });
-          } else { // income
-            lines.push({ account: assetAccount._id, debit: tx.amount, credit: 0 });
-            lines.push({ account: cat.account, debit: 0, credit: tx.amount });
-          }
-
-          await JournalEntry.create({
-            date: tx.date,
-            description: `Journal entry for office transaction: ${tx.description || cat.name}`,
-            lines,
-            branch: tx.branch,
-            transactionRef: tx._id,
-            transactionModel: 'OfficeTransaction',
-            createdBy: req.user?.id,
-          });
-        } else {
-          console.error(`[journaling] Could not find asset account "${assetAccountName}" for transaction ${tx._id}`);
-        }
-      } else {
-        console.error(`[journaling] Category "${cat.name}" has no linked account for transaction ${tx._id}`);
-      }
-    } catch (journalErr) {
-      console.error(`[journaling] Failed to create journal entry for transaction ${tx._id}:`, journalErr);
-      // Do not block the main response if journaling fails.
-    }
 
     res.status(201).json(populatedTx);
   } catch (err: any) {
@@ -307,56 +261,24 @@ router.get('/categories', authMiddleware, requireBranchAccess(), requirePermissi
     let cats = await Category.find(filter).sort({ type: 1, name: 1 });
 
     if (!cats || cats.length === 0) {
-      // Seed default categories and accounts
+      // Seed default categories
       const income = [
         'Registration fees','Tuition Fees','Examination fees','Internship fees','Cafeteria income','Donations, grants, and sponsorships','Rent of Campus','IT Boot camp','Miscellaneous'
       ];
       const expense = [
         'Payroll Expenses','Utilities','Publicity Expense','Examination expenses','Repairs & maintenance','Teaching materials','Laboratory supplies','Internship expense','Transport','Events & extracurricular activities','Administrative expenses','Miscellaneous'
       ];
-      const assets = ['Cash', 'Bank']; // Default asset accounts
-
-      const createdAccounts = {};
-
-      // Seed asset accounts first
-      for (const name of assets) {
-        // Use findOneAndUpdate with upsert to avoid duplicates on multiple runs
-        const acc = await Account.findOneAndUpdate(
-          { name, type: 'asset' },
-          { name, type: 'asset' },
-          { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
-        createdAccounts[name] = acc._id;
-      }
-
-      // Seed income/expense accounts and categories
-      income.push('Tuition Fees'); // Ensure this essential account is seeded
-      for (const name of income) {
-        // Use findOneAndUpdate with upsert to avoid duplicates
-        const acc = await Account.findOneAndUpdate(
-          { name, type: 'income' },
-          { name, type: 'income' },
-          { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
-        createdAccounts[name] = acc._id;
-      }
-      for (const name of expense) {
-        const acc = await Account.create({ name, type: 'expense' });
-        createdAccounts[name] = acc._id;
-      }
 
       const inserts: any[] = [];
       income.forEach(n => inserts.push({
         name: n,
         type: 'income',
-        account: createdAccounts[n], // Link to the created account
         createdBy: req.user?.id,
         branch: null // Global categories
       }));
       expense.forEach(n => inserts.push({
         name: n,
         type: 'expense',
-        account: createdAccounts[n], // Link to the created account
         createdBy: req.user?.id,
         branch: null // Global categories
       }));
@@ -374,16 +296,13 @@ router.get('/categories', authMiddleware, requireBranchAccess(), requirePermissi
 
 router.post('/categories', authMiddleware, requireBranchAccess(), requirePermission('accounting'), async (req: AuthRequest, res) => {
   try {
-    const { name, type, description, branch, accountId } = req.body; // Expect accountId from frontend
+    const { name, type, description, branch } = req.body;
     if (!name || !type) return res.status(400).json({ error: 'Missing fields: name and type are required' });
-
-    let finalAccountId = accountId;
-    const Account = mongoose.model('Account');
 
     // Determine branch for the category
     let branchId = branch;
     if (!req.user?.isSuperAdmin) {
-      branchId = req.user?.branch;
+      branchId = req.user?.branch; // Non-SuperAdmin users can only create branch-specific categories
     }
 
     // Check if category already exists for this branch/global
@@ -394,30 +313,10 @@ router.post('/categories', authMiddleware, requireBranchAccess(), requirePermiss
     });
     if (exists) return res.status(400).json({ error: 'Category already exists for this branch' });
 
-    // If no accountId is provided, create a new account automatically
-    if (!finalAccountId) {
-      const newAccount = await Account.create({
-        name,
-        type,
-        description: `Auto-generated account for category: ${name}`
-      });
-      finalAccountId = newAccount._id;
-    } else {
-      // Optional: Verify the provided accountId is valid and matches the category type
-      const existingAccount = await Account.findById(finalAccountId);
-      if (!existingAccount) {
-        return res.status(400).json({ error: 'Invalid account ID provided.' });
-      }
-      if (existingAccount.type !== type) {
-        return res.status(400).json({ error: 'Account type must match category type.' });
-      }
-    }
-
     const c = await Category.create({
       name,
       type,
       description,
-      account: finalAccountId, // Link to the account
       branch: branchId || null,
       createdBy: req.user?.id
     });
@@ -695,166 +594,28 @@ router.get('/reports/expense-statement', authMiddleware, requirePermission('acco
 
 router.get('/reports/balance-sheet', authMiddleware, requirePermission('accounting'), async (req: AuthRequest, res) => {
   try {
-    const { branch, to } = req.query;
-    const match: any = {};
-    if (branch) match.branch = new mongoose.Types.ObjectId(branch as string);
-    // A balance sheet is a snapshot in time, so we only care about the 'to' date.
-    if (to) {
-      match.date = { $lte: new Date(to as string) };
-    }
-
-    const accountBalances = await JournalEntry.aggregate([
-      { $match: match },
-      { $unwind: '$lines' },
-      {
-        $group: {
-          _id: '$lines.account',
-          balance: { $sum: { $subtract: ['$lines.debit', '$lines.credit'] } }
-        }
-      },
-      {
-        $lookup: {
-          from: 'accounts',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'accountInfo'
-        }
-      },
-      { $unwind: '$accountInfo' },
-      {
-        $project: {
-          name: '$accountInfo.name',
-          type: '$accountInfo.type',
-          balance: 1
-        }
-      }
-    ]);
-
-    let assets = 0;
-    let liabilities = 0;
-    let equity = 0;
-    let retainedEarnings = 0;
-
-    accountBalances.forEach(acc => {
-      switch (acc.type) {
-        case 'asset':
-          assets += acc.balance;
-          break;
-        case 'liability':
-          // Liability balances are typically credits (negative in our calculation)
-          liabilities -= acc.balance;
-          break;
-        case 'equity':
-          // Equity balances are also typically credits
-          equity -= acc.balance;
-          break;
-        case 'income':
-          // Income increases equity (credit balance)
-          retainedEarnings -= acc.balance;
-          break;
-        case 'expense':
-          // Expenses decrease equity (debit balance)
-          retainedEarnings += acc.balance;
-          break;
-      }
-    });
-
-    const totalEquity = equity + retainedEarnings;
-    const equationCheck = assets - (liabilities + totalEquity);
-
-    res.json({
-      date: to ? new Date(to as string).toISOString() : new Date().toISOString(),
-      assets: { total: assets },
-      liabilities: { total: liabilities },
-      equity: { total: totalEquity, breakdown: { initialEquity: equity, retainedEarnings: retainedEarnings } },
-      isBalanced: Math.abs(equationCheck) < 1e-9,
-      balanceCheck: equationCheck
-    });
-
-  } catch (err) {
-    console.error('Failed to generate balance sheet:', err);
-    res.status(500).json({ error: 'Failed to generate balance sheet' });
-  }
-});
-
-// New Trial Balance report based on Journal Entries
-router.get('/reports/trial-balance', authMiddleware, requirePermission('accounting'), async (req: AuthRequest, res) => {
-  try {
-    const { branch, from, to } = req.query;
-    const match: any = {};
-    if (branch) match.branch = new mongoose.Types.ObjectId(branch as string);
-    if (from || to) {
+    const match: any = { status: 'approved' };
+    if (req.query.from || req.query.to) {
       match.date = {};
-      if (from) match.date.$gte = new Date(from as string);
-      if (to) match.date.$lte = new Date(to as string);
+      if (req.query.from) match.date.$gte = new Date(req.query.from as string);
+      if (req.query.to) match.date.$lte = new Date(req.query.to as string);
     }
+    if (req.query.branch) match.branch = req.query.branch;
 
-    const balances = await JournalEntry.aggregate([
+    const totals = await OfficeTransaction.aggregate([
       { $match: match },
-      { $unwind: '$lines' },
-      {
-        $group: {
-          _id: '$lines.account',
-          totalDebits: { $sum: '$lines.debit' },
-          totalCredits: { $sum: '$lines.credit' },
-        }
-      },
-      {
-        $lookup: {
-          from: 'accounts',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'accountInfo'
-        }
-      },
-      { $unwind: '$accountInfo' },
-      {
-        $project: {
-          accountName: '$accountInfo.name',
-          accountType: '$accountInfo.type',
-          totalDebits: 1,
-          totalCredits: 1,
-          balance: { $subtract: ['$totalDebits', '$totalCredits'] }
-        }
-      },
-      { $sort: { accountName: 1 } }
-    ]);
+      { $group: { _id: '$type', total: { $sum: '$amount' } } }
+    ] as any);
 
-    let totalDebits = 0;
-    let totalCredits = 0;
+    const incomeTotal = totals.find((t: any) => t._id === 'income')?.total || 0;
+    const expenseTotal = totals.find((t: any) => t._id === 'expense')?.total || 0;
+    const net = incomeTotal - expenseTotal;
 
-    const formattedBalances = balances.map(b => {
-      let finalDebit = 0;
-      let finalCredit = 0;
-      if (['asset', 'expense'].includes(b.accountType)) {
-        if (b.balance > 0) finalDebit = b.balance;
-        else finalCredit = -b.balance;
-      } else { // liability, equity, income
-        if (b.balance < 0) finalDebit = -b.balance;
-        else finalCredit = b.balance;
-      }
-      totalDebits += finalDebit;
-      totalCredits += finalCredit;
-      return {
-        accountName: b.accountName,
-        accountType: b.accountType,
-        debit: finalDebit,
-        credit: finalCredit,
-      };
-    });
-
-    res.json({
-      trialBalance: formattedBalances,
-      totals: {
-        debits: totalDebits,
-        credits: totalCredits,
-        balanced: Math.abs(totalDebits - totalCredits) < 1e-9
-      }
-    });
-
+    // Simple balance sheet: assets = incomeTotal, liabilities = expenseTotal, equity = net
+    res.json({ assets: incomeTotal, liabilities: expenseTotal, equity: net });
   } catch (err) {
-    console.error('Failed to generate trial balance:', err);
-    res.status(500).json({ error: 'Failed to generate trial balance' });
+    console.error('GET /api/accounting/reports/balance-sheet error', err);
+    res.status(500).json({ error: 'Failed to generate report' });
   }
 });
 

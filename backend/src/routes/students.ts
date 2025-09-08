@@ -3,8 +3,7 @@ import Student from '../models/Student';
 import TuitionPlan from '../models/TuitionPlan';
 import PaymentPlan from '../models/PaymentPlan';
 import TuitionTransaction from '../models/TuitionTransaction';
-import JournalEntry from '../models/JournalEntry';
-import Account from '../models/Account';
+import Transaction from '../models/Transaction';
 import BranchModel from '../models/BranchModel';
 import mongoose from 'mongoose';
 import authMiddleware, { AuthRequest, requirePermission, requireBranchAccess } from '../middleware/auth';
@@ -78,7 +77,7 @@ router.get('/', authMiddleware, requirePermission('students'), requireBranchAcce
     const [total, data, paidCount, partialCount, pendingCount, overdueCount] = await Promise.all([
       Student.countDocuments(query),
       Student.find(query)
-        .populate('program department branch createdBy lastModifiedBy')
+        .populate('program department specialty branch createdBy lastModifiedBy')
         .skip(skip)
         .limit(pageSize)
         .sort({ createdAt: -1 }),
@@ -312,7 +311,7 @@ router.post('/export', authMiddleware, async (req: AuthRequest, res) => {
 router.post('/', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
   const {
     firstName, lastName, dateOfBirth, placeOfBirth, regionOfOrigin, phoneNumber, gender, email,
-    program, department, guardian, emergencyContact, address, notes, academicYear, level, session
+    specialty, guardian, emergencyContact, address, notes, academicYear, level, session
   } = req.body;
   // debug incoming phone values
   // (remove or lower log level in production)
@@ -339,8 +338,7 @@ router.post('/', authMiddleware, requirePermission('students'), requireBranchAcc
   if (!regionOfOrigin) missing.push('regionOfOrigin');
   if (!phoneNumber) missing.push('phoneNumber');
   if (!gender) missing.push('gender');
-  if (!program) missing.push('program');
-  if (!department) missing.push('department');
+  if (!specialty) missing.push('specialty');
   if (!guardian || !guardian.name) missing.push('guardian.name');
   if (!academicYear) missing.push('academicYear');
   if (missing.length) return res.status(400).json({ message: 'Missing required fields', missing });
@@ -542,7 +540,7 @@ router.post('/', authMiddleware, requirePermission('students'), requireBranchAcc
 router.get('/:id', authMiddleware, requirePermission('students'), requireBranchAccess(), async (req: AuthRequest, res) => {
   try {
     const student = await Student.findById(req.params.id)
-      .populate('program department branch createdBy lastModifiedBy');
+      .populate('program department specialty branch createdBy lastModifiedBy');
     if (!student) return res.status(404).json({ message: 'Student not found' });
     
     // Branch access is handled by requireBranchAccess middleware
@@ -633,37 +631,25 @@ router.post('/:id/payments', authMiddleware, requirePermission('students'), requ
 
       await student.save();
 
-    // --- Double-Entry Journaling for Tuition Payment ---
+    // Also create an accounting transaction so the accounting page reflects this payment
     try {
-      const tuitionFeesAccount = await Account.findOne({ name: 'Tuition Fees', type: 'income' });
-      const assetAccountName = (method === 'cash') ? 'Cash' : 'Bank';
-      const assetAccount = await Account.findOne({ name: assetAccountName, type: 'asset' });
-
-      if (tuitionFeesAccount && assetAccount) {
-        const lines = [
-          { account: assetAccount._id, debit: tx.amount, credit: 0 },
-          { account: tuitionFeesAccount._id, debit: 0, credit: tx.amount }
-        ];
-
-        const journalEntry = await JournalEntry.create({
-          date: tx.createdAt || new Date(),
-          description: `Tuition payment for ${student.names || student.studentId}${notes ? ` — ${notes}` : ''}`,
-          lines,
-          branch: student.branch,
-          transactionRef: tx._id,
-          transactionModel: 'TuitionTransaction',
-          createdBy: req.user?.id,
-        });
-
-        // Emit an event that a generic accounting transaction was created for real-time updates
-        try { emitEvent('accounting.transaction.created', { transaction: journalEntry, studentId: student._id }); } catch (e) {}
-      } else {
-        if (!tuitionFeesAccount) console.error('[journaling] "Tuition Fees" income account not found.');
-        if (!assetAccount) console.error(`[journaling] Asset account "${assetAccountName}" not found.`);
-      }
-    } catch (journalErr) {
-      console.error(`[journaling] Failed to create journal entry for tuition payment ${tx._id}:`, journalErr);
-      // Do not block the main response if journaling fails.
+      const creator = req.user ? { id: req.user.id || null, name: (req.user as any).name || null, email: (req.user as any).email || null } : 'system';
+      const acctDesc = `Tuition payment for ${student.names || student.studentId}${notes ? ` — ${notes}` : ''}`;
+      const acctTx = new Transaction({
+        type: 'income',
+        category: 'Tuition Fees',
+        amount: Number(amount),
+        description: acctDesc,
+        date: tx.createdAt || new Date(),
+        studentId: student._id,
+        createdBy: creator,
+        createdAt: new Date()
+      });
+      await acctTx.save();
+      try { emitEvent('accounting.transaction.created', { transaction: acctTx, studentId: student._id }); } catch (e) {}
+    } catch (acctErr) {
+      console.error('Failed to create accounting transaction for tuition payment:', acctErr);
+      // Don't fail the overall payment flow if accounting entry fails; just log
     }
 
     try { emitEvent('student.tuition.paid', { student: student._id, tx }); } catch (e) {}
@@ -701,7 +687,7 @@ router.put('/:id', authMiddleware, requirePermission('students'), requireBranchA
     }
 
     const student = await Student.findByIdAndUpdate(req.params.id, updateData, { new: true })
-      .populate('program department branch createdBy lastModifiedBy');
+      .populate('program department specialty branch createdBy lastModifiedBy');
     
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });

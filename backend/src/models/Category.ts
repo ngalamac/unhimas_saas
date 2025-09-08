@@ -3,7 +3,6 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface ICategory extends Document {
   name: string;
   type: 'income' | 'expense';
-  account: mongoose.Types.ObjectId; // The accounting account to use for this category
   description?: string;
   parent?: mongoose.Types.ObjectId; // For subcategories
   isActive: boolean;
@@ -16,7 +15,6 @@ export interface ICategory extends Document {
 const CategorySchema: Schema = new Schema({
   name: { type: String, required: true },
   type: { type: String, enum: ['income', 'expense'], required: true },
-  account: { type: Schema.Types.ObjectId, ref: 'Account', required: true },
   description: { type: String },
   parent: { type: Schema.Types.ObjectId, ref: 'Category', required: false },
   isActive: { type: Boolean, default: true },

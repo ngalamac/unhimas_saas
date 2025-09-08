@@ -46,32 +46,20 @@ async function createDepartment() {
   return res.json();
 }
 
-async function createBranch() {
-  const res = await (fetchFn || fetch)('http://localhost:5000/api/branches', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Smoke Test Branch', location: 'Smoke Test Location' })
-  });
-  if (!res.ok) throw new Error('Create branch failed: ' + res.statusText);
-  return res.json();
-}
-
-async function createStudent(programId, departmentId, branchId, profileUrl) {
+async function createStudent(programId, departmentId, profileUrl) {
   const payload = {
     firstName: 'Smoke',
     lastName: 'Test',
+    nationalIdName: 'Smoke Test',
     gender: 'Male',
     placeOfBirth: 'Yaounde',
-    regionOfOrigin: 'Center',
     dateOfBirth: '2000-01-01',
-    phoneNumber: '6' + Math.random().toString().slice(2, 10),
-    email: `smoke${Date.now()}@example.com`,
+    phoneNumber: '+2376' + '12345678'.slice(1),
+    email: 'smoke@example.com',
     program: programId,
     department: departmentId,
-    branch: branchId,
-    academicYear: '2024-2025',
     profilePicture: profileUrl,
-    guardian: { name: 'Guardian', address: 'Address', contact: '6' + Math.random().toString().slice(2, 10) }
+    guardian: { name: 'Guardian', address: 'Address', contact: '+237612345678' }
   };
   const res = await (fetchFn || fetch)('http://localhost:5000/api/students', {
     method: 'POST',
@@ -93,9 +81,7 @@ async function createStudent(programId, departmentId, branchId, profileUrl) {
     console.log('Created program ->', program._id || program.id);
     const dept = await createDepartment();
     console.log('Created department ->', dept._id || dept.id);
-    const branch = await createBranch();
-    console.log('Created branch ->', branch._id || branch.id);
-    const student = await createStudent(program._id || program.id, dept._id || dept.id, branch._id || branch.id, profileUrl);
+    const student = await createStudent(program._id || program.id, dept._id || dept.id, profileUrl);
     console.log('Created student ->', student._id || student.id);
     console.log('Smoke test finished successfully.');
   } catch (err) {

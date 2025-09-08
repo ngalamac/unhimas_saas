@@ -7,35 +7,30 @@ const router = express.Router();
 
 // list courses with optional filters
 router.get('/', async (req, res) => {
-  const { programId, departmentId, semester } = req.query as any;
+  const { programId, specialtyId, semester } = req.query as any;
   const filter: any = {};
   if (programId) filter.program = programId;
-  if (departmentId) filter.department = departmentId;
+  if (specialtyId) filter.specialty = specialtyId;
   if (semester) filter.semester = Number(semester);
 
-  const courses = await Course.find(filter).populate('program department');
+  const courses = await Course.find(filter).populate('program department specialty');
   res.json(courses);
 });
 
 router.post('/', async (req, res) => {
-  const { title, code, credit, department, semester, caWeight, examWeight } = req.body;
-  if (!title || !code || !department) return res.status(400).json({ message: 'title, code and department are required' });
-
-  const dept = await Department.findById(department);
-  if (!dept) return res.status(400).json({ message: 'department not found' });
-
-  // derive program and validate semester bounds before saving
-  const program = await Program.findById(dept.program);
-  if (!program) return res.status(400).json({ message: 'associated program for department not found' });
-  const maxSem = (program.duration ?? 1) * (program.semestersPerYear ?? 1);
-  if (semester && (semester < 1 || semester > maxSem)) return res.status(400).json({ message: 'semester out of bounds for program' });
+  const { title, code, credit, specialty, semester, caWeight, examWeight } = req.body;
+  if (!title || !code || !specialty || !semester) {
+    return res.status(400).json({ message: 'title, code, specialty, and semester are required' });
+  }
 
   try {
-    const course = new Course({ title, code, credit, program: dept.program, department, semester, caWeight, examWeight });
+    const course = new Course({ title, code, credit, specialty, semester, caWeight, examWeight });
     await course.save();
-    res.status(201).json(course);
+    // The pre-save hook will populate department and program and validate the semester.
+    const populatedCourse = await Course.findById(course._id).populate('program department specialty');
+    res.status(201).json(populatedCourse);
   } catch (err: any) {
-    res.status(400).json({ message: err.message || 'could not create course' });
+    res.status(400).json({ message: err.message || 'Could not create course. Check if specialty is valid and semester is within program bounds.' });
   }
 });
 

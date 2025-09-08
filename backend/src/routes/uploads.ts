@@ -11,7 +11,6 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 
 // Single file upload for profile images -> store in GridFS
 router.post('/profile', upload.single('file'), async (req: Request & { file?: Express.Multer.File }, res) => {
-  console.log('[upload] Received request for /profile. Body:', req.body, 'File:', req.file);
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
   try {
     const db = mongoose.connection.db;

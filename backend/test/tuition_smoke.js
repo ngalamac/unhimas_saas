@@ -70,6 +70,16 @@ async function createProgram(token) {
   return res.json();
 }
 
+async function createSpecialty(departmentId, token) {
+    const res = await (fetchFn || fetch)('http://localhost:5000/api/specialties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name: 'Tuition Smoke Specialty', department: departmentId })
+    });
+    if (!res.ok) throw new Error('Create specialty failed: ' + res.statusText);
+    return res.json();
+}
+
 async function createDepartment(programId, token) {
   const res = await (fetchFn || fetch)('http://localhost:5000/api/departments', {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -97,7 +107,7 @@ async function createBranch(managerId, token) {
   return res.json();
 }
 
-async function createStudent(programId, departmentId, branchId, tuitionPlanId, token) {
+async function createStudent(specialtyId, branchId, tuitionPlanId, token) {
   const payload = {
     firstName: 'TuitionSmoke',
     lastName: 'Test',
@@ -107,8 +117,7 @@ async function createStudent(programId, departmentId, branchId, tuitionPlanId, t
     dateOfBirth: '2000-01-01',
     phoneNumber: '6' + Math.random().toString().slice(2, 10),
     email: `tuition-smoke-${Date.now()}@example.com`,
-    program: programId,
-    department: departmentId,
+    specialty: specialtyId,
     profilePicture: null,
     guardian: { name: 'Guardian', address: 'Address', contact: '6' + Math.random().toString().slice(2, 10) },
     branch: branchId,
@@ -157,9 +166,10 @@ async function cleanupOldData() {
     console.log('Created admin user ->', adminUser._id);
     const program = await createProgram(token);
     const dept = await createDepartment(program._id, token);
+    const specialty = await createSpecialty(dept._id, token);
     const branch = await createBranch(adminUser._id, token);
-    console.log('Created program/department/branch ->', program._id, dept._id, branch._id);
-    const student = await createStudent(program._id, dept._id, branch._id, planId, token);
+    console.log('Created program/department/specialty/branch ->', program._id, dept._id, specialty._id, branch._id);
+    const student = await createStudent(specialty._id, branch._id, planId, token);
     console.log('Created student ->', student._id);
     const fetched = await getStudent(student._id, token);
     console.log('Fetched student has tuitionInstallments:', Array.isArray(fetched.tuitionInstallments));
