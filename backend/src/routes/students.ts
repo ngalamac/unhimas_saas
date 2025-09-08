@@ -651,14 +651,13 @@ router.post('/:id/payments', authMiddleware, requirePermission('students'), requ
         const acctDesc = `Tuition payment for ${student.names || student.studentId}${notes ? ` — ${notes}` : ''}`;
         const journalEntry = await recordGenericTransaction(
             student.branch,
-            req.user!.id,
+            new mongoose.Types.ObjectId(req.user!.id),
             'income',
             'Tuition Fees',
             Number(amount),
             acctDesc,
             tx.createdAt || new Date(),
-            currency || 'XAF',
-            { model: 'Student', docId: student._id }
+            currency || 'XAF'
         );
         try { emitEvent(student.branch.toString(), 'accounting.transaction.created', { transaction: journalEntry, studentId: student._id }); } catch (e) {}
     } catch (acctErr) {

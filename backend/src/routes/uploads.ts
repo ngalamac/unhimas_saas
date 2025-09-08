@@ -22,14 +22,14 @@ router.post('/profile', upload.single('file'), async (req: Request & { file?: Ex
 
         // --- Upload original file ---
         const originalUploadPromise = new Promise((resolve, reject) => {
-            const ext = path.extname(req.file.originalname) || '.png';
-            const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-            const uploadStream = bucket.openUploadStream(filename, {
-                contentType: req.file.mimetype,
-                metadata: { originalname: req.file.originalname, isThumbnail: false },
-            });
-            const bufferStream = new stream.PassThrough();
-            bufferStream.end(req.file.buffer);
+        const ext = path.extname(req.file?.originalname ?? '') || '.png';
+        const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+        const uploadStream = bucket.openUploadStream(filename, {
+          contentType: req.file?.mimetype ?? 'application/octet-stream',
+          metadata: { originalname: req.file?.originalname ?? '', isThumbnail: false },
+        });
+        const bufferStream = new stream.PassThrough();
+        bufferStream.end(req.file?.buffer ?? Buffer.alloc(0));
             bufferStream.pipe(uploadStream)
                 .on('error', (err) => reject(err))
                 .on('finish', () => {

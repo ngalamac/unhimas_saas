@@ -28,8 +28,8 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // MongoDB connection
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) {
-    console.error('FATAL ERROR: MONGO_URI is not defined in the environment variables.');
-    process.exit(1);
+  console.error('FATAL ERROR: MONGO_URI is not defined in the environment variables.');
+  process.exit(1);
 }
 mongoose.connection.on('connected', () => {
   console.log('✅ MongoDB connection established successfully.');
@@ -45,7 +45,7 @@ async function startServer() {
   try {
     console.log('Connecting to MongoDB...');
     // increase server selection timeout to allow slower networks
-    await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 30000 });
+  await mongoose.connect(MONGO_URI as string, { serverSelectionTimeoutMS: 30000 });
     console.log('MongoDB connected. Starting server...');
 
     const PORT = process.env.PORT || 5000;

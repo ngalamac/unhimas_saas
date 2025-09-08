@@ -281,14 +281,14 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
             </button>
 
             {/* Branch Selector for Multi-branch Users */}
-            {managedBranches.length > 1 && (
+            {(managedBranches?.length ?? 0) > 1 && (
               <div className="hidden md:block">
                 <select
                   value={(currentBranch as any)?._id || (currentBranch as any)?.id || ''}
                   onChange={(e) => setCurrentBranchById(e.target.value)}
                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
-                  {managedBranches.map(branch => (
+                  {(managedBranches ?? []).map(branch => (
                     <option key={(branch as any)._id || (branch as any).id} value={(branch as any)._id || (branch as any).id}>
                       {branch.name}
                     </option>
@@ -298,7 +298,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
             )}
 
             {/* Current Branch Display */}
-            {currentBranch && managedBranches.length <= 1 && (
+            {currentBranch && (managedBranches?.length ?? 0) <= 1 && (
               <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900 rounded-lg">
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                 <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{(currentBranch as any).name}</span>
@@ -604,14 +604,14 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
         </div>
 
         {/* Mobile Branch Selector */}
-        {managedBranches.length > 1 && (
+  {(managedBranches?.length ?? 0) > 1 && (
           <div className="md:hidden mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
             <select
               value={(currentBranch as any)?._id || (currentBranch as any)?.id || ''}
               onChange={(e) => setCurrentBranchById(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             >
-              {managedBranches.map(branch => (
+              {(managedBranches ?? []).map(branch => (
                 <option key={(branch as any)._id || (branch as any).id} value={(branch as any)._id || (branch as any).id}>
                   {branch.name}
                 </option>
