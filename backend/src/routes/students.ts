@@ -3,7 +3,8 @@ import Student from '../models/Student';
 import TuitionPlan from '../models/TuitionPlan';
 import PaymentPlan from '../models/PaymentPlan';
 import TuitionTransaction from '../models/TuitionTransaction';
-import Transaction from '../models/Transaction';
+import JournalEntry from '../models/JournalEntry';
+import Account from '../models/Account';
 import BranchModel from '../models/BranchModel';
 import mongoose from 'mongoose';
 import authMiddleware, { AuthRequest, requirePermission, requireBranchAccess } from '../middleware/auth';
@@ -632,25 +633,37 @@ router.post('/:id/payments', authMiddleware, requirePermission('students'), requ
 
       await student.save();
 
-    // Also create an accounting transaction so the accounting page reflects this payment
+    // --- Double-Entry Journaling for Tuition Payment ---
     try {
-      const creator = req.user ? { id: req.user.id || null, name: (req.user as any).name || null, email: (req.user as any).email || null } : 'system';
-      const acctDesc = `Tuition payment for ${student.names || student.studentId}${notes ? ` — ${notes}` : ''}`;
-      const acctTx = new Transaction({
-        type: 'income',
-        category: 'Tuition Fees',
-        amount: Number(amount),
-        description: acctDesc,
-        date: tx.createdAt || new Date(),
-        studentId: student._id,
-        createdBy: creator,
-        createdAt: new Date()
-      });
-      await acctTx.save();
-      try { emitEvent('accounting.transaction.created', { transaction: acctTx, studentId: student._id }); } catch (e) {}
-    } catch (acctErr) {
-      console.error('Failed to create accounting transaction for tuition payment:', acctErr);
-      // Don't fail the overall payment flow if accounting entry fails; just log
+      const tuitionFeesAccount = await Account.findOne({ name: 'Tuition Fees', type: 'income' });
+      const assetAccountName = (method === 'cash') ? 'Cash' : 'Bank';
+      const assetAccount = await Account.findOne({ name: assetAccountName, type: 'asset' });
+
+      if (tuitionFeesAccount && assetAccount) {
+        const lines = [
+          { account: assetAccount._id, debit: tx.amount, credit: 0 },
+          { account: tuitionFeesAccount._id, debit: 0, credit: tx.amount }
+        ];
+
+        const journalEntry = await JournalEntry.create({
+          date: tx.createdAt || new Date(),
+          description: `Tuition payment for ${student.names || student.studentId}${notes ? ` — ${notes}` : ''}`,
+          lines,
+          branch: student.branch,
+          transactionRef: tx._id,
+          transactionModel: 'TuitionTransaction',
+          createdBy: req.user?.id,
+        });
+
+        // Emit an event that a generic accounting transaction was created for real-time updates
+        try { emitEvent('accounting.transaction.created', { transaction: journalEntry, studentId: student._id }); } catch (e) {}
+      } else {
+        if (!tuitionFeesAccount) console.error('[journaling] "Tuition Fees" income account not found.');
+        if (!assetAccount) console.error(`[journaling] Asset account "${assetAccountName}" not found.`);
+      }
+    } catch (journalErr) {
+      console.error(`[journaling] Failed to create journal entry for tuition payment ${tx._id}:`, journalErr);
+      // Do not block the main response if journaling fails.
     }
 
     try { emitEvent('student.tuition.paid', { student: student._id, tx }); } catch (e) {}

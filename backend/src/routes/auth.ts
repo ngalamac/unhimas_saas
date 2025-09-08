@@ -155,20 +155,5 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Password reset request
-router.post('/reset-password', async (req, res) => {
-  try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: 'No account found for this email.' });
-    }
-    // TODO: Generate reset token, send email with link
-    // For now, simulate success
-    res.json({ message: 'Password reset link sent to your email.' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to process password reset.' });
-  }
-});
 
 export default router;

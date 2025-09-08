@@ -90,35 +90,29 @@ export function requirePermission(permission: string) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    // SuperAdmin has all permissions
+    // SuperAdmin has all permissions, no need to check further.
     if (req.user.isSuperAdmin) {
       return next();
     }
 
-    // Check if user has the specific permission
     const userPermissions = req.user.permissions || {};
-    const hasPermission = Object.keys(userPermissions).some(feature => {
-      const actions = userPermissions[feature];
-      if (typeof actions === 'object') {
-        return Object.values(actions).some(Boolean);
-      }
-      return false;
-    });
-
-    // Check for specific permission in the format "feature:action"
     const [feature, action] = permission.split(':');
-    if (feature && action) {
-      const featurePermissions = userPermissions[feature];
-      if (featurePermissions && featurePermissions[action]) {
-        return next();
-      }
+
+    // The permission string must be in the "feature:action" format.
+    if (!feature || !action) {
+      // Log this as a server error because permissions should always be correctly formatted in the code.
+      console.error(`[auth] Invalid permission format used in route: "${permission}"`);
+      return res.status(500).json({ error: 'Internal server error: Invalid permission configuration' });
     }
 
-    // Check for general permission
-    if (userPermissions[permission] || hasPermission) {
+    // Check if the user has the specific permission, e.g., permissions.students.create
+    const hasPermission = userPermissions[feature] && userPermissions[feature][action];
+
+    if (hasPermission) {
       return next();
     }
 
+    // If permission is not found, deny access.
     return res.status(403).json({ error: 'Insufficient permissions' });
   };
 }
