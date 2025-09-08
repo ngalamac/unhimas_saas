@@ -16,6 +16,7 @@ import { FeeStructurePage } from '../pages/fees/FeeStructurePage';
 import { PaymentHistoryPage } from '../pages/payments/PaymentHistoryPage';
 import { ProgramsPage } from '../pages/academic/ProgramsPage';
 import { DepartmentsPage } from '../pages/academic/DepartmentsPage';
+import { SpecialtiesPage } from '../pages/academic/SpecialtiesPage';
 import { CoursesPage } from '../pages/academic/CoursesPage';
 import { GradingSystemPage } from '../pages/academic/GradingSystemPage';
 import { BulkMessagingPage } from '../pages/communication/BulkMessagingPage';
@@ -86,6 +87,8 @@ export const PageRenderer: React.FC = () => {
         return <ProgramsPage />;
       case 'departments':
         return <DepartmentsPage />;
+      case 'specialties':
+        return <SpecialtiesPage />;
       case 'courses':
         return <CoursesPage />;
       case 'exam-types':

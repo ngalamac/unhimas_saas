@@ -9,19 +9,16 @@ export const CoursesPage: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [filterDepartment, setFilterDepartment] = useState('');
   const [filterLevel, setFilterLevel] = useState('');
-  const [title, setTitle] = useState('');
-  const [code, setCode] = useState('');
   const [programs, setPrograms] = useState<Program[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [selectedProgramId, setSelectedProgramId] = useState<string>('');
+  const [specialties, setSpecialties] = useState<any[]>([]);
     // Modal state for create/edit/view
     const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null);
     const [modalCourse, setModalCourse] = useState<Course | null>(null);
     const [formTitle, setFormTitle] = useState('');
     const [formCode, setFormCode] = useState('');
     const [formCredit, setFormCredit] = useState(3);
-    const [formProgramId, setFormProgramId] = useState('');
-    const [formDepartmentId, setFormDepartmentId] = useState('');
+    const [formSpecialtyId, setFormSpecialtyId] = useState('');
     const [formSemester, setFormSemester] = useState(1);
     const [formCAWeight, setFormCAWeight] = useState(0.3);
     const [formExamWeight, setFormExamWeight] = useState(0.7);
@@ -35,19 +32,17 @@ export const CoursesPage: React.FC = () => {
     getCourses().then(setCourses).catch(() => {});
     getPrograms().then(setPrograms).catch(()=>{});
     getDepartments().then(setDepartments).catch(()=>{});
+    fetchClient.get('/api/specialties').then(res => res.json()).then(setSpecialties).catch(() => {});
   }, []);
 
-  const filteredCourses = courses.filter(course => {
-    // Open modal for create/edit/view
-    const openModal = (mode: 'create' | 'edit' | 'view', course?: Course) => {
+  const openModal = (mode: 'create' | 'edit' | 'view', course?: Course) => {
       setModalMode(mode);
       setModalCourse(course || null);
       if (mode === 'edit' && course) {
         setFormTitle(course.title);
         setFormCode(course.code);
         setFormCredit(course.credit || 3);
-        setFormProgramId((course.program as any)?._id || (course.program as any)?.id || '');
-        setFormDepartmentId((course.department as any)?._id || (course.department as any)?.id || '');
+        setFormSpecialtyId((course.specialty as any)?._id || (course.specialty as any)?.id || '');
         setFormSemester(course.semester || 1);
         setFormCAWeight(course.caWeight ?? 0.3);
         setFormExamWeight(course.examWeight ?? 0.7);
@@ -55,47 +50,24 @@ export const CoursesPage: React.FC = () => {
         setFormTitle('');
         setFormCode('');
         setFormCredit(3);
-        setFormProgramId('');
-        setFormDepartmentId('');
+        setFormSpecialtyId('');
         setFormSemester(1);
         setFormCAWeight(0.3);
         setFormExamWeight(0.7);
       }
     };
+
+  const filteredCourses = courses.filter(course => {
     const matchesDepartment = !filterDepartment || ((course.department as any)?.id === filterDepartment || (course.department as any)?._id === filterDepartment);
     const matchesLevel = !filterLevel || (course.level ? course.level.toString() === filterLevel : false);
     return matchesDepartment && matchesLevel;
   });
 
-  const isFormValid = () => {
-    if (!title.trim() || !code.trim()) return false;
-    if (!selectedProgramId) return false;
-    if (!credit || credit <= 0) return false;
-    if (Math.abs(caWeight + examWeight - 1) > 1e-6) return false;
-    // ensure semester within program bounds
-    const prog = programs.find(p => (p._id || (p as any).id) === selectedProgramId || (p as any).id === selectedProgramId);
-    if (prog) {
-      const maxSem = ((prog.duration ?? 1) * (prog.semestersPerYear ?? 1)) || 1;
-      if (semester < 1 || semester > maxSem) return false;
-    }
-    return true;
-  };
-
-  const handleCreate = async () => {
-    if (!isFormValid()) return alert('Please fill all required fields and ensure CA + Exam weights sum to 1.');
-    try {
-    const payload = { title, code, credit, program: selectedProgramId, department: selectedDepartmentId || undefined, semester, caWeight, examWeight };
-      const c = await createCourse(payload as any);
-      setCourses(prev => [c, ...prev]);
-      setTitle(''); setCode(''); setSelectedProgramId(''); setSemester(1); setCredit(3); setCaWeight(0.3); setExamWeight(0.7);
-    } catch (e) { console.error(e); }
-  };
-
   const handleDelete = async (id?: string) => {
     if (!id) return;
     await deleteCourse(id);
     const handleSaveCourse = async () => {
-      if (!formTitle.trim() || !formCode.trim() || !formProgramId || !formDepartmentId || !formCredit || formSemester < 1) {
+      if (!formTitle.trim() || !formCode.trim() || !formSpecialtyId || !formCredit || formSemester < 1) {
         alert('All fields are required');
         return;
       }
@@ -104,31 +76,20 @@ export const CoursesPage: React.FC = () => {
         return;
       }
       try {
-        if (modalMode === 'create') {
-          const payload = {
+        const payload = {
             title: formTitle,
             code: formCode,
             credit: formCredit,
-            program: formProgramId,
-            department: formDepartmentId,
+            specialty: formSpecialtyId,
             semester: formSemester,
             caWeight: formCAWeight,
             examWeight: formExamWeight
-          };
+        };
+
+        if (modalMode === 'create') {
           const c = await createCourse(payload as any);
           setCourses(prev => [c, ...prev]);
         } else if (modalMode === 'edit' && modalCourse) {
-          const payload = {
-            title: formTitle,
-            code: formCode,
-            credit: formCredit,
-            program: formProgramId,
-            department: formDepartmentId,
-            semester: formSemester,
-            caWeight: formCAWeight,
-            examWeight: formExamWeight
-          };
-          // You may need to implement updateCourse in your api/courses
           const c = await fetchClient.put(`/api/courses/${modalCourse._id || modalCourse.id}`, payload).then(res => res.json());
           setCourses(prev => prev.map(course => (course._id || course.id) === (c._id || c.id) ? c : course));
         }
@@ -150,13 +111,9 @@ export const CoursesPage: React.FC = () => {
               <input disabled={isView} value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Course Title" className="w-full px-3 py-2 border rounded" />
               <input disabled={isView} value={formCode} onChange={e => setFormCode(e.target.value)} placeholder="Code" className="w-full px-3 py-2 border rounded" />
               <input disabled={isView} type="number" value={formCredit} onChange={e => setFormCredit(Number(e.target.value))} placeholder="Credit" className="w-full px-3 py-2 border rounded" />
-              <select disabled={isView} value={formProgramId} onChange={e => setFormProgramId(e.target.value)} className="w-full px-3 py-2 border rounded">
-                <option value="">Select Program</option>
-                {programs.map(p => <option key={p._id || p.id} value={p._id || p.id}>{p.name}</option>)}
-              </select>
-              <select disabled={isView} value={formDepartmentId} onChange={e => setFormDepartmentId(e.target.value)} className="w-full px-3 py-2 border rounded">
-                <option value="">Select Department</option>
-                {departments.map(d => <option key={d._id || d.id} value={d._id || d.id}>{d.name}</option>)}
+              <select disabled={isView} value={formSpecialtyId} onChange={e => setFormSpecialtyId(e.target.value)} className="w-full px-3 py-2 border rounded">
+                <option value="">Select Specialty</option>
+                {specialties.map(s => <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>)}
               </select>
               <input disabled={isView} type="number" value={formSemester} onChange={e => setFormSemester(Number(e.target.value))} placeholder="Semester" className="w-full px-3 py-2 border rounded" />
               <input disabled={isView} type="number" step="0.01" value={formCAWeight} onChange={e => setFormCAWeight(Number(e.target.value))} placeholder="CA Weight" className="w-full px-3 py-2 border rounded" />
@@ -255,29 +212,6 @@ export const CoursesPage: React.FC = () => {
             <option value="">All Departments</option>
             {departments.map(d => <option key={(d._id || (d as any).id)} value={(d._id || (d as any).id) as string}>{d.name}</option>)}
           </select>
-          <div className="flex space-x-2">
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Course title" className="px-3 py-2 border rounded" />
-            <input value={code} onChange={e => setCode(e.target.value)} placeholder="Code" className="px-3 py-2 border rounded" />
-            <select value={selectedProgramId} onChange={e=>{ setSelectedProgramId(e.target.value); setSemester(1); }} className="px-3 py-2 border rounded">
-              <option value="">Select Program</option>
-              {programs.map(p=> <option key={(p._id || (p as any).id)} value={(p._id || (p as any).id) as string}>{p.name}</option>)}
-            </select>
-            <select id="department" value={selectedDepartmentId} onChange={e => setSelectedDepartmentId(e.target.value)} className="px-3 py-2 border rounded">
-              <option value="">Select Department</option>
-              {departments.map(d=> <option key={(d._id || (d as any).id)} value={(d._id || (d as any).id) as string}>{d.name}</option>) }
-            </select>
-            <input id="credit" type="number" value={credit} onChange={e=>setCredit(Number(e.target.value))} className="px-3 py-2 border rounded w-20" />
-            <select value={semester} onChange={e=>setSemester(Number(e.target.value))} className="px-3 py-2 border rounded w-32">
-              {(() => {
-                const prog = programs.find(p => (p._id || (p as any).id) === selectedProgramId || (p as any).id === selectedProgramId);
-                const maxSem = prog ? ( (prog.duration ?? 1) * (prog.semestersPerYear ?? 1) ) : 12;
-                return Array.from({ length: maxSem }, (_, i) => i + 1).map(s => <option key={s} value={s}>Sem {s}</option>);
-              })()}
-            </select>
-            <input value={caWeight} onChange={e=>setCaWeight(Number(e.target.value))} type="number" step="0.01" min="0" max="1" className="px-3 py-2 border rounded w-20" title="CA weight (0-1)" />
-            <input value={examWeight} onChange={e=>setExamWeight(Number(e.target.value))} type="number" step="0.01" min="0" max="1" className="px-3 py-2 border rounded w-20" title="Exam weight (0-1)" />
-            <button onClick={handleCreate} disabled={!isFormValid()} className={`px-4 py-2 rounded ${isFormValid() ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}>Create</button>
-          </div>
           <select
             value={filterLevel}
             onChange={(e) => setFilterLevel(e.target.value)}
@@ -289,8 +223,6 @@ export const CoursesPage: React.FC = () => {
             <option value="3">Level 3</option>
             <option value="4">Level 4</option>
           </select>
-          <div></div>
-          <div></div>
         </div>
       </div>
 
