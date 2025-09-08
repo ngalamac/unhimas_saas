@@ -328,9 +328,33 @@ router.post('/categories', authMiddleware, requireBranchAccess(), requirePermiss
   }
 });
 
+const translations = {
+  en: {
+    header: ['Date','Type','Category','Description','Amount','Registered By','Branch','Reference','Payment Method','Status','Linked Student','Linked Staff'],
+    title: 'Transactions Export',
+    generated: 'Generated',
+    filters: 'Filters',
+    totalAssets: 'Total Assets',
+    totalLiabilities: 'Total Liabilities',
+    equity: 'Equity'
+  },
+  fr: {
+    header: ['Date','Type','Catégorie','Description','Montant','Enregistré par','Branche','Référence','Méthode de paiement','Statut','Étudiant lié','Personnel lié'],
+    title: 'Exportation des Transactions',
+    generated: 'Généré',
+    filters: 'Filtres',
+    totalAssets: 'Total des Actifs',
+    totalLiabilities: 'Total du Passif',
+    equity: 'Capitaux propres'
+  }
+};
+
 // Export endpoint (supports csv, excel, pdf, email)
 router.get('/export', authMiddleware, requirePermission('accounting'), async (req: AuthRequest, res) => {
   try {
+    const lang = (req.query.lang as string) === 'fr' ? 'fr' : 'en';
+    const T = translations[lang];
+
     const filter: any = {};
     if (req.query.from || req.query.to) {
       filter.date = {};
@@ -361,7 +385,7 @@ router.get('/export', authMiddleware, requirePermission('accounting'), async (re
     };
 
     // Build full transaction table: include branch, registeredBy, reference, paymentMethod, status, linkedStudent/Staff
-    const header = ['Date','Type','Category','Description','Amount','Registered By','Branch','Reference','Payment Method','Status','Linked Student','Linked Staff'];
+    const header = T.header;
 
     const rows = docs.map(d => [
       safeDate(d.date),
@@ -389,10 +413,10 @@ router.get('/export', authMiddleware, requirePermission('accounting'), async (re
     if (format === 'excel') {
       try {
         const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('Transactions');
+        const sheet = workbook.addWorksheet(T.title);
 
         // Title row
-        const title = `Transactions Export`;
+        const title = T.title;
         sheet.mergeCells('A1:L1');
         const titleCell = sheet.getCell('A1');
         titleCell.value = title;
@@ -403,7 +427,7 @@ router.get('/export', authMiddleware, requirePermission('accounting'), async (re
         const ts = new Date().toISOString();
         sheet.mergeCells('A2:L2');
         const subCell = sheet.getCell('A2');
-        subCell.value = `Generated: ${ts} ${ (req.query.from || req.query.to) ? `| Filters: ${req.query.from || '-'} to ${req.query.to || '-'}` : '' }`;
+        subCell.value = `${T.generated}: ${ts} ${ (req.query.from || req.query.to) ? `| ${T.filters}: ${req.query.from || '-'} to ${req.query.to || '-'}` : '' }`;
         subCell.font = { size: 10, italic: true } as any;
 
         // Header row (row 4 to leave space)
@@ -457,11 +481,11 @@ router.get('/export', authMiddleware, requirePermission('accounting'), async (re
         const doc = new PDFDocument({ size: 'A4', margin: 40 });
         doc.pipe(res as any);
 
-        const title = 'Transactions Export';
+        const title = T.title;
         doc.fontSize(18).fillColor('#0f172a').text(title, { align: 'center' });
         doc.moveDown(0.25);
         const ts = new Date().toISOString();
-        doc.fontSize(10).fillColor('#64748b').text(`Generated: ${ts}` + (req.query.from || req.query.to ? ` | Filters: ${req.query.from || '-'} to ${req.query.to || '-'}` : ''), { align: 'center' });
+        doc.fontSize(10).fillColor('#64748b').text(`${T.generated}: ${ts}` + (req.query.from || req.query.to ? ` | ${T.filters}: ${req.query.from || '-'} to ${req.query.to || '-'}` : ''), { align: 'center' });
         doc.moveDown(1);
 
         // Table header
@@ -511,11 +535,11 @@ router.get('/export', authMiddleware, requirePermission('accounting'), async (re
   const netTotal = incomeTotal - expenseTotal;
 
   doc.moveTo(startX, y + 6);
-  doc.fontSize(11).font('Helvetica-Bold').text(`Total Assets: ${new Intl.NumberFormat('en-CM', { style: 'currency', currency: 'XAF', minimumFractionDigits: 0 }).format(incomeTotal)}`, { align: 'left' });
+  doc.fontSize(11).font('Helvetica-Bold').text(`${T.totalAssets}: ${new Intl.NumberFormat('en-CM', { style: 'currency', currency: 'XAF', minimumFractionDigits: 0 }).format(incomeTotal)}`, { align: 'left' });
   doc.moveDown(0.3);
-  doc.font('Helvetica-Bold').text(`Total Liabilities: ${new Intl.NumberFormat('en-CM', { style: 'currency', currency: 'XAF', minimumFractionDigits: 0 }).format(expenseTotal)}`, { align: 'left' });
+  doc.font('Helvetica-Bold').text(`${T.totalLiabilities}: ${new Intl.NumberFormat('en-CM', { style: 'currency', currency: 'XAF', minimumFractionDigits: 0 }).format(expenseTotal)}`, { align: 'left' });
   doc.moveDown(0.3);
-  doc.font('Helvetica-Bold').text(`Equity: ${new Intl.NumberFormat('en-CM', { style: 'currency', currency: 'XAF', minimumFractionDigits: 0 }).format(netTotal)}`, { align: 'left' });
+  doc.font('Helvetica-Bold').text(`${T.equity}: ${new Intl.NumberFormat('en-CM', { style: 'currency', currency: 'XAF', minimumFractionDigits: 0 }).format(netTotal)}`, { align: 'left' });
 
         doc.end();
         return;
@@ -694,6 +718,74 @@ router.get('/summary', authMiddleware, requirePermission('accounting'), async (r
   } catch (err) {
     console.error('GET /api/accounting/summary error', err);
     res.status(500).json({ error: 'Failed to compute summary' });
+  }
+});
+
+// Income vs Expense report with time-based grouping
+router.get('/reports/income-vs-expenses', authMiddleware, requirePermission('accounting'), async (req: AuthRequest, res) => {
+  try {
+    const { branch, period = 'monthly', from, to } = req.query;
+    const match: any = {};
+    if (branch) match.branch = new mongoose.Types.ObjectId(branch as string);
+    if (from || to) {
+      match.date = {};
+      if (from) match.date.$gte = new Date(from as string);
+      if (to) match.date.$lte = new Date(to as string);
+    }
+
+    const group: any = {
+      _id: null,
+      totalIncome: { $sum: '$income' },
+      totalExpenses: { $sum: '$expense' },
+    };
+
+    const project: any = {
+      _id: 0,
+      period: '$_id',
+      income: '$totalIncome',
+      expenses: '$totalExpenses',
+      net: { $subtract: ['$totalIncome', '$totalExpenses'] }
+    };
+
+    if (period === 'daily') {
+      group._id = { $dateToString: { format: '%Y-%m-%d', date: '$date' } };
+    } else if (period === 'weekly') {
+      group._id = { $dateToString: { format: '%Y-%U', date: '$date' } };
+    } else if (period === 'monthly') {
+      group._id = { $dateToString: { format: '%Y-%m', date: '$date' } };
+    } else if (period === 'yearly') {
+      group._id = { $dateToString: { format: '%Y', date: '$date' } };
+    }
+
+
+    const results = await JournalEntry.aggregate([
+      { $match: match },
+      { $unwind: '$lines' },
+      {
+        $lookup: {
+          from: 'accounts',
+          localField: 'lines.account',
+          foreignField: '_id',
+          as: 'accountInfo'
+        }
+      },
+      { $unwind: '$accountInfo' },
+      {
+        $group: {
+          _id: '$date',
+          income: { $sum: { $cond: [{ $eq: ['$accountInfo.type', 'income'] }, '$lines.credit', 0] } },
+          expense: { $sum: { $cond: [{ $eq: ['$accountInfo.type', 'expense'] }, '$lines.debit', 0] } },
+        }
+      },
+      { $group: group },
+      { $project: project },
+      { $sort: { period: 1 } }
+    ]);
+
+    res.json(results);
+  } catch (err) {
+    console.error('Failed to generate income vs expenses report:', err);
+    res.status(500).json({ error: 'Failed to generate income vs expenses report' });
   }
 });
 

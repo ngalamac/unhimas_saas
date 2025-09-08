@@ -38,6 +38,7 @@ import PaymentPlansPage from '../pages/accounting/PaymentPlansPage';
 import TuitionPlansPage from '../pages/accounting/TuitionPlansPage';
 import BudgetAnalysisPage from '../pages/accounting/BudgetAnalysisPage';
 import FinancialInsightsPage from '../pages/accounting/FinancialInsightsPage';
+import IncomeVsExpensesPage from '../pages/accounting/IncomeVsExpensesPage';
 import AccountingCoordination from '../accounting/AccountingCoordination';
 import EnhancedRoleManagement from '../roles/EnhancedRoleManagement';
 import RoleAccessBridge from '../roles/RoleAccessBridge';
@@ -111,6 +112,8 @@ export const PageRenderer: React.FC = () => {
         return <TuitionPlansPage />;
       case 'reports':
         return <ReportsPage />;
+      case 'income-vs-expenses':
+        return <IncomeVsExpensesPage />;
       case 'budget-analysis':
         return <BudgetAnalysisPage />;
       case 'financial-insights':

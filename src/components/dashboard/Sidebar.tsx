@@ -173,7 +173,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         { id: 'categories', label: 'Categories', icon: <BookOpen className="w-3 h-3" /> }, 
         { id: 'payment-plans', label: 'Payment Plans', icon: <CreditCard className="w-3 h-3" /> }, 
         { id: 'tuition-plans', label: 'Tuition Plans', icon: <School className="w-3 h-3" /> },
-        { id: 'reports', label: 'Reports', icon: <FileText className="w-3 h-3" /> }
+        { id: 'reports', label: 'Legacy Reports', icon: <FileText className="w-3 h-3" /> },
+        { id: 'income-vs-expenses', label: 'Income vs Expenses', icon: <BarChart3 className="w-3 h-3" />, isNew: true }
       ] 
     },
 
