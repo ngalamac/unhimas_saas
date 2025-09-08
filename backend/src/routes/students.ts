@@ -54,6 +54,9 @@ router.get('/', authMiddleware, requirePermission('students'), requireBranchAcce
     if (req.query.department) {
       query.department = String(req.query.department);
     }
+    if (req.query.specialty) {
+      query.specialty = String(req.query.specialty);
+    }
     if (req.query.tuitionStatus) {
       query.tuitionStatus = String(req.query.tuitionStatus);
     }

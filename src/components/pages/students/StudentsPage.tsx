@@ -28,8 +28,10 @@ import {
   AlertCircle,
   Clock,
   UserCheck,
-  Building2
+  Building2,
+  Book,
 } from 'lucide-react';
+import { ReportCardPage } from './ReportCardPage';
 import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
 import { useUI } from '../../../context/UIContext';
@@ -1448,6 +1450,7 @@ function StudentDetailsModal({
     { id: 'overview', label: 'Overview', icon: <User className="w-4 h-4" /> },
     { id: 'academic', label: 'Academic', icon: <GraduationCap className="w-4 h-4" /> },
     { id: 'financial', label: 'Financial', icon: <CreditCard className="w-4 h-4" /> },
+    { id: 'report-card', label: 'Report Card', icon: <Book className="w-4 h-4" /> },
     { id: 'contact', label: 'Contact', icon: <Phone className="w-4 h-4" /> }
   ];
 
@@ -1723,6 +1726,10 @@ function StudentDetailsModal({
                 </div>
               )}
             </div>
+          )}
+
+          {activeTab === 'report-card' && (
+            <ReportCardPage studentId={student._id} />
           )}
 
           {activeTab === 'contact' && (

@@ -18,6 +18,7 @@ import { ProgramsPage } from '../pages/academic/ProgramsPage';
 import { DepartmentsPage } from '../pages/academic/DepartmentsPage';
 import { SpecialtiesPage } from '../pages/academic/SpecialtiesPage';
 import { CoursesPage } from '../pages/academic/CoursesPage';
+import { EnterGradesPage } from '../pages/academic/EnterGradesPage';
 import { GradingSystemPage } from '../pages/academic/GradingSystemPage';
 import { BulkMessagingPage } from '../pages/communication/BulkMessagingPage';
 import { AnnouncementsPage } from '../pages/communication/AnnouncementsPage';
@@ -90,6 +91,8 @@ export const PageRenderer: React.FC = () => {
         return <DepartmentsPage />;
       case 'specialties':
         return <SpecialtiesPage />;
+      case 'enter-grades':
+        return <EnterGradesPage />;
       case 'courses':
         return <CoursesPage />;
       case 'exam-types':

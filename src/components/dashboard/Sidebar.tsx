@@ -157,6 +157,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         { id: 'departments', label: 'Departments', icon: <Building2 className="w-3 h-3" /> }, 
         { id: 'specialties', label: 'Specialties', icon: <Star className="w-3 h-3" /> },
         { id: 'courses', label: 'Courses', icon: <BookOpen className="w-3 h-3" /> }, 
+        { id: 'enter-grades', label: 'Enter Grades', icon: <Edit className="w-3 h-3" />, isNew: true },
         { id: 'grading-system', label: 'Grading System', icon: <FileText className="w-3 h-3" /> } 
       ] 
     },
