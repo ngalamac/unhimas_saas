@@ -3,12 +3,12 @@ import Student from '../models/Student';
 import TuitionPlan from '../models/TuitionPlan';
 import PaymentPlan from '../models/PaymentPlan';
 import TuitionTransaction from '../models/TuitionTransaction';
-import Transaction from '../models/Transaction';
 import BranchModel from '../models/BranchModel';
 import mongoose from 'mongoose';
 import authMiddleware, { AuthRequest, requirePermission, requireBranchAccess } from '../middleware/auth';
 import { emitEvent } from '../lib/events';
 import { deleteFileFromGridFS } from '../services/fileService';
+import { recordGenericTransaction } from '../services/accountingService';
 import { calculateGpa } from '../services/gradeService';
 import { generateTranscript } from '../services/transcriptService';
 
@@ -648,23 +648,22 @@ router.post('/:id/payments', authMiddleware, requirePermission('students'), requ
 
     // Also create an accounting transaction so the accounting page reflects this payment
     try {
-      const creator = req.user ? { id: req.user.id || null, name: (req.user as any).name || null, email: (req.user as any).email || null } : 'system';
-      const acctDesc = `Tuition payment for ${student.names || student.studentId}${notes ? ` — ${notes}` : ''}`;
-      const acctTx = new Transaction({
-        type: 'income',
-        category: 'Tuition Fees',
-        amount: Number(amount),
-        description: acctDesc,
-        date: tx.createdAt || new Date(),
-        studentId: student._id,
-        createdBy: creator,
-        createdAt: new Date()
-      });
-      await acctTx.save();
-      try { emitEvent(student.branch.toString(), 'accounting.transaction.created', { transaction: acctTx, studentId: student._id }); } catch (e) {}
+        const acctDesc = `Tuition payment for ${student.names || student.studentId}${notes ? ` — ${notes}` : ''}`;
+        const journalEntry = await recordGenericTransaction(
+            student.branch,
+            req.user!.id,
+            'income',
+            'Tuition Fees',
+            Number(amount),
+            acctDesc,
+            tx.createdAt || new Date(),
+            currency || 'XAF',
+            { model: 'Student', docId: student._id }
+        );
+        try { emitEvent(student.branch.toString(), 'accounting.transaction.created', { transaction: journalEntry, studentId: student._id }); } catch (e) {}
     } catch (acctErr) {
-      console.error('Failed to create accounting transaction for tuition payment:', acctErr);
-      // Don't fail the overall payment flow if accounting entry fails; just log
+        console.error('Failed to create accounting transaction for tuition payment:', acctErr);
+        // Don't fail the overall payment flow if accounting entry fails; just log
     }
 
     try { emitEvent(student.branch.toString(), 'student.tuition.paid', { student: student._id, tx }); } catch (e) {}
