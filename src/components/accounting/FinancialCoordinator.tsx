@@ -19,7 +19,7 @@ import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
 import { formatXAF } from '../../utils/currency';
-import { fetchAccountingSummary } from '../../api/accounting';
+import { fetchSummary } from '../../api/accounting';
 
 interface CoordinationData {
   studentFinancials: {
@@ -94,7 +94,7 @@ const FinancialCoordinator: React.FC = () => {
     try {
       setLoading(true);
       // Fetch real accounting summary data from backend
-      const summary = await fetchAccountingSummary({ branch: currentBranch?.id });
+      const summary = await fetchSummary({ branch: currentBranch?.id });
       // Map backend summary to expected CoordinationData shape
       setData({
         studentFinancials: {
