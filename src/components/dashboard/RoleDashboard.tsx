@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { SuperAdminDashboard } from './SuperAdminDashboard';
 import { AdminDashboard } from './AdminDashboard';
 import { LecturerDashboard } from './LecturerDashboard';
-import { AccountantDashboard } from './AccountantDashboard';
+import AccountantDashboard from './AccountantDashboard';
 import { DeanDashboard } from './DeanDashboard';
 import { HODDashboard } from './HODDashboard';
 

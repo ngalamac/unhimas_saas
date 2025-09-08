@@ -1,113 +1,96 @@
-        throw new Error('Authentication required. Please log in again.');
-import { Student } from '../types/school';
-import fetchClient, { handleFetchError } from '../lib/fetchClient';
+export const getAuthToken = () => {
+    try { return localStorage.getItem('token'); } catch (e) { return null; }
+};
 
-        const message = err?.error?.message || err?.message || err?.error || 'Request failed';
+const defaultHeaders = (extra?: Record<string, string>) => {
+    const token = getAuthToken();
+    const h: Record<string, string> = { ...(extra || {}) };
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    return h;
+};
 
-export interface StudentsPage {
-    data: Student[];
-    meta: {
-        if (e instanceof Error && e.message !== `Request failed with status ${res.status}`) {
-            throw e; // Re-throw if it's our parsed error
-        }
-        const txt = await res.clone().text().catch(() => '');
+const getBase = () => {
+    try {
+        const dev = (import.meta as any)?.env?.DEV;
+        if (dev) return 'http://localhost:5000';
+    } catch (e) { }
+    return '';
+};
+
+async function fetchWithLoading(url: string, options: RequestInit) {
+    const bridge = (window as any).__UI_BRIDGE__;
+    let timer: any = null;
+    try {
+        timer = setTimeout(() => { try { bridge?.setGlobalLoading(true); } catch
+ (e) { } }, 300);
+        const res = await fetch(url, options);
+        return res;
+    } catch (e) {
+        try { bridge?.showToast('Network error'); } catch (er) { }
+        throw e;
+    } finally {
+        if (timer) clearTimeout(timer);
+        try { bridge?.setGlobalLoading(false); } catch (e) { }
+    }
+}
+
+export async function handleFetchError(res: Response) {
+    if (res.status === 401) {
+        try { localStorage.removeItem('token'); localStorage.removeItem('user');
+ } catch (e) { }
+        try { window.location.hash = '#/login'; } catch (e) { }
+    }
+    try {
+        const err = await res.clone().json();
+        const message = err?.error?.message || err?.message || err?.error || JSON.stringify(err);
+        const e: any = new Error(message);
+        e.status = res.status;
+        throw e;
+    } catch (e) {
+        const txt = await res.clone().text();
         const err = new Error(txt || `Request failed with status ${res.status}`) as any;
-        pageSize: number;
-        aggregates?: { paid: number; partial: number; pending: number; overdue: number };
+        err.status = res.status;
+        throw err;
     }
 }
 
-export async function getStudents(branchId?: string, page = 1, limit = 10, filters?: { search?: string; program?: string; status?: string }): Promise<StudentsPage> {
-    const params = new URLSearchParams();
-    params.set('page', String(page));
-    params.set('limit', String(limit));
-    if (branchId) params.set('branch', branchId);
-    if (filters?.search) params.set('search', filters.search);
-    if (filters?.program) params.set('program', filters.program);
-    if (filters?.status) params.set('tuitionStatus', filters.status);
-
-    const res = await fetchClient.get(`${BASE}?${params.toString()}`);
-    if (!res.ok) {
-        await handleFetchError(res);
-    }
-    return res.json();
+export async function postJson(path: string, body: any) {
+    const base = getBase();
+    const url = path.startsWith('http') ? path : `${base}${path}`;
+    return fetchWithLoading(url, { method: 'POST', headers: defaultHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
 }
 
-export async function createStudent(payload: Partial<Student>): Promise<{ data: Student }> {
-    const pp: any = payload.profilePicture;
-    if (pp && typeof pp === 'string' && pp.startsWith('data:')) {
-        try {
-            const resBlob = await fetch(pp);
-            const blob = await resBlob.blob();
-            const form = new FormData();
-            form.append('file', new File([blob], 'profile.png', { type: blob.type }));
-
-            const token = fetchClient.getAuthToken ? fetchClient.getAuthToken() : null;
-            const up = await fetch('/api/uploads/profile', { method: 'POST', body: form, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
-            if (!up.ok) {
-                const txt = await up.text();
-                throw new Error(txt || `Upload failed with status ${up.status}`);
-            }
-            const body = await up.json();
-            payload.profilePicture = body.data.filePath;
-        } catch (err) {
-            console.error('Profile upload failed', err);
-            throw err;
-        }
-    }
-
-    const res = await fetchClient.postJson(BASE, payload);
-    if (!res.ok) {
-        await handleFetchError(res);
-    }
-    return res.json();
+export async function get(path: string, options: any = {}) {
+    const base = getBase();
+    const url = path.startsWith('http') ? path : `${base}${path}`;
+    return fetchWithLoading(url, {
+        method: 'GET',
+        headers: defaultHeaders(options.headers || {}),
+        ...options
+    });
 }
 
-export async function getStudent(id: string): Promise<{ data: Student }> {
-    const res = await fetchClient.get(`${BASE}/${id}`);
-    if (!res.ok) {
-        await handleFetchError(res);
-    }
-    return res.json();
+export async function put(path:string, body: any, options: any = {}) {
+    const base = getBase();
+    const url = path.startsWith('http') ? path : `${base}${path}`;
+    return fetchWithLoading(url, {
+        method: 'PUT',
+        headers: defaultHeaders({ 'Content-Type': 'application/json', ...options
+.headers }),
+        body: JSON.stringify(body),
+        ...options
+    });
 }
 
-export async function payTuition(id: string, payload: { amount: number; currency?: string; installmentKey?: string; method?: string; notes?: string }): Promise<{ data: any }> {
-    const res = await fetchClient.postJson(`${BASE}/${id}/payments`, payload);
-    if (!res.ok) {
-        await handleFetchError(res);
-    }
-    return res.json();
+export async function del(path: string, options: any = {}) {
+    const base = getBase();
+    const url = path.startsWith('http') ? path : `${base}${path}`;
+    return fetchWithLoading(url, {
+        method: 'DELETE',
+        headers: defaultHeaders(options.headers || {}),
+        ...options
+    });
 }
 
-export async function updateStudent(id: string, payload: Partial<Student>): Promise<{ data: Student }> {
-    const res = await fetchClient.put(`${BASE}/${id}`, payload);
-    if (!res.ok) {
-        await handleFetchError(res);
-    }
-    return res.json();
-}
-
-export async function restoreStudent(id: string): Promise<{ data: Student }> {
-    const res = await fetchClient.postJson(`${BASE}/${id}/restore`, {});
-    if (!res.ok) {
-        await handleFetchError(res);
-    }
-    return res.json();
-}
-
-export async function setEnrollmentStatus(id: string, status: string): Promise<{ data: Student }> {
-    const res = await fetchClient.postJson(`${BASE}/${id}/enrollment`, { enrollmentStatus: status });
-    if (!res.ok) {
-        await handleFetchError(res);
-    }
-    return res.json();
-}
-
-export async function deleteStudent(id: string): Promise<any> {
-    const res = await fetchClient.delete(`${BASE}/${id}`);
-    if (!res.ok) {
-        await handleFetchError(res);
-    }
-    return res.json();
-
-}
+export default { getAuthToken, postJson, post: postJson, get, put, delete: del,
+handleFetchError };

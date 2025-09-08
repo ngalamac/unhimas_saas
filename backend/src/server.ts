@@ -26,7 +26,11 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // MongoDB connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://unhimas4:n673927826@cluster0.xeab0d2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+const MONGO_URI = process.env.MONGO_URI;
+if (!MONGO_URI) {
+    console.error('FATAL ERROR: MONGO_URI is not defined in the environment variables.');
+    process.exit(1);
+}
 mongoose.connection.on('connected', () => {
   console.log('✅ MongoDB connection established successfully.');
 });
@@ -114,8 +118,14 @@ import User from './models/User';
 import bcrypt from 'bcryptjs';
 
 async function seedSuperAdmin() {
-  const email = 'superadminunhimas@gmail.com';
-  const password = 'ca@5G2024';
+  const email = process.env.SUPER_ADMIN_EMAIL;
+  const password = process.env.SUPER_ADMIN_PASSWORD;
+
+  if (!email || !password) {
+    console.warn('Skipping Super Admin seeding because SUPER_ADMIN_EMAIL or SUPER_ADMIN_PASSWORD are not set.');
+    return;
+  }
+
   const existing = await User.findOne({ email });
   if (!existing) {
     const hashed = await bcrypt.hash(password, 10);

@@ -649,22 +649,18 @@ router.post('/:id/payments', authMiddleware, requirePermission('students'), requ
     // Also create an accounting transaction so the accounting page reflects this payment
     try {
         const acctDesc = `Tuition payment for ${student.names || student.studentId}${notes ? ` — ${notes}` : ''}`;
-        if (!student.branch) {
-            // Log this case as it should ideally not happen for an active student
-            console.error(`Student ${student._id} is missing branch information, skipping accounting transaction.`);
-        } else {
-            const journalEntry = await recordGenericTransaction(
-                student.branch,
-                new mongoose.Types.ObjectId(req.user!.id),
-                'income',
-                'Tuition Fees',
-                Number(amount),
-                acctDesc,
-                tx.createdAt || new Date(),
-                currency || 'XAF'
-            );
-            try { emitEvent(student.branch.toString(), 'accounting.transaction.created', { transaction: journalEntry, studentId: student._id }); } catch (e) {}
-        }
+        const journalEntry = await recordGenericTransaction(
+            student.branch,
+            req.user!.id,
+            'income',
+            'Tuition Fees',
+            Number(amount),
+            acctDesc,
+            tx.createdAt || new Date(),
+            currency || 'XAF',
+            { model: 'Student', docId: student._id }
+        );
+        try { emitEvent(student.branch.toString(), 'accounting.transaction.created', { transaction: journalEntry, studentId: student._id }); } catch (e) {}
     } catch (acctErr) {
         console.error('Failed to create accounting transaction for tuition payment:', acctErr);
         // Don't fail the overall payment flow if accounting entry fails; just log

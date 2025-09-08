@@ -1,5 +1,5 @@
 import React from 'react';
-import { DashboardStats } from './DashboardStats';
+import DashboardStats from './DashboardStats';
 import { Charts } from './Charts';
 import { BottomCharts } from './BottomCharts';
 import { Calendar } from './Calendar';
