@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import fetchClient from '../../../lib/fetchClient';
 import { BarChart3, Calendar, Filter } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface ReportData {
     period: string;
@@ -106,7 +107,21 @@ export const IncomeVsExpensesPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* TODO: Add a chart representation here if a charting library is available */}
+            <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
+                <h3 className="text-lg font-semibold mb-4">Chart</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={data}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="period" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="income" fill="#82ca9d" name="Income" />
+                        <Bar dataKey="expenses" fill="#8884d8" name="Expenses" />
+                        <Bar dataKey="net" fill="#ffc658" name="Net" />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
 
             <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
                 <table className="w-full">
