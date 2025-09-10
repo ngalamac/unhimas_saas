@@ -7,6 +7,7 @@ export interface ICourse extends Document {
   specialty: mongoose.Types.ObjectId;
   program?: mongoose.Types.ObjectId;
   department?: mongoose.Types.ObjectId;
+  branch?: mongoose.Types.ObjectId;
   semester?: number;
   caWeight?: number;
   examWeight?: number;
@@ -19,6 +20,7 @@ const CourseSchema: Schema = new Schema({
   specialty: { type: Schema.Types.ObjectId, ref: 'Specialty', required: true },
   department: { type: Schema.Types.ObjectId, ref: 'Department' },
   program: { type: Schema.Types.ObjectId, ref: 'Program' },
+  branch: { type: Schema.Types.ObjectId, ref: 'Branch' },
   semester: { type: Number, required: true },
   caWeight: { type: Number, default: 0.3 },
   examWeight: { type: Number, default: 0.7 }
@@ -53,6 +55,7 @@ CourseSchema.pre('save', async function(next) {
 
     this.department = specialty.department._id;
     this.program = (specialty.department as any).program._id;
+    this.branch = (specialty.department as any).program.branch;
 
     const program = (specialty.department as any).program;
     if (program && this.semester) {

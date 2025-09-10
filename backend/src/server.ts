@@ -17,6 +17,7 @@ import staffRouter from './routes/staff';
 import payrollRouter from './routes/payroll';
 import specialtiesRouter from './routes/specialties';
 import gradesRouter from './routes/grades';
+import dashboardRouter from './routes/dashboard';
 import { eventsHandler } from './lib/events';
 import path from 'path';
 
@@ -80,6 +81,7 @@ app.use('/api/programs', programsRouter);
 app.use('/api/departments', departmentsRouter);
 app.use('/api/specialties', specialtiesRouter);
 app.use('/api/grades', gradesRouter);
+app.use('/api/dashboard', dashboardRouter);
 app.use('/api/courses', coursesRouter);
 app.use('/api/students', studentsRouter);
 app.use('/api/tuition', tuitionRouter);

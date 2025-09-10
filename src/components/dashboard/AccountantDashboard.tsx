@@ -1,202 +1,128 @@
-import React from 'react';
-import { DollarSign, CreditCard, TrendingUp, AlertCircle, FileText, Users } from 'lucide-react';
-import { formatXAF } from '../../utils/currency';
+import React, { useEffect, useState } from 'react';
+import fetchClient from '../../lib/fetchClient';
+import { useBranch } from '../../context/BranchContext';
+import { DollarSign, ArrowUpRight, ArrowDownRight, BarChart3, Plus, FileText } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useNavigation } from '../../context/NavigationContext';
+
+interface AccountantStats {
+    totalIncome: number;
+    totalExpenses: number;
+    recentTransactions: any[];
+}
 
 export const AccountantDashboard: React.FC = () => {
-  const currentBatch = getCurrentBatchData();
-  const totalRevenue = mockPayments
-    .filter(p => p.status === 'Completed')
-    .reduce((sum, p) => sum + p.amount, 0);
-  const pendingPayments = mockPayments.filter(p => p.status === 'Pending');
-  const unpaidStudents = mockStudents.filter(s => s.tuitionStatus === 'Unpaid');
-  const partialPayments = mockStudents.filter(s => s.tuitionStatus === 'Partial');
+    const [stats, setStats] = useState<AccountantStats | null>(null);
+    const [loading, setLoading] = useState(true);
+    const { currentBranch } = useBranch();
+    const { setCurrentPage } = useNavigation();
 
-  const formatCurrency = (amount: number) => formatXAF(amount);
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                setLoading(true);
+                const response = await fetchClient.get('/api/dashboard/accountant');
+                if (!response.ok) throw new Error('Failed to fetch dashboard data');
+                const data = await response.json();
+                setStats(data);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchStats();
+    }, [currentBranch]);
 
-  return (
-    <>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Accountant Dashboard</h1>
-          <p className="text-gray-600">Financial management and fee tracking</p>
-          <p className="text-sm text-blue-600">Current Batch: {currentBatch?.name}</p>
-        </div>
-        <div className="text-right">
-          <div className="text-sm text-gray-600">{new Date().toLocaleDateString()}</div>
-          <div className="text-xs text-gray-500">{new Date().toLocaleTimeString()}</div>
-        </div>
-      </div>
+    if (loading) {
+        return <div className="p-6 text-center">Loading Accountant Dashboard...</div>;
+    }
 
-      {/* Financial Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-green-600" />
-            </div>
+    if (!stats) {
+        return <div className="p-6 text-center text-red-500">Error loading dashboard data.</div>;
+    }
+
+    const financialChartData = [
+        { name: 'Financials', income: stats.totalIncome, expenses: stats.totalExpenses, net: stats.totalIncome - stats.totalExpenses }
+    ];
+
+    return (
+        <div className="space-y-6">
             <div>
-              <p className="text-sm text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalRevenue)}</p>
-              <p className="text-xs text-green-600">↗ +15% this month</p>
+                <h1 className="text-2xl font-bold text-gray-900">Accountant Dashboard</h1>
+                <p className="text-gray-600">Financial overview for {currentBranch?.name || 'your branch'}.</p>
             </div>
-          </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <CreditCard className="w-6 h-6 text-yellow-600" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Stat Cards */}
+                <div className="bg-white p-6 rounded-lg shadow-sm border"><ArrowUpRight className="w-6 h-6 text-green-500 mb-2" />
+                    <p className="text-sm text-gray-600">Total Income</p><p className="text-3xl font-bold">{stats.totalIncome.toLocaleString()} XAF</p></div>
+                <div className="bg-white p-6 rounded-lg shadow-sm border"><ArrowDownRight className="w-6 h-6 text-red-500 mb-2" />
+                    <p className="text-sm text-gray-600">Total Expenses</p><p className="text-3xl font-bold">{stats.totalExpenses.toLocaleString()} XAF</p></div>
+                <div className="bg-white p-6 rounded-lg shadow-sm border"><DollarSign className="w-6 h-6 text-blue-500 mb-2" />
+                    <p className="text-sm text-gray-600">Net Profit</p><p className="text-3xl font-bold">{(stats.totalIncome - stats.totalExpenses).toLocaleString()} XAF</p></div>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">Pending Payments</p>
-              <p className="text-2xl font-bold text-gray-900">{pendingPayments.length}</p>
-              <p className="text-xs text-yellow-600">Requires processing</p>
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-red-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Unpaid Students</p>
-              <p className="text-2xl font-bold text-gray-900">{unpaidStudents.length}</p>
-              <p className="text-xs text-red-600">Needs follow-up</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Partial Payments</p>
-              <p className="text-2xl font-bold text-gray-900">{partialPayments.length}</p>
-              <p className="text-xs text-orange-600">In progress</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="space-y-3">
-            <button className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
-              <CreditCard className="w-4 h-4" />
-              <span>Process Payment</span>
-            </button>
-            <button className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
-              <FileText className="w-4 h-4" />
-              <span>Generate Invoice</span>
-            </button>
-            <button className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2">
-              <TrendingUp className="w-4 h-4" />
-              <span>Financial Report</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h3>
-          <div className="space-y-3">
-            {mockPayments.slice(0, 3).map((payment) => (
-              <div key={payment.id} className="flex items-center justify-between text-sm">
-                <div>
-                  <p className="font-medium">{formatCurrency(payment.amount)}</p>
-                  <p className="text-gray-500">{payment.paymentMethod}</p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border">
+                    <h3 className="text-lg font-semibold mb-4">Recent Transactions</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {stats.recentTransactions.map(tx => (
+                                    <tr key={tx._id}>
+                                        <td className="px-4 py-3 text-sm">{new Date(tx.date).toLocaleDateString()}</td>
+                                        <td className="px-4 py-3 font-medium">{tx.description}</td>
+                                        <td className={`px-4 py-3 text-right font-semibold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                            {tx.amount.toLocaleString()} XAF
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <span className={`px-2 py-1 text-xs rounded-full ${tx.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                {tx.type}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                  payment.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                  payment.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {payment.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Methods</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span>Bank Transfer</span>
-              <span className="font-medium">45%</span>
+                <div className="bg-white p-6 rounded-lg shadow-sm border">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => setCurrentPage('transactions')}
+                            className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-2"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>New Transaction</span>
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage('income-vs-expenses')}
+                            className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center justify-center space-x-2"
+                        >
+                            <BarChart3 className="w-4 h-4" />
+                            <span>View Reports</span>
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage('payment-plans')}
+                            className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2"
+                        >
+                            <FileText className="w-4 h-4" />
+                            <span>Manage Payment Plans</span>
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Mobile Money</span>
-              <span className="font-medium">30%</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Cash</span>
-              <span className="font-medium">20%</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Online</span>
-              <span className="font-medium">5%</span>
-            </div>
-          </div>
         </div>
-      </div>
-
-      {/* Outstanding Payments */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Outstanding Payments</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Program</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount Due</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {unpaidStudents.slice(0, 5).map((student) => {
-                const feeStructure = mockFeeStructures.find(f => 
-                  f.programId === student.program.id && f.level === student.level
-                );
-                return (
-                  <tr key={student.id}>
-                    <td className="px-4 py-2">
-                      <div>
-                        <p className="font-medium text-gray-900">{student.firstName} {student.lastName}</p>
-                        <p className="text-sm text-gray-500">{student.email}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-900">
-                      {student.program.type} - Level {student.level}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-medium text-gray-900">
-                      {formatCurrency(feeStructure?.totalFee || 0)}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
-                        {student.tuitionStatus}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">
-                      <button className="text-blue-600 hover:text-blue-900 text-sm">
-                        Send Reminder
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </>
-  );
+    );
 };
