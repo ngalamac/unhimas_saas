@@ -22,16 +22,7 @@ function AppRoutes() {
   const router = createBrowserRouter([
     { path: '/login', element: <PublicRoute><LoginPage /></PublicRoute> },
     { path: '/password-reset', element: <PublicRoute><PasswordResetPage /></PublicRoute> },
-    {
-      path: '/dashboard/*',
-      element: (
-        <ProtectedRoute>
-          <ProtectedLayout>
-            <SuperAdminDashboard />
-          </ProtectedLayout>
-        </ProtectedRoute>
-      )
-    },
+    { path: '/dashboard/*', element: <ProtectedRoute><SuperAdminDashboard /></ProtectedRoute> },
     { path: '/', element: <Navigate to="/login" replace /> },
     { path: '*', element: <Navigate to="/login" replace /> }
   ], {
@@ -44,19 +35,12 @@ function AppRoutes() {
   return <RouterProvider router={router} />;
 }
 
-// Layout for protected areas that need branch context
-const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return (
-    <BranchProvider>
-      {children}
-    </BranchProvider>
-  );
-};
-
 function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <BranchProvider>
+        <AppRoutes />
+      </BranchProvider>
     </AuthProvider>
   );
 }
