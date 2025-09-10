@@ -2,7 +2,6 @@ import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { SuperAdminDashboard } from './SuperAdminDashboard';
 import { AdminDashboard } from './AdminDashboard';
-import { RegistrarDashboard } from './RegistrarDashboard';
 import { LecturerDashboard } from './LecturerDashboard';
 import { AccountantDashboard } from './AccountantDashboard';
 import { DeanDashboard } from './DeanDashboard';
@@ -18,8 +17,6 @@ export const RoleDashboard: React.FC = () => {
       return <SuperAdminDashboard />;
     case 'Admin':
       return <AdminDashboard />;
-    case 'Registrar':
-      return <RegistrarDashboard />;
     case 'Lecturer':
       return <LecturerDashboard />;
     case 'Accountant':

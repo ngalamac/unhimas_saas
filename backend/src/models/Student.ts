@@ -18,7 +18,6 @@ export interface IStudent extends Document {
   email?: string;
   program: mongoose.Types.ObjectId;
   department: mongoose.Types.ObjectId;
-  specialty: mongoose.Types.ObjectId;
   profilePicture?: string; // URL or path
   level?: string | number;
   session?: string;
@@ -95,9 +94,8 @@ const StudentSchema: Schema = new Schema({
   phoneNumber: { type: String, required: true },
   gender: { type: String, enum: ['Male', 'Female'], required: true },
   email: { type: String },
-  specialty: { type: Schema.Types.ObjectId, ref: 'Specialty', required: true },
-  program: { type: Schema.Types.ObjectId, ref: 'Program' },
-  department: { type: Schema.Types.ObjectId, ref: 'Department' },
+  program: { type: Schema.Types.ObjectId, ref: 'Program', required: true },
+  department: { type: Schema.Types.ObjectId, ref: 'Department', required: true },
   profilePicture: { type: String },
   level: { type: Schema.Types.Mixed },
   session: { type: String },
@@ -158,24 +156,7 @@ StudentSchema.index({ branch: 1, isActive: 1 });
 StudentSchema.index({ branch: 1, enrollmentStatus: 1 });
 
 // Generate derived fields before validation so required checks see them
-StudentSchema.pre<IStudent>('validate', async function(next) {
-  // Derive department and program from specialty
-  if (this.isModified('specialty')) {
-    try {
-      const Specialty = (await import('./Specialty')).default;
-      const specialty = await Specialty.findById(this.specialty).populate({
-        path: 'department',
-        populate: { path: 'program' }
-      });
-      if (specialty) {
-        this.department = specialty.department._id;
-        this.program = (specialty.department as any).program._id;
-      }
-    } catch (err) {
-      // ignore error, let downstream validation catch missing program/dept
-    }
-  }
-
+StudentSchema.pre<IStudent>('validate', function(next) {
   this.names = `${this.firstName} ${this.lastName}`;
   if (!this.studentId) {
     this.studentId = `S-${Date.now().toString().slice(-6)}`;

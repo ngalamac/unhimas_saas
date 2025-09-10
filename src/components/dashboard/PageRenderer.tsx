@@ -16,9 +16,7 @@ import { FeeStructurePage } from '../pages/fees/FeeStructurePage';
 import { PaymentHistoryPage } from '../pages/payments/PaymentHistoryPage';
 import { ProgramsPage } from '../pages/academic/ProgramsPage';
 import { DepartmentsPage } from '../pages/academic/DepartmentsPage';
-import { SpecialtiesPage } from '../pages/academic/SpecialtiesPage';
 import { CoursesPage } from '../pages/academic/CoursesPage';
-import { EnterGradesPage } from '../pages/academic/EnterGradesPage';
 import { GradingSystemPage } from '../pages/academic/GradingSystemPage';
 import { BulkMessagingPage } from '../pages/communication/BulkMessagingPage';
 import { AnnouncementsPage } from '../pages/communication/AnnouncementsPage';
@@ -39,7 +37,6 @@ import PaymentPlansPage from '../pages/accounting/PaymentPlansPage';
 import TuitionPlansPage from '../pages/accounting/TuitionPlansPage';
 import BudgetAnalysisPage from '../pages/accounting/BudgetAnalysisPage';
 import FinancialInsightsPage from '../pages/accounting/FinancialInsightsPage';
-import IncomeVsExpensesPage from '../pages/accounting/IncomeVsExpensesPage';
 import AccountingCoordination from '../accounting/AccountingCoordination';
 import EnhancedRoleManagement from '../roles/EnhancedRoleManagement';
 import RoleAccessBridge from '../roles/RoleAccessBridge';
@@ -89,10 +86,6 @@ export const PageRenderer: React.FC = () => {
         return <ProgramsPage />;
       case 'departments':
         return <DepartmentsPage />;
-      case 'specialties':
-        return <SpecialtiesPage />;
-      case 'enter-grades':
-        return <EnterGradesPage />;
       case 'courses':
         return <CoursesPage />;
       case 'exam-types':
@@ -115,8 +108,6 @@ export const PageRenderer: React.FC = () => {
         return <TuitionPlansPage />;
       case 'reports':
         return <ReportsPage />;
-      case 'income-vs-expenses':
-        return <IncomeVsExpensesPage />;
       case 'budget-analysis':
         return <BudgetAnalysisPage />;
       case 'financial-insights':

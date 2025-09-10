@@ -54,14 +54,6 @@ export interface Department {
   createdDate?: string;
 }
 
-export interface Specialty {
-  id?: string;
-  _id?: string;
-  name: string;
-  department?: Department | string;
-  program?: Program | string;
-}
-
 export interface Course {
   id?: string;
   _id?: string;
@@ -74,7 +66,6 @@ export interface Course {
   lecturer?: Employee | string;
   department?: Department | string;
   program?: Program | string;
-  specialty?: Specialty | string;
   semester?: number;
   level?: number;
   isActive?: boolean;

@@ -4,24 +4,6 @@ export async function getJson(path: string, options: any = {}) {
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json();
 }
-
-async function handleResponse(res: Response) {
-  if (res.status === 401) {
-    // Unauthorized; clear session and redirect to login
-    try {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      // Use a full page reload to ensure all state is cleared
-      window.location.href = '/login';
-    } catch (e) {
-      console.error('Failed to clear session on logout', e);
-    }
-    // Return a new promise that will never resolve, to prevent further processing
-    return new Promise(() => {});
-  }
-  return res;
-}
-
 export const getAuthToken = () => {
   try { return localStorage.getItem('token'); } catch (e) { return null; }
 };
@@ -52,7 +34,7 @@ export async function postJson(path: string, body: any) {
     // If request takes longer than 300ms, show a global loader
     timer = setTimeout(() => { try { bridge && bridge.setGlobalLoading && bridge.setGlobalLoading(true); } catch (e) {} }, 300);
     const res = await fetch(url, { method: 'POST', headers: defaultHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-    return handleResponse(res);
+    return res;
   } catch (e) {
     try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
     throw e;
@@ -77,7 +59,7 @@ export async function get(path: string, options: any = {}) {
     });
     
   // Return response even when not ok so callers can inspect body and status
-  return handleResponse(res);
+  return res;
   } catch (e) {
     try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
     throw e;
@@ -103,7 +85,7 @@ export async function put(path: string, body: any, options: any = {}) {
     });
     
   // Return response even when not ok so callers can inspect body and status
-  return handleResponse(res);
+  return res;
   } catch (e) {
     try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
     throw e;
@@ -128,7 +110,7 @@ export async function del(path: string, options: any = {}) {
     });
     
   // Return response even when not ok so callers can inspect body and status
-  return handleResponse(res);
+  return res;
   } catch (e) {
     try { bridge && bridge.showToast && bridge.showToast('Network error'); } catch (er) {}
     throw e;

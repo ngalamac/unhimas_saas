@@ -24,7 +24,8 @@ export const StudentRegistrationPage: React.FC = () => {
     address: '',
     phoneNumber: '',
     email: '',
-    specialtyId: '',
+    programId: '',
+    departmentId: '',
     session: '',
   regionOfOrigin: '',
   academicYear: '',
@@ -61,7 +62,6 @@ export const StudentRegistrationPage: React.FC = () => {
 
   const [programs, setPrograms] = useState<Program[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [specialties, setSpecialties] = useState<any[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [tuitionPlans, setTuitionPlans] = useState<Array<any>>([]);
   const [paymentPlans, setPaymentPlans] = useState<Array<any>>([]);
@@ -103,7 +103,6 @@ export const StudentRegistrationPage: React.FC = () => {
     }
     getPrograms().then(setPrograms).catch(() => {});
     getDepartments().then(setDepartments).catch(() => {});
-    fetchClient.get('/api/specialties').then(res => res.json()).then(setSpecialties).catch(() => {});
     getBranches().then(setBranches).catch(() => {});
   getTuitionPlans().then(setTuitionPlans).catch(() => {});
   getPaymentPlans().then(setPaymentPlans).catch(() => {});
@@ -226,7 +225,8 @@ export const StudentRegistrationPage: React.FC = () => {
     if (!formData.fatherName || !formData.fatherName.trim()) errs.fatherName = "Father's name is required";
     if (!formData.address || !formData.address.trim()) errs.address = 'Address is required';
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errs.email = 'A valid email is required';
-    if (!(formData as any).specialtyId) errs.specialtyId = 'Specialty is required';
+    if (!formData.programId) errs.programId = 'Program is required';
+    if (!formData.departmentId) errs.departmentId = 'Department is required';
   if (!formData.branchId) errs.branchId = 'Branch is required';
     if (!formData.session) errs.session = 'Session is required';
   if (!formData.academicYear) errs.academicYear = 'Academic year is required';
@@ -278,7 +278,8 @@ export const StudentRegistrationPage: React.FC = () => {
       phoneNumber: formData.phoneNumber,
       gender: (formData.gender as 'Male' | 'Female'),
       email: formData.email,
-      specialty: (formData as any).specialtyId,
+      program: formData.programId,
+      department: formData.departmentId,
       profilePicture: formData.profilePicture,
       // include academicYear; fallback to current batch range if not provided
       academicYear: (formData as any).academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
@@ -373,7 +374,8 @@ export const StudentRegistrationPage: React.FC = () => {
     address: '',
     phoneNumber: '',
     email: '',
-    specialtyId: '',
+    programId: '',
+    departmentId: '',
     session: '',
   regionOfOrigin: '',
   academicYear: '',
@@ -635,20 +637,36 @@ export const StudentRegistrationPage: React.FC = () => {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Specialty *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Program *</label>
               <select
-                name="specialtyId"
-                value={(formData as any).specialtyId || ''}
+                name="programId"
+                value={formData.programId}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               >
-                <option value="">Select Specialty</option>
-                {specialties.map(spec => (
-                  <option key={spec._id || spec.id} value={(spec._id || spec.id) as string}>{spec.name}</option>
+                <option value="">Select Program</option>
+                {programs.map(program => (
+                  <option key={program._id || program.id} value={(program._id || program.id) as string}>{program.name}</option>
                 ))}
               </select>
-              {errors.specialtyId && <p className="text-sm text-red-600 mt-1">{errors.specialtyId}</p>}
+              {errors.programId && <p className="text-sm text-red-600 mt-1">{errors.programId}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Department *</label>
+              <select
+                name="departmentId"
+                value={formData.departmentId}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Select Department</option>
+                {departments.map(dept => (
+                  <option key={dept._id || dept.id} value={(dept._id || dept.id) as string}>{dept.name}</option>
+                ))}
+              </select>
+              {errors.departmentId && <p className="text-sm text-red-600 mt-1">{errors.departmentId}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tuition Plan (optional)</label>

@@ -12,7 +12,7 @@ export interface IUser extends Document {
   lastLogin?: Date;
   employeeId?: string;
   phoneNumber?: string;
-  department?: mongoose.Types.ObjectId;
+  department?: string;
   profilePicture?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -34,7 +34,7 @@ const UserSchema: Schema = new Schema({
   lastLogin: { type: Date },
   employeeId: { type: String, unique: true, sparse: true },
   phoneNumber: { type: String },
-  department: { type: Schema.Types.ObjectId, ref: 'Department', required: false },
+  department: { type: String },
   profilePicture: { type: String },
 }, { timestamps: true });
 
