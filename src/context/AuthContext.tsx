@@ -70,8 +70,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         body: JSON.stringify({ email: username, password }),
       });
       const body = await res.json();
-      if (res.ok && body.data.token && body.data.user) {
-        const { token, user: userData } = body.data;
+      if (res.ok && body.token && body.user) {
+        const { token, user: userData } = body;
         // Optionally check role match
         if (role && userData.type !== role) {
           return false;
