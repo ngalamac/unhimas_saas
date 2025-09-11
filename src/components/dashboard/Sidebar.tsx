@@ -142,8 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       hasSubmenu: true, 
       submenuItems: [ 
         { id: 'all-students', label: 'All Students', icon: <Users className="w-3 h-3" /> }, 
-        { id: 'student-registration', label: 'Register Student', icon: <UserPlus className="w-3 h-3" />, isNew: true }, 
-        { id: 'tuition-management', label: 'Tuition Management', icon: <DollarSign className="w-3 h-3" /> } 
+        { id: 'student-registration', label: 'Register Student', icon: <UserPlus className="w-3 h-3" />, isNew: true }
       ] 
     },
 
@@ -169,10 +168,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       submenuItems: [
         { id: 'accounting-overview', label: 'Dashboard', icon: <BarChart3 className="w-3 h-3" /> },
         { id: 'transactions', label: 'Transactions', icon: <FileText className="w-3 h-3" /> }, 
-        { id: 'categories', label: 'Categories', icon: <BookOpen className="w-3 h-3" /> }, 
         { id: 'payment-plans', label: 'Payment Plans', icon: <CreditCard className="w-3 h-3" /> }, 
-        { id: 'tuition-plans', label: 'Tuition Plans', icon: <School className="w-3 h-3" /> },
-        { id: 'reports', label: 'Reports', icon: <FileText className="w-3 h-3" /> }
+        { id: 'tuition-plans', label: 'Tuition Plans', icon: <School className="w-3 h-3" /> }
       ] 
     },
 

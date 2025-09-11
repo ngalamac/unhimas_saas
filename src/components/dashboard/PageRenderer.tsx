@@ -54,7 +54,7 @@ export const PageRenderer: React.FC = () => {
     switch (currentPage) {
       // Students
       case 'all-students':
-        return <StudentsPage />;
+        return <AllStudentsPage />;
       case 'student-registration':
         return <StudentRegistrationPage />;
       case 'tuition-management':
@@ -99,7 +99,7 @@ export const PageRenderer: React.FC = () => {
       case 'accounting-coordination':
         return <AccountingCoordination />;
       case 'transactions':
-        return <TransactionsPage />;
+        return <AccountingPage />;
       case 'categories':
         return <CategoriesPage />;
       case 'payment-plans':
