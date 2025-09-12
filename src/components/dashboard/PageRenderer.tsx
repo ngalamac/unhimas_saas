@@ -44,8 +44,13 @@ import FinancialCoordinator from '../accounting/FinancialCoordinator';
 import IntegratedAccountingHub from '../accounting/IntegratedAccountingHub';
 import AccountingMasterControl from '../accounting/AccountingMasterControl';
 import StaffDirectory from '../pages/hr/StaffDirectory';
-import PayrollPage from '../pages/hr/PayrollPage';
+import PayrollDashboard from '../pages/payroll/PayrollDashboard';
+import TeachingSessionsPage from '../pages/payroll/TeachingSessionsPage';
+import PayrollDetailsPage from '../pages/payroll/PayrollDetailsPage';
 import SettingsPage from './SettingsPage';
+import BackupManagementPage from '../pages/system/BackupManagementPage';
+import OHADAAccountingPage from '../pages/accounting/OHADAAccountingPage';
+import OHADAReportsPage from '../pages/accounting/OHADAReportsPage';
 
 export const PageRenderer: React.FC = () => {
   const { currentPage } = useNavigation();
@@ -112,12 +117,20 @@ export const PageRenderer: React.FC = () => {
         return <BudgetAnalysisPage />;
       case 'financial-insights':
         return <FinancialInsightsPage />;
+      case 'ohada-accounting':
+        return <OHADAAccountingPage />;
+      case 'ohada-reports':
+        return <OHADAReportsPage />;
 
       // HR
       case 'staff-management':
         return <StaffDirectory />;
       case 'payroll':
-        return <PayrollPage />;
+        return <PayrollDashboard />;
+      case 'teaching-sessions':
+        return <TeachingSessionsPage />;
+      case 'payroll-details':
+        return <PayrollDetailsPage />;
       
       // Communication
       case 'bulk-messaging':
@@ -158,6 +171,10 @@ export const PageRenderer: React.FC = () => {
         return <UserManagementPage />;
        case 'settings':
          return <SettingsPage />;
+      
+      // System Management
+      case 'backup-management':
+        return <BackupManagementPage />;
       
       default:
         return null;

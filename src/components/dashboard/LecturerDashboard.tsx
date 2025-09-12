@@ -1,7 +1,10 @@
 import React from 'react';
-import { BookOpen, Users, Calendar, TrendingUp, Clock, CheckCircle } from 'lucide-react';
+import { BookOpen, Users, Calendar, TrendingUp, Clock, CheckCircle, DollarSign, Plus } from 'lucide-react';
+import { useNavigation } from '../../context/NavigationContext';
+import { formatXAF } from '../../utils/currency';
 
 export const LecturerDashboard: React.FC = () => {
+  const { setCurrentPage, setBreadcrumb } = useNavigation();
   const currentBatch = getCurrentBatchData();
   const myCourses = mockCourses.filter(c => c.lecturer?.id === '2'); // Mock lecturer ID
   const myStudents = mockStudents.filter(s => 
@@ -13,6 +16,12 @@ export const LecturerDashboard: React.FC = () => {
   const myGrades = mockGrades.filter(g => 
     myCourses.some(c => c.id === g.courseId)
   );
+  
+  // Mock payroll data for lecturer
+  const currentMonthHours = 45.5; // Hours worked this month
+  const hourlyRate = 5000; // XAF per hour
+  const estimatedSalary = currentMonthHours * hourlyRate;
+  const pendingSessions = 3; // Sessions awaiting approval
 
   return (
     <>
@@ -30,7 +39,7 @@ export const LecturerDashboard: React.FC = () => {
       </div>
 
       {/* Lecturer Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -82,6 +91,19 @@ export const LecturerDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-yellow-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Est. Monthly Salary</p>
+              <p className="text-2xl font-bold text-gray-900">{formatXAF(estimatedSalary)}</p>
+              <p className="text-xs text-yellow-600">{currentMonthHours}h @ {formatXAF(hourlyRate)}/h</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Quick Actions */}
@@ -101,7 +123,48 @@ export const LecturerDashboard: React.FC = () => {
               <Users className="w-4 h-4" />
               <span>View Students</span>
             </button>
+            <button 
+              onClick={() => {
+                setCurrentPage('teaching-sessions');
+                setBreadcrumb(['Human Resources', 'Teaching Sessions']);
+              }}
+              className="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Record Teaching Hours</span>
+            </button>
           </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Hours Summary</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Hours Worked</span>
+              <span className="font-medium text-gray-900">{currentMonthHours}h</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Hourly Rate</span>
+              <span className="font-medium text-gray-900">{formatXAF(hourlyRate)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Pending Sessions</span>
+              <span className="font-medium text-yellow-600">{pendingSessions}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm border-t pt-3">
+              <span className="text-gray-900 font-medium">Estimated Salary</span>
+              <span className="font-bold text-green-600">{formatXAF(estimatedSalary)}</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              setCurrentPage('payroll');
+              setBreadcrumb(['Human Resources', 'Payroll Dashboard']);
+            }}
+            className="w-full mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
+          >
+            View Payroll Details
+          </button>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border">

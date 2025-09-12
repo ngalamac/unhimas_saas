@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Eye, Edit, Trash2, Download, Plus, Users, Mail, Phone, MapPin, Calendar, UserCheck } from 'lucide-react';
+import { Search, Filter, Eye, Edit, Trash2, Download, Plus, Users, Mail, Phone, MapPin, Calendar, UserCheck, Clock, DollarSign } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
 import { useUI } from '../../../context/UIContext';
@@ -18,7 +18,9 @@ interface Staff {
   type: 'Lecturer' | 'Accountant' | 'Dean of Studies' | 'Head Of Department' | 'Admin';
   isActive: boolean;
   hireDate: string;
-  salary?: number;
+  hourlyRate: number;
+  baseSalary?: number;
+  paymentType: 'hourly' | 'fixed';
   address?: {
     street: string;
     city: string;
@@ -29,6 +31,11 @@ interface Staff {
     name: string;
     relationship: string;
     phone: string;
+  };
+  bankDetails?: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
   };
   profilePicture?: string;
   branch: {
@@ -79,6 +86,35 @@ export const StaffDirectory: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedStaffMember, setSelectedStaffMember] = useState<Staff | null>(null);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneNumber: '',
+    department: '',
+    position: '',
+    type: 'Lecturer' as 'Lecturer' | 'Accountant' | 'Dean of Studies' | 'Head Of Department' | 'Admin',
+    hireDate: new Date().toISOString().split('T')[0],
+    hourlyRate: 0,
+    baseSalary: 0,
+    paymentType: 'hourly' as 'hourly' | 'fixed',
+    address: {
+      street: '',
+      city: '',
+      region: '',
+      country: 'Cameroon'
+    },
+    emergencyContact: {
+      name: '',
+      relationship: '',
+      phone: ''
+    },
+    bankDetails: {
+      bankName: '',
+      accountNumber: '',
+      accountName: ''
+    }
+  });
 
   // Fetch staff
   const fetchStaff = async () => {
@@ -137,6 +173,67 @@ export const StaffDirectory: React.FC = () => {
   useEffect(() => {
     fetchStats();
   }, [selectedBranch]);
+
+  const handleCreateStaff = async () => {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phoneNumber || 
+        !formData.department || !formData.position || !formData.type) {
+      showToast('Please fill all required fields', 'error');
+      return;
+    }
+
+    if (formData.paymentType === 'hourly' && formData.hourlyRate <= 0) {
+      showToast('Hourly rate must be greater than 0 for hourly staff', 'error');
+      return;
+    }
+
+    if (formData.paymentType === 'fixed' && formData.baseSalary <= 0) {
+      showToast('Base salary must be greater than 0 for fixed salary staff', 'error');
+      return;
+    }
+
+    try {
+      await fetchClient.postJson('/api/staff', formData);
+      setShowCreateModal(false);
+      resetForm();
+      fetchStaff();
+      fetchStats();
+      showToast('Staff member created successfully', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to create staff member', 'error');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phoneNumber: '',
+      department: '',
+      position: '',
+      type: 'Lecturer',
+      hireDate: new Date().toISOString().split('T')[0],
+      hourlyRate: 0,
+      baseSalary: 0,
+      paymentType: 'hourly',
+      address: {
+        street: '',
+        city: '',
+        region: '',
+        country: 'Cameroon'
+      },
+      emergencyContact: {
+        name: '',
+        relationship: '',
+        phone: ''
+      },
+      bankDetails: {
+        bankName: '',
+        accountNumber: '',
+        accountName: ''
+      }
+    });
+  };
 
   const handleDeleteStaff = async (staffId: string) => {
     if (!window.confirm('Are you sure you want to deactivate this staff member?')) {
@@ -213,6 +310,14 @@ export const StaffDirectory: React.FC = () => {
       return `+237 ${digits.slice(3, 6)} ${digits.slice(6, 9)} ${digits.slice(9)}`;
     }
     return phone;
+  };
+
+  const formatXAF = (amount: number) => {
+    return new Intl.NumberFormat('fr-CM', {
+      style: 'currency',
+      currency: 'XAF',
+      minimumFractionDigits: 0
+    }).format(amount);
   };
 
   if (loading && staff.length === 0) {
@@ -456,6 +561,12 @@ export const StaffDirectory: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="space-y-1">
                       <div className="text-sm text-gray-900">{staffMember.position}</div>
+                      <div className="text-xs text-gray-500">
+                        {staffMember.paymentType === 'hourly' 
+                          ? `${formatXAF(staffMember.hourlyRate)}/hour`
+                          : `${formatXAF(staffMember.baseSalary || 0)}/month`
+                        }
+                      </div>
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTypeColor(staffMember.type)}`}>
                         {staffMember.type}
                       </span>
@@ -568,6 +679,251 @@ export const StaffDirectory: React.FC = () => {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Create Staff Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Add New Staff Member</h3>
+            </div>
+            <div className="p-6 space-y-6">
+              {/* Personal Information */}
+              <div>
+                <h4 className="text-md font-medium text-gray-900 mb-4">Personal Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+                    <input
+                      type="text"
+                      value={formData.firstName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+                    <input
+                      type="text"
+                      value={formData.lastName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
+                    <input
+                      type="tel"
+                      value={formData.phoneNumber}
+                      onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="+237 6XX XXX XXX"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Employment Information */}
+              <div>
+                <h4 className="text-md font-medium text-gray-900 mb-4">Employment Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Department *</label>
+                    <input
+                      type="text"
+                      value={formData.department}
+                      onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., Computer Engineering"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Position *</label>
+                    <input
+                      type="text"
+                      value={formData.position}
+                      onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., Senior Lecturer"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Type *</label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as any }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="Lecturer">Lecturer</option>
+                      <option value="Accountant">Accountant</option>
+                      <option value="Dean of Studies">Dean of Studies</option>
+                      <option value="Head Of Department">Head Of Department</option>
+                      <option value="Admin">Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Hire Date *</label>
+                    <input
+                      type="date"
+                      value={formData.hireDate}
+                      onChange={(e) => setFormData(prev => ({ ...prev, hireDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Information */}
+              <div>
+                <h4 className="text-md font-medium text-gray-900 mb-4">Payment Information</h4>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Type *</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, paymentType: 'hourly' }))}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          formData.paymentType === 'hourly'
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <Clock className="w-5 h-5 mx-auto mb-1" />
+                        <span className="text-sm font-medium">Hourly Rate</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, paymentType: 'fixed' }))}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          formData.paymentType === 'fixed'
+                            ? 'border-green-500 bg-green-50 text-green-700'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <DollarSign className="w-5 h-5 mx-auto mb-1" />
+                        <span className="text-sm font-medium">Fixed Salary</span>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {formData.paymentType === 'hourly' ? (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Hourly Rate (XAF) *</label>
+                        <input
+                          type="number"
+                          value={formData.hourlyRate}
+                          onChange={(e) => setFormData(prev => ({ ...prev, hourlyRate: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., 5000"
+                          min="0"
+                          step="100"
+                          required
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Monthly Salary (XAF) *</label>
+                        <input
+                          type="number"
+                          value={formData.baseSalary}
+                          onChange={(e) => setFormData(prev => ({ ...prev, baseSalary: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., 650000"
+                          min="0"
+                          step="1000"
+                          required
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bank Details */}
+              <div>
+                <h4 className="text-md font-medium text-gray-900 mb-4">Bank Details (Optional)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Bank Name</label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails.bankName}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        bankDetails: { ...prev.bankDetails, bankName: e.target.value }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., Afriland First Bank"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails.accountNumber}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        bankDetails: { ...prev.bankDetails, accountNumber: e.target.value }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="Account number"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Account Name</label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails.accountName}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        bankDetails: { ...prev.bankDetails, accountName: e.target.value }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="Account holder name"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  resetForm();
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateStaff}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Create Staff Member
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -3,9 +3,12 @@ import { DashboardStats } from './DashboardStats';
 import { Charts } from './Charts';
 import { BottomCharts } from './BottomCharts';
 import { Calendar } from './Calendar';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Database, Shield, RefreshCw } from 'lucide-react';
+import { useNavigation } from '../../context/NavigationContext';
 
 export const SuperAdminDashboard: React.FC = () => {
+  const { setCurrentPage, setBreadcrumb } = useNavigation();
+
   const getCurrentDate = () => {
     return new Date().toLocaleDateString('en-US', {
       weekday: 'long',
@@ -45,6 +48,63 @@ export const SuperAdminDashboard: React.FC = () => {
           <span className="font-medium text-red-600">image/logo</span>
           <span className="font-medium"> upload is disabled for demo version. Since many users are simultaneously testing the demo, you may find some inconsistencies, If so, you can check it again after a while.</span>
         </div>
+      </div>
+
+      {/* Quick Admin Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <button
+          onClick={() => {
+            setCurrentPage('backup-management');
+            setBreadcrumb(['Administration', 'Backup & Restore']);
+          }}
+          className="bg-white p-4 rounded-lg shadow-sm border hover:shadow-md transition-all text-left group"
+        >
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-100 p-3 rounded-lg group-hover:bg-blue-200 transition-colors">
+              <Database className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900">System Backup</h4>
+              <p className="text-sm text-gray-600">Backup & restore system data</p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentPage('enhanced-roles');
+            setBreadcrumb(['Administration', 'Roles & Access']);
+          }}
+          className="bg-white p-4 rounded-lg shadow-sm border hover:shadow-md transition-all text-left group"
+        >
+          <div className="flex items-center space-x-3">
+            <div className="bg-purple-100 p-3 rounded-lg group-hover:bg-purple-200 transition-colors">
+              <Shield className="w-6 h-6 text-purple-600" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900">Security Management</h4>
+              <p className="text-sm text-gray-600">Manage roles & permissions</p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => {
+            setCurrentPage('view-branches');
+            setBreadcrumb(['Administration', 'Branches']);
+          }}
+          className="bg-white p-4 rounded-lg shadow-sm border hover:shadow-md transition-all text-left group"
+        >
+          <div className="flex items-center space-x-3">
+            <div className="bg-green-100 p-3 rounded-lg group-hover:bg-green-200 transition-colors">
+              <RefreshCw className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900">System Monitoring</h4>
+              <p className="text-sm text-gray-600">Monitor system health</p>
+            </div>
+          </div>
+        </button>
       </div>
 
       {/* Dashboard Stats */}

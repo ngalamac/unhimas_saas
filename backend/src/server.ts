@@ -16,6 +16,9 @@ import communicationRouter from './routes/communication';
 import staffRouter from './routes/staff';
 import payrollRouter from './routes/payroll';
 import gradesRouter from './routes/grades';
+import teachingSessionsRouter from './routes/teachingSessions';
+import backupRouter from './routes/backup';
+import ohadaRoutes from './routes/ohada';
 import { eventsHandler } from './lib/events';
 import path from 'path';
 
@@ -85,6 +88,9 @@ app.use('/api/payroll', payrollRouter);
 app.use('/api/accounting', accountingRouter);
 app.use('/api/payment-plans', paymentPlansRouter);
 app.use('/api/grades', gradesRouter);
+app.use('/api/teaching-sessions', teachingSessionsRouter);
+app.use('/api/backup', backupRouter);
+app.use('/api/ohada', ohadaRoutes);
 // server-sent events for realtime updates
 app.get('/api/events', eventsHandler);
 // serve uploaded files

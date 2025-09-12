@@ -24,7 +24,9 @@ import {
   Search,
   Star,
   Clock,
-  Zap
+  Zap,
+  Calculator,
+  Database
 } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
@@ -172,7 +174,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         { id: 'categories', label: 'Categories', icon: <BookOpen className="w-3 h-3" /> }, 
         { id: 'payment-plans', label: 'Payment Plans', icon: <CreditCard className="w-3 h-3" /> }, 
         { id: 'tuition-plans', label: 'Tuition Plans', icon: <School className="w-3 h-3" /> },
-        { id: 'reports', label: 'Reports', icon: <FileText className="w-3 h-3" /> }
+        { id: 'reports', label: 'Reports', icon: <FileText className="w-3 h-3" /> },
+        { id: 'ohada-accounting', label: 'OHADA Accounting', icon: <Calculator className="w-3 h-3" /> }
       ] 
     },
 
@@ -185,7 +188,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       requiredPermissions: ['staff:read','all'], 
       submenuItems: [ 
         { id: 'staff-management', label: 'Staff Directory', icon: <UserCheck className="w-3 h-3" /> }, 
-        { id: 'payroll', label: 'Payroll', icon: <DollarSign className="w-3 h-3" /> } 
+        { id: 'payroll', label: 'Payroll Dashboard', icon: <DollarSign className="w-3 h-3" /> },
+        { id: 'teaching-sessions', label: 'Teaching Sessions', icon: <Clock className="w-3 h-3" /> },
+        { id: 'payroll-details', label: 'Payroll Details', icon: <FileText className="w-3 h-3" /> }
       ] 
     },
 
@@ -222,9 +227,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       icon: <Shield className="w-4 h-4" />, 
       hasSubmenu: true, 
       submenuItems: [ 
-        { id: 'view-branches', label: 'Branches', icon: <Building2 className="w-3 h-3" /> },
-        { id: 'enhanced-roles', label: 'Roles & Access', icon: <Shield className="w-3 h-3" /> },
-        { id: 'user-management', label: 'User Management', icon: <Users className="w-3 h-3" /> }
+  { id: 'view-branches', label: 'Branches', icon: <Building2 className="w-3 h-3" /> },
+  { id: 'enhanced-roles', label: 'Roles & Access', icon: <Shield className="w-3 h-3" /> },
+  { id: 'user-management', label: 'User Management', icon: <Users className="w-3 h-3" /> },
+  { id: 'backup-management', label: 'Backup & Restore', icon: <Database className="w-3 h-3" />, isNew: true }
       ] 
     },
 

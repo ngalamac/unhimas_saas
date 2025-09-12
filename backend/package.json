@@ -6,8 +6,10 @@
     "dev": "cross-env PORT=5000 ts-node src/server.ts"
   },
   "dependencies": {
+    "@types/archiver": "^6.0.3",
     "@types/axios": "^0.9.36",
     "@types/nodemailer": "^7.0.1",
+    "archiver": "^7.0.1",
     "axios": "^1.11.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
