@@ -649,17 +649,16 @@ router.post('/:id/payments', authMiddleware, requirePermission('students'), requ
     // Also create an accounting transaction so the accounting page reflects this payment
     try {
         const acctDesc = `Tuition payment for ${student.names || student.studentId}${notes ? ` — ${notes}` : ''}`;
-        const journalEntry = await recordGenericTransaction(
-            student.branch,
-            req.user!.id,
-            'income',
-            'Tuition Fees',
-            Number(amount),
-            acctDesc,
-            tx.createdAt || new Date(),
-            currency || 'XAF',
-            { model: 'Student', docId: student._id }
-        );
+    const journalEntry = await recordGenericTransaction(
+      student.branch,
+      new mongoose.Types.ObjectId(req.user!.id),
+      'income',
+      'Tuition Fees',
+      Number(amount),
+      acctDesc,
+      tx.createdAt || new Date(),
+      currency || 'XAF'
+    );
         try { emitEvent(student.branch.toString(), 'accounting.transaction.created', { transaction: journalEntry, studentId: student._id }); } catch (e) {}
     } catch (acctErr) {
         console.error('Failed to create accounting transaction for tuition payment:', acctErr);

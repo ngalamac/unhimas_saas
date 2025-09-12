@@ -144,13 +144,22 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log(`[LOGIN] Attempt for email: ${email}`);
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ error: 'Invalid credentials' });
+    if (!user) {
+      console.warn(`[LOGIN] No user found for email: ${email}`);
+      return res.status(400).json({ error: 'Invalid credentials' });
+    }
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
+    if (!valid) {
+      console.warn(`[LOGIN] Invalid password for email: ${email}`);
+      return res.status(400).json({ error: 'Invalid credentials' });
+    }
     const token = jwt.sign({ id: user._id, type: user.type }, JWT_SECRET, { expiresIn: '1d' });
-    res.json({ token, user });
+    console.log(`[LOGIN] Success for email: ${email}, userId: ${user._id}`);
+    res.json({ data: { token, user } });
   } catch (err) {
+    console.error(`[LOGIN] Error for email: ${req.body?.email}`, err);
     res.status(500).json({ error: 'Login failed' });
   }
 });
