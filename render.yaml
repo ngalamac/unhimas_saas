@@ -4,11 +4,11 @@ services:
   - type: web
     name: unhimas-app
     env: docker
-    root: ./               
+    root: .
     plan: free
     envVars:
       - key: MONGO_URI
-        fromSecret: MONGO_URI   # Add secret in Render dashboard
+        fromSecret: MONGO_URI
       - key: NODE_ENV
         value: production
     healthCheckPath: /api/health
