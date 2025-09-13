@@ -1,13 +1,6 @@
 # Render manifest for unhimas_saas
 # Defines a static site for the frontend and a web service for the backend (Docker)
 services:
-  - type: static_site
-    name: unhimas-frontend
-    env: static
-    buildCommand: "npm install && npm run build"
-    publishPath: "dist"
-    root: "."
-
   - type: web_service
     name: unhimas-backend
     env: docker
