@@ -414,14 +414,22 @@ router.get('/summary/:periodId', authMiddleware, requirePermission('staff'), asy
     const entries = await PayrollEntry.find({ payrollPeriod: req.params.periodId })
       .populate('staff', 'names department type');
     
-    const summary = {
-  totalGrossSalary: entries.reduce((sum, entry) => sum + entry.grossSalary, 0),
-  totalDeductions: entries.reduce((sum, entry) => sum + entry.deductions.total, 0),
-  totalNetSalary: entries.reduce((sum, entry) => sum + entry.netSalary, 0),
-  totalStaff: entries.length,
-  averageSalary: entries.length > 0 ? entries.reduce((sum, entry) => sum + entry.netSalary, 0) / entries.length : 0,
-  byDepartment: [] as { department: string; staffCount: number; totalSalary: number }[],
-  byPaymentType: []
+    const summary: {
+      totalGrossSalary: number;
+      totalDeductions: number;
+      totalNetSalary: number;
+      totalStaff: number;
+      averageSalary: number;
+      byDepartment: { department: string; staffCount: number; totalSalary: number }[];
+      byPaymentType: any[];
+    } = {
+      totalGrossSalary: entries.reduce((sum, entry) => sum + entry.grossSalary, 0),
+      totalDeductions: entries.reduce((sum, entry) => sum + entry.deductions.total, 0),
+      totalNetSalary: entries.reduce((sum, entry) => sum + entry.netSalary, 0),
+      totalStaff: entries.length,
+      averageSalary: entries.length > 0 ? entries.reduce((sum, entry) => sum + entry.netSalary, 0) / entries.length : 0,
+      byDepartment: [],
+      byPaymentType: []
     };
     
     // Group by department

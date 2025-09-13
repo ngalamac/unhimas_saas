@@ -514,8 +514,8 @@ async function processBackup(jobId: string) {
     await archive.finalize();
 
     // Wait for output stream to finish
-    await new Promise<void>((resolve, reject) => {
-      output.on('close', () => resolve());
+    await new Promise((resolve, reject) => {
+  output.on('close', () => resolve(void 0));
       output.on('error', reject);
     });
 

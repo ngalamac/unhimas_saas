@@ -59,7 +59,7 @@ const TeachingSessionsPage: React.FC = () => {
     try {
       setLoading(true);
       const response = await getTeachingSessions(filters);
-      setSessions(response.data);
+  setSessions(Array.isArray(response.data) ? response.data : []);
     } catch (error: any) {
       showToast(error.message || 'Failed to load teaching sessions', 'error');
     } finally {
@@ -300,7 +300,7 @@ const TeachingSessionsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {sessions.map((session) => (
+              {(Array.isArray(sessions) ? sessions : []).map((session) => (
                 <tr key={session._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-3">
