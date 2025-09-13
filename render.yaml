@@ -1,0 +1,32 @@
+# Render manifest for unhimas_saas
+# Defines a static site for the frontend and a web service for the backend
+services:
+  - type: static_site
+    name: unhimas-frontend
+    env: static
+  repo: "https://github.com/ngalamac/unhimas_saas.git"
+    branch: deploymount
+    buildCommand: "npm install && npm run build"
+    publishPath: "dist"
+    root: "."
+
+  - type: web_service
+    name: unhimas-backend
+    env: node
+  repo: "https://github.com/ngalamac/unhimas_saas.git"
+    branch: deploymount
+    buildCommand: "cd backend && npm install && npm run build"
+    startCommand: "cd backend && npm run start"
+    plan: free
+    envVars:
+      - key: MONGO_URI
+        value: "${MONGO_URI}"
+      - key: NODE_ENV
+        value: "production"
+    healthCheckPath: "/api/health"
+    region: oregon
+    autoDeploy: true
+
+# Notes:
+# - Replace TODO_REPO_URL with your GitHub repo HTTPS URL.
+# - Configure the MONGO_URI and any other secrets in the Render dashboard as environment variables.
