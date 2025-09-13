@@ -4,7 +4,7 @@ services:
   - type: web
     name: unhimas-app
     env: docker
-    root: ./               # Root of repo
+    root: ./               
     plan: free
     envVars:
       - key: MONGO_URI
