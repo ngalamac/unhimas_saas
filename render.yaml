@@ -4,16 +4,13 @@ services:
   - type: web
     name: unhimas-backend
     env: docker
-    root: "backend"
+    root: backend
     plan: free
     envVars:
       - key: MONGO_URI
-        value: "${MONGO_URI}"
+        value: ${MONGO_URI}
       - key: NODE_ENV
-        value: "production"
-    healthCheckPath: "/api/health"
+        value: production
+    healthCheckPath: /api/health
     region: oregon
     autoDeploy: true
-
-
-# Render will build the Dockerfile located at `backend/Dockerfile` for the backend service.
