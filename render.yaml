@@ -1,16 +1,30 @@
 # Render manifest for unhimas_saas
-# Defines a static site for the frontend and a web service for the backend (Docker)
+# Backend: Docker Web Service
+# Frontend: Static Site (in root directory)
+
 services:
   - type: web
     name: unhimas-backend
     env: docker
-    root: backend
+    root: backend        # Dockerfile should be inside 'backend'
     plan: free
     envVars:
       - key: MONGO_URI
-        value: ${MONGO_URI}
+        fromSecret: MONGO_URI
       - key: NODE_ENV
         value: production
     healthCheckPath: /api/health
     region: oregon
+    autoDeploy: true
+
+staticSites:
+  - name: unhimas-frontend
+    root: ./             # Frontend is in the root of the repo
+    buildCommand: npm install && npm run build  # Adjust if you use yarn
+    publishPath: build                       # React default output
+    env:
+      - key: NODE_ENV
+        value: production
+    region: oregon
+    plan: free
     autoDeploy: true
