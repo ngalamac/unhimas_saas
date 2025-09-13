@@ -1,12 +1,10 @@
 # Render manifest for unhimas_saas
-# Backend: Docker Web Service
-# Frontend: Static Site (in root directory)
-
+# Backend serves both API and frontend (MERN fullstack)
 services:
   - type: web
-    name: unhimas-backend
+    name: unhimas-app
     env: docker
-    root: backend        # Dockerfile should be inside 'backend'
+    root: backend       # Dockerfile builds backend + serves frontend from root/build
     plan: free
     envVars:
       - key: MONGO_URI
@@ -15,16 +13,4 @@ services:
         value: production
     healthCheckPath: /api/health
     region: oregon
-    autoDeploy: true
-
-staticSites:
-  - name: unhimas-frontend
-    root: ./             # Frontend is in the root of the repo
-    buildCommand: npm install && npm run build  # Adjust if you use yarn
-    publishPath: build                       # React default output
-    env:
-      - key: NODE_ENV
-        value: production
-    region: oregon
-    plan: free
     autoDeploy: true
