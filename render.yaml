@@ -1,14 +1,14 @@
 # Render manifest for unhimas_saas
-# Backend serves both API and frontend (MERN fullstack)
+# Fullstack MERN app (backend + frontend served by backend)
 services:
   - type: web
     name: unhimas-app
     env: docker
-    root: backend       # Dockerfile builds backend + serves frontend from root/build
+    root: ./               # Root of repo
     plan: free
     envVars:
       - key: MONGO_URI
-        fromSecret: MONGO_URI
+        fromSecret: MONGO_URI   # Add secret in Render dashboard
       - key: NODE_ENV
         value: production
     healthCheckPath: /api/health
