@@ -59,7 +59,7 @@ const TeachingSessionsPage: React.FC = () => {
     try {
       setLoading(true);
       const response = await getTeachingSessions(filters);
-  setSessions(Array.isArray(response.data) ? response.data : []);
+      setSessions(Array.isArray(response?.data) ? response.data : []);
     } catch (error: any) {
       showToast(error.message || 'Failed to load teaching sessions', 'error');
     } finally {
@@ -73,11 +73,10 @@ const TeachingSessionsPage: React.FC = () => {
         getStaff(),
         getCourses()
       ]);
-      
       // Filter only lecturers
-      const lecturers = staffRes.data.filter(s => s.type === 'Lecturer' && s.isActive);
+      const lecturers = Array.isArray(staffRes?.data) ? staffRes.data.filter(s => s.type === 'Lecturer' && s.isActive) : [];
       setStaff(lecturers);
-      setCourses(coursesRes.data);
+      setCourses(Array.isArray(coursesRes?.data) ? coursesRes.data : []);
     } catch (error: any) {
       console.error('Failed to load staff and courses:', error);
     }
@@ -88,9 +87,24 @@ const TeachingSessionsPage: React.FC = () => {
       showToast('Please fill all required fields', 'error');
       return;
     }
-
     try {
-      await createTeachingSession(formData);
+      // Find the course object from courses array
+      const selectedCourse = courses.find(
+        (c) => c._id === formData.course || c.id === formData.course
+      );
+      if (!selectedCourse || !selectedCourse._id) {
+        showToast('Selected course not found or missing ID. Please select a valid course.', 'error');
+        return;
+      }
+      const payload = {
+        ...formData,
+        course: {
+          _id: selectedCourse._id,
+          code: selectedCourse.code || '',
+          title: selectedCourse.title || selectedCourse.name || '',
+        },
+      };
+      await createTeachingSession(payload);
       setShowCreateModal(false);
       setFormData({
         lecturer: '',
@@ -192,7 +206,7 @@ const TeachingSessionsPage: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Lecturers</option>
-              {staff.map((lecturer) => (
+              {(Array.isArray(staff) ? staff : []).map((lecturer) => (
                 <option key={lecturer._id} value={lecturer._id}>
                   {lecturer.names}
                 </option>
@@ -208,7 +222,7 @@ const TeachingSessionsPage: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Courses</option>
-              {courses.map((course) => (
+              {(Array.isArray(courses) ? courses : []).map((course) => (
                 <option key={course._id || course.id} value={course._id || course.id}>
                   {course.code} - {course.title || course.name}
                 </option>
@@ -400,7 +414,7 @@ const TeachingSessionsPage: React.FC = () => {
                     required
                   >
                     <option value="">Select Lecturer</option>
-                    {staff.map((lecturer) => (
+                    {(Array.isArray(staff) ? staff : []).map((lecturer) => (
                       <option key={lecturer._id} value={lecturer._id}>
                         {lecturer.names} - {lecturer.employeeId}
                       </option>
@@ -417,7 +431,7 @@ const TeachingSessionsPage: React.FC = () => {
                     required
                   >
                     <option value="">Select Course</option>
-                    {courses.map((course) => (
+                    {(Array.isArray(courses) ? courses : []).map((course) => (
                       <option key={course._id || course.id} value={course._id || course.id}>
                         {course.code} - {course.title || course.name}
                       </option>
