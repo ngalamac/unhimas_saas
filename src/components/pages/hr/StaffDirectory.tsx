@@ -59,26 +59,29 @@ interface StaffStats {
 }
 
 export const StaffDirectory: React.FC = () => {
+  // ...existing code...
+
   const { user } = useAuth();
-  const { selectedBranch } = useBranch();
+  const isSuperAdmin = (user as any)?.role === 'SuperAdmin' || (user as any)?.type === 'SuperAdmin' || (user as any)?.isSuperAdmin === true;
+  const { currentBranch, managedBranches } = useBranch();
   const { showToast } = useUI();
-  
+
   const [staff, setStaff] = useState<Staff[]>([]);
   const [stats, setStats] = useState<StaffStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
   const [showActiveOnly, setShowActiveOnly] = useState(true);
-  
+
   // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
-  
+
   // UI State
   const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -98,6 +101,7 @@ export const StaffDirectory: React.FC = () => {
     hourlyRate: 0,
     baseSalary: 0,
     paymentType: 'hourly' as 'hourly' | 'fixed',
+    branch: '',
     address: {
       street: '',
       city: '',
@@ -116,6 +120,36 @@ export const StaffDirectory: React.FC = () => {
     }
   });
 
+  // Branches for selector (same logic as TransactionForm)
+  const [availableBranches, setAvailableBranches] = useState<any[]>(managedBranches && managedBranches.length ? managedBranches : []);
+
+  // Fetch all branches for superadmin
+  const fetchBranches = async () => {
+    try {
+      const res = await fetchClient.get('/api/branches');
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+        setAvailableBranches(list);
+      }
+    } catch (err) {
+      console.error('Error fetching branches', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      if (managedBranches && (Array.isArray(managedBranches) ? managedBranches.length : Array.isArray((managedBranches as any)?.data) ? (managedBranches as any).data.length : 0)) {
+        const list = Array.isArray(managedBranches) ? managedBranches : ((managedBranches as any)?.data || []);
+        setAvailableBranches(list);
+      } else {
+        fetchBranches();
+      }
+    } else {
+      setAvailableBranches(managedBranches && managedBranches.length ? managedBranches : []);
+    }
+  }, [isSuperAdmin, managedBranches]);
+
   // Fetch staff
   const fetchStaff = async () => {
     try {
@@ -127,7 +161,7 @@ export const StaffDirectory: React.FC = () => {
         ...(filterType && { type: filterType }),
         ...(filterDepartment && { department: filterDepartment }),
         ...(showActiveOnly && { isActive: 'true' }),
-        ...(selectedBranch && { branch: selectedBranch._id })
+        ...(currentBranch && { branch: currentBranch._id })
       });
 
       const response = await fetchClient.get(`/api/staff?${params}`);
@@ -150,8 +184,8 @@ export const StaffDirectory: React.FC = () => {
   const fetchStats = async () => {
     try {
       const params = new URLSearchParams();
-      if (selectedBranch) {
-        params.append('branch', selectedBranch._id);
+      if (currentBranch) {
+        params.append('branch', currentBranch._id);
       }
 
       const response = await fetchClient.get(`/api/staff/stats/overview?${params}`);
@@ -168,11 +202,11 @@ export const StaffDirectory: React.FC = () => {
 
   useEffect(() => {
     fetchStaff();
-  }, [page, pageSize, searchTerm, filterType, filterDepartment, showActiveOnly, selectedBranch]);
+  }, [page, pageSize, searchTerm, filterType, filterDepartment, showActiveOnly, currentBranch]);
 
   useEffect(() => {
     fetchStats();
-  }, [selectedBranch]);
+  }, [currentBranch]);
 
   const handleCreateStaff = async () => {
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.phoneNumber || 
@@ -192,13 +226,34 @@ export const StaffDirectory: React.FC = () => {
     }
 
     try {
-      await fetchClient.postJson('/api/staff', formData);
+      const payload = {
+        ...formData,
+        type: formData.type || 'Lecturer',
+        isActive: true,
+        branch: formData.branch || currentBranch?._id,
+      };
+      console.log('Creating staff with payload:', payload); // Debug log
+      const response = await fetchClient.postJson('/api/staff', payload);
+      let result;
+      try {
+        result = await response.json();
+      } catch (jsonErr) {
+        console.error('Failed to parse staff creation response:', jsonErr);
+        showToast('Failed to parse server response', 'error');
+        return;
+      }
+      if (!response.ok || result?.error) {
+        console.error('Staff creation error:', result?.error);
+        showToast(result?.error?.message || 'Failed to create staff member', 'error');
+        return;
+      }
       setShowCreateModal(false);
       resetForm();
       fetchStaff();
       fetchStats();
       showToast('Staff member created successfully', 'success');
     } catch (err: any) {
+      console.error('Staff creation exception:', err);
       showToast(err.message || 'Failed to create staff member', 'error');
     }
   };
@@ -216,6 +271,7 @@ export const StaffDirectory: React.FC = () => {
       hourlyRate: 0,
       baseSalary: 0,
       paymentType: 'hourly',
+      branch: '',
       address: {
         street: '',
         city: '',
@@ -254,7 +310,7 @@ export const StaffDirectory: React.FC = () => {
     try {
       const params = new URLSearchParams({
         format,
-        ...(selectedBranch && { branch: selectedBranch._id }),
+        ...(currentBranch && { branch: currentBranch._id }),
         ...(searchTerm && { search: searchTerm }),
         ...(filterType && { type: filterType }),
         ...(filterDepartment && { department: filterDepartment }),
@@ -742,6 +798,23 @@ export const StaffDirectory: React.FC = () => {
               <div>
                 <h4 className="text-md font-medium text-gray-900 mb-4">Employment Information</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Branch Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Branch *</label>
+                    <select
+                      value={formData.branch || currentBranch?._id || ''}
+                      onChange={e => setFormData(prev => ({ ...prev, branch: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                      required
+                    >
+                      <option value="">Select Branch</option>
+                      {availableBranches && availableBranches.map(branch => (
+                        <option key={branch._id || branch.id} value={branch._id || branch.id}>
+                          {branch.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Department *</label>
                     <input

@@ -31,15 +31,10 @@ export const BranchProvider: React.FC<Props> = ({ children }) => {
       const res = await fetchClient.get('/api/branches');
       const data = await res.json();
       if (!Array.isArray(data)) return;
-      // filter branches where manager matches this user
-      const assigned = data.filter((b: any) => {
-        const mgr = b.manager || {};
-        return mgr._id === user.id || mgr.id === user.id || mgr === user.id;
-      });
-      setManagedBranches(assigned);
+      setManagedBranches(data); // Show all branches
       // try to restore last selected branch
       const saved = localStorage.getItem('managedCurrentBranchId');
-      const find = assigned.find((b: any) => (b._id || b.id) === saved) || assigned[0] || null;
+      const find = data.find((b: any) => (b._id || b.id) === saved) || data[0] || null;
       setCurrentBranch(find);
       if (find) localStorage.setItem('managedCurrentBranchId', (find as any)._id || (find as any).id);
     } catch (err) {
