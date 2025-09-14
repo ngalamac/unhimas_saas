@@ -127,23 +127,43 @@ router.post('/accounts/initialize', authMiddleware, requirePermission('accountin
     // Create accounts from OHADA standard
     for (const [classCode, classData] of Object.entries(OHADAChartOfAccounts)) {
       // Create class account (level 1)
+      const derive = (code: string) => {
+        const first = code.charAt(0);
+        switch (first) {
+          case '1': return { type: 'equity', category: 'non-current' };
+          case '2': return { type: 'asset', category: 'non-current' };
+          case '3': return { type: 'asset', category: 'current' };
+          case '4': return { type: 'liability', category: 'current' };
+          case '5': return { type: 'asset', category: 'current' };
+          case '6': return { type: 'expense', category: 'operating' };
+          case '7': return { type: 'income', category: 'operating' };
+          case '8': return { type: 'asset', category: 'extraordinary' };
+          default: return { type: 'asset', category: 'current' };
+        }
+      };
+      const classDeriv = derive(classCode);
       accounts.push({
         code: classCode,
         name: classData.name,
         level: 1,
         isActive: true,
-        createdBy: req.user?.id
+        createdBy: req.user?.id,
+        type: classDeriv.type,
+        category: classDeriv.category
       });
 
       // Create individual accounts (level 2-4)
       for (const [accountCode, accountName] of Object.entries(classData.accounts)) {
+        const { type, category } = derive(accountCode);
         accounts.push({
           code: accountCode,
           name: accountName,
           level: accountCode.length,
           parentCode: accountCode.length > 1 ? accountCode.substring(0, accountCode.length - 1) : classCode,
           isActive: true,
-          createdBy: req.user?.id
+          createdBy: req.user?.id,
+          type,
+          category
         });
       }
     }

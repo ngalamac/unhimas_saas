@@ -131,7 +131,9 @@ const StudentSchema: Schema = new Schema({
     amountDue: { type: Number, default: 0 },
     paid: { type: Number, default: 0 },
     dueDate: { type: Date },
-    status: { type: String, enum: ['Pending', 'Partial', 'Paid', 'Overdue'], default: 'Pending' }
+  status: { type: String, enum: ['Pending', 'Partial', 'Paid', 'Overdue'], default: 'Pending' },
+  lastReminderSent: { type: Date },
+  timesReminded: { type: Number, default: 0 }
   }],
   identityHash: { type: String, index: { unique: true, sparse: true } },
   branch: { type: Schema.Types.ObjectId, ref: 'Branch', required: true },

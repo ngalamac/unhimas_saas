@@ -10,6 +10,9 @@ export interface IOHADAJournalLine {
   description?: string;
   reference?: string;
   analyticalCode?: string;
+  // Optional linkage to a student tuition context
+  student?: mongoose.Types.ObjectId; // Ref: Student
+  tuitionTransaction?: mongoose.Types.ObjectId; // Ref: TuitionTransaction
 }
 
 export interface IOHADAJournalEntry extends Document {
@@ -39,7 +42,9 @@ const OHADAJournalLineSchema = new Schema<IOHADAJournalLine>({
   credit: { type: Number, required: true, default: 0, min: 0 },
   description: { type: String },
   reference: { type: String },
-  analyticalCode: { type: String }
+  analyticalCode: { type: String },
+  student: { type: Schema.Types.ObjectId, ref: 'Student' },
+  tuitionTransaction: { type: Schema.Types.ObjectId, ref: 'TuitionTransaction' }
 }, { _id: false });
 
 const OHADAJournalEntrySchema: Schema = new Schema({
@@ -113,5 +118,8 @@ OHADAJournalEntrySchema.index({ period: 1 });
 OHADAJournalEntrySchema.index({ status: 1 });
 OHADAJournalEntrySchema.index({ branch: 1, period: 1 });
 OHADAJournalEntrySchema.index({ reference: 1 });
+// Enable quick lookups for student-linked accounting lines
+OHADAJournalEntrySchema.index({ 'lines.student': 1 });
+OHADAJournalEntrySchema.index({ 'lines.tuitionTransaction': 1 });
 
 export default mongoose.model<IOHADAJournalEntry>('OHADAJournalEntry', OHADAJournalEntrySchema);

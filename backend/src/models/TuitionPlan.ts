@@ -10,11 +10,17 @@ const InstallmentSchema = new Schema({
 }, { _id: false });
 
 const TuitionPlanSchema = new Schema({
+  name: { type: String, required: true, trim: true },
   program: { type: Schema.Types.ObjectId, ref: 'Program' },
   department: { type: Schema.Types.ObjectId, ref: 'Department' },
   level: { type: Schema.Types.Mixed },
   academicYear: { type: String },
-  // registration + up to 4 installments
+  // Targeting groups (multi-assignment). If arrays non-empty, any match qualifies a student.
+  programs: [{ type: Schema.Types.ObjectId, ref: 'Program' }],
+  departments: [{ type: Schema.Types.ObjectId, ref: 'Department' }],
+  levels: [{ type: Schema.Types.Mixed }],
+  specialities: [{ type: String }], // free-form or could ref another model
+  // registration + up to N installments
   installments: { type: [InstallmentSchema], default: [] },
   // allow admin to enable/disable plan
   active: { type: Boolean, default: true },
@@ -23,6 +29,14 @@ const TuitionPlanSchema = new Schema({
 }, { timestamps: true });
 
 // unique per program/department/level/academicYear
-TuitionPlanSchema.index({ program: 1, department: 1, level: 1, academicYear: 1 }, { unique: true, sparse: true });
+// legacy uniqueness kept but not strictly unique now due to grouping arrays; keep sparse to avoid collisions.
+TuitionPlanSchema.index({ program: 1, department: 1, level: 1, academicYear: 1 });
+// Text & targeting indexes
+TuitionPlanSchema.index({ name: 'text' });
+TuitionPlanSchema.index({ academicYear: 1, active: 1 });
+TuitionPlanSchema.index({ 'programs': 1 });
+TuitionPlanSchema.index({ 'departments': 1 });
+TuitionPlanSchema.index({ 'levels': 1 });
+TuitionPlanSchema.index({ 'specialities': 1 });
 
 export default mongoose.model('TuitionPlan', TuitionPlanSchema);

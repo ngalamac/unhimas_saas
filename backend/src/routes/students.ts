@@ -460,6 +460,40 @@ router.post('/', authMiddleware, requirePermission(['students:create','students:
     branch: req.body.branch
   };
 
+  // Auto-assign a tuition plan if none provided: find first active plan whose targeting matches
+  if (!studentData.tuitionPlan) {
+    try {
+      const match: any = { active: true };
+      // We'll fetch a handful and check logic in JS to support OR semantics across arrays
+      const candidates = await TuitionPlan.find(match).limit(50).lean();
+      const first = candidates.find((p: any) => {
+        const progOk = (p.program && String(p.program) === String(studentData.program)) || (p.programs && p.programs.includes(studentData.program));
+        const deptOk = (p.department && String(p.department) === String(studentData.department)) || (p.departments && p.departments.includes(studentData.department));
+        const levelOk = (typeof p.level !== 'undefined' && p.level === studentData.level) || (p.levels && p.levels.includes(studentData.level));
+        // If plan has any targeting arrays/fields, require at least one category match
+        const hasTargeting = p.program || p.department || typeof p.level !== 'undefined' || (p.programs && p.programs.length) || (p.departments && p.departments.length) || (p.levels && p.levels.length);
+        if (!hasTargeting) return false;
+        return progOk || deptOk || levelOk;
+      });
+      if (first) {
+        studentData.tuitionPlan = first._id;
+        const installments = (first.installments || []).map((it: any) => ({
+          key: it.key,
+          label: it.label || '',
+          amountDue: Number(it.amount || 0),
+          paid: 0,
+          dueDate: it.dueDate || null,
+          status: 'Pending'
+        }));
+        studentData.tuitionInstallments = installments;
+        studentData.totalPaid = 0;
+        studentData.balanceDue = installments.reduce((s: number, it: any) => s + (it.amountDue || 0), 0);
+      }
+    } catch (autoErr) {
+      // ignore auto-assign failures
+    }
+  }
+
   // If a tuitionPlan was provided in the payload, attempt to initialize
   // per-student tuitionInstallments from the plan so the student document
   // starts with installment breakdowns, totals and statuses.
@@ -582,6 +616,18 @@ router.get('/:id/tuition', authMiddleware, requirePermission('students:read'), r
     let plan = null;
     if (student.tuitionPlan) plan = await TuitionPlan.findById(student.tuitionPlan);
 
+    // Derive effective tuitionStatus if no installments present
+    try {
+      const hasInstallments = (student.tuitionInstallments || []).length > 0;
+      if (!hasInstallments) {
+        const paymentCount = (student.payments || []).length;
+        if (paymentCount > 0 && student.totalPaid && student.totalPaid > 0) {
+          (student as any).tuitionStatus = 'Paid';
+        } else if (paymentCount === 0) {
+          (student as any).tuitionStatus = 'Pending';
+        }
+      }
+    } catch (e) { /* ignore */ }
     return res.json({ data: { student, plan } });
   } catch (e) {
     console.error('Error fetching tuition summary:', e);
@@ -589,10 +635,150 @@ router.get('/:id/tuition', authMiddleware, requirePermission('students:read'), r
   }
 });
 
+// Student accounting ledger (OHADA linked lines)
+router.get('/:id/ledger', authMiddleware, requirePermission('students:read'), requireBranchAccess(), async (req: AuthRequest, res) => {
+  try {
+    const student = await Student.findById(req.params.id).select('_id branch');
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+    const OHADAJournalEntry = require('../models/OHADAJournalEntry').default;
+
+    // Optional period filter (YYYY-MM)
+    const period = typeof req.query.period === 'string' ? req.query.period : undefined;
+    const match: any = { 'lines.student': student._id };
+    if (period) match.period = period;
+
+    const entries = await OHADAJournalEntry.find(match)
+      .select('entryNumber date reference description lines.period lines.accountCode lines.accountName lines.debit lines.credit lines.tuitionTransaction period')
+      .sort({ date: 1, entryNumber: 1 })
+      .lean();
+
+    let totalDebit = 0; let totalCredit = 0;
+    const lines: any[] = [];
+    for (const e of entries) {
+      for (const l of e.lines) {
+        if (String(l.student) !== String(student._id)) continue;
+        totalDebit += l.debit || 0; totalCredit += l.credit || 0;
+        lines.push({
+          entryNumber: e.entryNumber,
+            date: e.date,
+            reference: e.reference,
+            description: l.description || e.description,
+            accountCode: l.accountCode,
+            accountName: l.accountName,
+            debit: l.debit,
+            credit: l.credit,
+            tuitionTransaction: l.tuitionTransaction || null
+        });
+      }
+    }
+
+    const balance = +(totalDebit - totalCredit).toFixed(2);
+    res.json({ data: { lines, totals: { debit: totalDebit, credit: totalCredit, balance }, count: lines.length } });
+  } catch (e) {
+    console.error('Failed to fetch student ledger', e);
+    res.status(500).json({ message: 'Failed to fetch student ledger' });
+  }
+});
+
+// Unified finance view: payments, installments, ledger (OHADA), summary
+router.get('/:id/finance', authMiddleware, requirePermission('students:read'), requireBranchAccess(), async (req: AuthRequest, res) => {
+  try {
+    const student = await Student.findById(req.params.id)
+      .select('_id names studentId branch tuitionInstallments totalPaid balanceDue tuitionStatus payments')
+      .lean();
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    const TuitionTransaction = require('../models/TuitionTransaction').default;
+    const OHADAJournalEntry = require('../models/OHADAJournalEntry').default;
+
+    // Fetch payments list (limit optional via query)
+    const paymentLimit = Math.min(500, Number(req.query.paymentsLimit || 200));
+    const payments = await TuitionTransaction.find({ student: student._id })
+      .sort({ createdAt: -1 })
+      .limit(paymentLimit)
+      .lean();
+
+    // Build OHADA ledger lines (reuse logic similar to /:id/ledger, but no period filter unless provided)
+    const period = typeof req.query.period === 'string' ? req.query.period : undefined;
+    const match: any = { 'lines.student': student._id };
+    if (period) match.period = period;
+    const entries = await OHADAJournalEntry.find(match)
+      .select('entryNumber date reference description lines.accountCode lines.accountName lines.debit lines.credit lines.description lines.tuitionTransaction lines.student period')
+      .sort({ date: 1, entryNumber: 1 })
+      .lean();
+
+    let totalDebit = 0; let totalCredit = 0;
+    const ledgerLines: any[] = [];
+    for (const e of entries) {
+      for (const l of e.lines) {
+        if (String(l.student) !== String(student._id)) continue;
+        totalDebit += l.debit || 0; totalCredit += l.credit || 0;
+        ledgerLines.push({
+          entryNumber: e.entryNumber,
+          date: e.date,
+          reference: e.reference,
+          description: l.description || e.description,
+          accountCode: l.accountCode,
+          accountName: l.accountName,
+          debit: l.debit,
+          credit: l.credit,
+          tuitionTransaction: l.tuitionTransaction || null
+        });
+      }
+    }
+    const ledgerTotals = { debit: totalDebit, credit: totalCredit, balance: +(totalDebit - totalCredit).toFixed(2) };
+
+    // Compute installment summary
+    const installments = (student.tuitionInstallments || []).map((it: any) => ({
+      key: it.key,
+      label: it.label,
+      amountDue: it.amountDue || 0,
+      paid: it.paid || 0,
+      dueDate: it.dueDate || null,
+      status: it.status || 'Pending',
+      remaining: Math.max(0, (it.amountDue || 0) - (it.paid || 0))
+    }));
+  const totalDue = installments.reduce((s: number, it: any) => s + (it.amountDue || 0), 0);
+  const totalPaidInstallments = installments.reduce((s: number, it: any) => s + (it.paid || 0), 0);
+  const remainingOverall = installments.reduce((s: number, it: any) => s + Math.max(0, (it.amountDue || 0) - (it.paid || 0)), 0);
+  const paymentsTotal = payments.reduce((s: number, p: any) => s + (p.amount || 0), 0);
+
+    // Summary block
+    // Derive effective status if no installments exist
+    let effectiveStatus = student.tuitionStatus;
+    if (!installments.length) {
+      if (paymentsTotal > 0) effectiveStatus = 'Paid';
+      else effectiveStatus = 'Pending';
+    }
+    const summary = {
+      tuitionStatus: effectiveStatus,
+      totalInstallmentDue: totalDue,
+      totalInstallmentPaid: totalPaidInstallments,
+      totalInstallmentRemaining: remainingOverall,
+      paymentsTotal,
+  reconciledPaid: paymentsTotal,
+      studentRecordedTotalPaid: (student.totalPaid && student.totalPaid > 0)
+        ? student.totalPaid
+        : (totalPaidInstallments > 0 ? totalPaidInstallments : paymentsTotal),
+      studentRecordedBalance: student.balanceDue != null ? student.balanceDue : remainingOverall,
+      accountingLedgerDebit: ledgerTotals.debit,
+      accountingLedgerCredit: ledgerTotals.credit,
+      accountingLedgerBalance: ledgerTotals.balance,
+      paymentsCount: payments.length,
+      ledgerLinesCount: ledgerLines.length
+    };
+
+    res.json({ data: { student, payments, installments, ledger: { lines: ledgerLines, totals: ledgerTotals }, summary } });
+  } catch (e) {
+    console.error('Failed to fetch unified finance view', e);
+    res.status(500).json({ message: 'Failed to fetch finance view' });
+  }
+});
+
 // Record a payment for student
 router.post('/:id/payments', authMiddleware, requirePermission(['students:write','tuition:write']), requireBranchAccess(), async (req: AuthRequest, res) => {
   try {
-    const { amount, currency, installmentKey, method, notes } = req.body;
+    const { amount, currency, installmentKey, method, notes, creditAccountCode } = req.body;
     if (!amount || Number(amount) <= 0) return res.status(400).json({ message: 'amount is required' });
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: 'Student not found' });
@@ -632,9 +818,22 @@ router.post('/:id/payments', authMiddleware, requirePermission(['students:write'
         ins.status = ins.paid >= (ins.amountDue || 0) ? 'Paid' : 'Partial';
       }
 
-      // Update student totals from installments
-      student.totalPaid = (student.tuitionInstallments || []).reduce((s, it) => s + (it.paid || 0), 0);
-      student.balanceDue = (student.tuitionInstallments || []).reduce((s, it) => s + ((it.amountDue || 0) - (it.paid || 0)), 0);
+      // Update student totals from installments (or direct payment fallback when no installments exist)
+      const installmentArr = (student.tuitionInstallments || []);
+      if (installmentArr.length > 0) {
+        student.totalPaid = installmentArr.reduce((s, it) => s + (it.paid || 0), 0);
+        student.balanceDue = installmentArr.reduce((s, it) => s + ((it.amountDue || 0) - (it.paid || 0)), 0);
+        // If some amount of this payment wasn't allocated (overpayment / prepayment), add it to totalPaid
+        if (remaining > 0) {
+          student.totalPaid += remaining;
+          student.balanceDue = Math.max(0, (student.balanceDue || 0) - remaining);
+          remaining = 0;
+        }
+      } else {
+        // No installments: treat payment as direct totalPaid increment; balanceDue remains or becomes 0 if unset
+        student.totalPaid = (student.totalPaid || 0) + Number(amount);
+        if (student.balanceDue == null) student.balanceDue = 0;
+      }
       student.payments = student.payments || [];
       student.payments.push(tx._id);
       // mark overdue installments whose dueDate has passed and not fully paid
@@ -655,17 +854,38 @@ router.post('/:id/payments', authMiddleware, requirePermission(['students:write'
     // Also create an accounting transaction so the accounting page reflects this payment
     try {
         const acctDesc = `Tuition payment for ${student.names || student.studentId}${notes ? ` — ${notes}` : ''}`;
-    const journalEntry = await recordGenericTransaction(
-      student.branch,
-      new mongoose.Types.ObjectId(req.user!.id),
-      'income',
-      'Tuition Fees',
-      Number(amount),
-      acctDesc,
-      tx.createdAt || new Date(),
-      currency || 'XAF'
-    );
-        try { emitEvent(student.branch.toString(), 'accounting.transaction.created', { transaction: journalEntry, studentId: student._id }); } catch (e) {}
+        // Prefer OHADA posting with student linkage if accounts are configured via env vars
+        const cashCode = process.env.OHADA_CASH_ACCOUNT_CODE || '570';
+        const tuitionRevenueCode = process.env.OHADA_TUITION_REVENUE_CODE || '706';
+        const tuitionReceivableCode = process.env.OHADA_TUITION_RECEIVABLE_CODE; // optional
+        try {
+          const { postTuitionPaymentJournal } = require('../services/ohadaStudentPosting');
+          const je = await postTuitionPaymentJournal({
+            branch: student.branch,
+            studentId: student._id,
+            tuitionTransactionId: tx._id,
+            amount: Number(amount),
+            createdBy: new mongoose.Types.ObjectId(req.user!.id),
+            cashAccountCode: cashCode,
+            tuitionRevenueAccountCode: creditAccountCode || tuitionRevenueCode,
+            tuitionReceivableAccountCode: tuitionReceivableCode,
+            description: acctDesc
+          });
+          try { emitEvent(student.branch.toString(), 'accounting.ohada.journal.created', { journalEntry: je._id, studentId: student._id }); } catch (e) {}
+        } catch (ohadaErr) {
+          console.error('OHADA tuition payment posting failed, falling back to generic transaction:', ohadaErr);
+          const journalEntry = await recordGenericTransaction(
+            student.branch,
+            new mongoose.Types.ObjectId(req.user!.id),
+            'income',
+            'Tuition Fees',
+            Number(amount),
+            acctDesc,
+            tx.createdAt || new Date(),
+            currency || 'XAF'
+          );
+          try { emitEvent(student.branch.toString(), 'accounting.transaction.created', { transaction: journalEntry, studentId: student._id }); } catch (e) {}
+        }
     } catch (acctErr) {
         console.error('Failed to create accounting transaction for tuition payment:', acctErr);
         // Don't fail the overall payment flow if accounting entry fails; just log

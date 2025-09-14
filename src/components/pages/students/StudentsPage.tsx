@@ -16,7 +16,6 @@ import {
   MapPin, 
   GraduationCap,
   User,
-  MoreVertical,
   RefreshCw,
   FileText,
   Settings,
@@ -27,16 +26,15 @@ import {
   X,
   CheckCircle,
   AlertCircle,
-  Clock,
-  UserCheck,
   Building2,
   Save,
 } from 'lucide-react';
-import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
 import { useUI } from '../../../context/UIContext';
 import fetchClient from '../../../lib/fetchClient';
-import { restoreStudent, setEnrollmentStatus, updateStudent, payTuition } from '../../../api/students';
+import { restoreStudent, updateStudent, payTuition } from '../../../api/students';
+import StudentLedgerModal from '../../students/StudentLedgerModal';
+import StudentFinanceModal from '../../students/StudentFinanceModal';
 
 // Map status + category to tailwind classes for consistent pill styling
 function getStatusColor(status: string, category: 'tuition' | 'enrollment') {
@@ -154,22 +152,6 @@ interface StudentStats {
 }
 
 export const StudentsPage: React.FC = () => {
-  // Program list for filter dropdown
-  const [programs, setPrograms] = useState<any[]>([]);
-
-  useEffect(() => {
-    // Fetch all programs for filter dropdown
-    const fetchPrograms = async () => {
-      try {
-        const res = await fetchClient.get('/api/programs');
-        const data = await res.json();
-        setPrograms(data);
-      } catch (err) {
-        console.error('Failed to fetch programs', err);
-      }
-    };
-    fetchPrograms();
-  }, []);
   // Example filter dropdown for programs (add to your filter UI):
   // <select value={filterProgram} onChange={e => setFilterProgram(e.target.value)}>
   //   <option value="">All Programs</option>
@@ -177,14 +159,12 @@ export const StudentsPage: React.FC = () => {
   //     <option key={p._id} value={p._id}>{p.name}</option>
   //   ))}
   // </select>
-  const { user } = useAuth();
-  const { selectedBranch } = useBranch();
+  const { branch } = useBranch() as any; // adapt if context exports differently
   const { showToast } = useUI();
   
   const [students, setStudents] = useState<Student[]>([]);
   const [stats, setStats] = useState<StudentStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   
   // Enhanced Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -208,7 +188,6 @@ export const StudentsPage: React.FC = () => {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -218,6 +197,9 @@ export const StudentsPage: React.FC = () => {
   const [studentToDeleteId, setStudentToDeleteId] = useState<string | null>(null);
   const [studentToDeleteName, setStudentToDeleteName] = useState<string>('');
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [showLedger, setShowLedger] = useState(false);
+  const [ledgerStudent, setLedgerStudent] = useState<Student | null>(null);
+  const [financeStudentId, setFinanceStudentId] = useState<string | null>(null);
 
   // Fetch students
   const fetchStudents = async () => {
@@ -235,7 +217,7 @@ export const StudentsPage: React.FC = () => {
         ...(filterAcademicYear && { academicYear: filterAcademicYear }),
         ...(filterGender && { gender: filterGender }),
         ...(showActiveOnly && { isActive: 'true' }),
-        ...(selectedBranch && { branch: selectedBranch._id }),
+        ...(branch && { branch: branch._id }),
         sort: `${sortBy}:${sortOrder}`
       });
 
@@ -247,7 +229,6 @@ export const StudentsPage: React.FC = () => {
   setStudents(list);
   setTotal(meta.total || data.total || list.length || 0);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch students');
       showToast('Failed to fetch students', 'error');
     } finally {
       setLoading(false);
@@ -258,8 +239,8 @@ export const StudentsPage: React.FC = () => {
   const fetchStats = async () => {
     try {
       const params = new URLSearchParams();
-      if (selectedBranch) {
-        params.append('branch', selectedBranch._id);
+      if (branch) {
+        params.append('branch', branch._id);
       }
 
       const response = await fetchClient.get(`/api/students/stats/overview?${params}`);
@@ -276,11 +257,11 @@ export const StudentsPage: React.FC = () => {
 
   useEffect(() => {
     fetchStudents();
-  }, [page, pageSize, searchTerm, filterProgram, filterDepartment, filterTuitionStatus, filterEnrollmentStatus, filterAcademicYear, filterGender, showActiveOnly, selectedBranch, sortBy, sortOrder]);
+  }, [page, pageSize, searchTerm, filterProgram, filterDepartment, filterTuitionStatus, filterEnrollmentStatus, filterAcademicYear, filterGender, showActiveOnly, branch, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchStats();
-  }, [selectedBranch]);
+  }, [branch]);
 
   const handleDeleteStudent = async (studentId: string) => {
     try {
@@ -346,7 +327,7 @@ export const StudentsPage: React.FC = () => {
     try {
       const params = new URLSearchParams({
         format,
-        ...(selectedBranch && { branch: selectedBranch._id }),
+        ...(branch && { branch: branch._id }),
         ...(searchTerm && { search: searchTerm }),
         ...(filterProgram && { program: filterProgram }),
         ...(filterLevel && { level: filterLevel }),
@@ -524,10 +505,10 @@ export const StudentsPage: React.FC = () => {
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Students Management</h1>
                 <p className="text-gray-600 mt-1">Comprehensive student records and analytics</p>
-                {selectedBranch && (
+                {branch && (
                   <div className="flex items-center space-x-2 mt-2">
                     <Building2 className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm text-blue-600 font-medium">{selectedBranch.name}</span>
+                    <span className="text-sm text-blue-600 font-medium">{branch.name}</span>
                   </div>
                 )}
               </div>
@@ -541,7 +522,7 @@ export const StudentsPage: React.FC = () => {
                 <span>Refresh</span>
               </button>
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={() => {}}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-lg"
               >
                 <Plus className="w-4 h-4" />
@@ -594,7 +575,7 @@ export const StudentsPage: React.FC = () => {
                     </div>
                   </div>
                   <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 p-3 rounded-xl">
-                    <UserCheck className="w-8 h-8 text-white" />
+                    <CheckCircle className="w-8 h-8 text-white" />
                   </div>
                 </div>
               </div>
@@ -965,9 +946,7 @@ export const StudentsPage: React.FC = () => {
                         )}
                       </button>
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -1046,7 +1025,7 @@ export const StudentsPage: React.FC = () => {
                           </span>
                           <br />
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(student.enrollmentStatus, 'enrollment')}`}>
-                            <UserCheck className="w-3 h-3 mr-1" />
+                            <CheckCircle className="w-3 h-3 mr-1" />
                             {student.enrollmentStatus}
                           </span>
                         </div>
@@ -1058,104 +1037,37 @@ export const StudentsPage: React.FC = () => {
                         </div>
                         <div className="text-sm text-gray-500 mt-1">{student.academicYear}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-1">
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => {
-                              setSelectedStudent(student);
-                              setShowViewModal(true);
-                            }}
-                            className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all"
+                            onClick={() => { setSelectedStudent(student); setShowViewModal(true); }}
+                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
                             title="View Details"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye size={16} />
                           </button>
                           <button
-                            onClick={() => {
-                              setSelectedStudent(student);
-                              setShowPaymentDialog(true);
-                            }}
-                            className="p-2 text-emerald-600 hover:text-emerald-900 hover:bg-emerald-50 rounded-lg transition-all"
+                            onClick={() => { setSelectedStudent(student); setShowEditModal(true); }}
+                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                            title="Edit"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => { setLedgerStudent(student); setShowLedger(true); }}
+                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                            title="Ledger"
+                          >
+                            <FileText size={16} />
+                          </button>
+                          <button
+                            onClick={() => { setSelectedStudent(student); setShowPaymentDialog(true); }}
+                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
                             title="Record Payment"
                           >
-                            <CreditCard className="w-4 h-4" />
+                            <CreditCard size={16} />
                           </button>
-                          <button
-                            onClick={() => {
-                              setSelectedStudent(student);
-                              setShowEditModal(true);
-                            }}
-                            className="p-2 text-amber-600 hover:text-amber-900 hover:bg-amber-50 rounded-lg transition-all"
-                            title="Edit Student"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          
-                          <div className="relative group">
-                            <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                            <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border z-10 min-w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                              <div className="p-2">
-                                {student.isActive ? (
-                                  <>
-                                    <button
-                                      onClick={async () => {
-                                        try {
-                                          const newStatus = student.enrollmentStatus === 'Active' ? 'Suspended' : 'Active';
-                                          await setEnrollmentStatus(student._id, newStatus);
-                                          showToast(`Student ${newStatus === 'Active' ? 'unsuspended' : 'suspended'}`, 'success');
-                                          fetchStudents();
-                                          fetchStats();
-                                        } catch (e: any) {
-                                          showToast(e?.message || 'Failed to change enrollment status', 'error');
-                                        }
-                                      }}
-                                      className="w-full text-left px-3 py-2 text-sm text-amber-600 hover:bg-amber-50 rounded-md flex items-center space-x-2"
-                                    >
-                                      <Clock className="w-4 h-4" />
-                                      <span>{student.enrollmentStatus === 'Active' ? 'Suspend' : 'Unsuspend'}</span>
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setStudentToDeleteId(student._id);
-                                        setStudentToDeleteName(student.names || `${student.firstName} ${student.lastName}`);
-                                        setShowDeleteModal(true);
-                                      }}
-                                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md flex items-center space-x-2"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                      <span>Deactivate</span>
-                                    </button>
-                                    {student.email && (
-                                      <button
-                                        onClick={() => { window.location.href = `mailto:${student.email}`; }}
-                                        className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md flex items-center space-x-2"
-                                      >
-                                        <Mail className="w-4 h-4" />
-                                        <span>Email Student</span>
-                                      </button>
-                                    )}
-                                  </>
-                                ) : (
-                                  <button
-                                    onClick={async () => {
-                                      try {
-                                        await handleRestoreStudent(student._id);
-                                      } catch (e: any) {
-                                        console.error('Restore failed (icon):', e);
-                                        showToast(e?.message || 'Failed to restore student', 'error');
-                                      }
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-sm text-green-600 hover:bg-green-50 rounded-md flex items-center space-x-2"
-                                  >
-                                    <CheckCircle className="w-4 h-4" />
-                                    <span>Restore Student</span>
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                          <button onClick={() => setFinanceStudentId(student._id)} className="text-xs px-2 py-1 rounded bg-indigo-100 hover:bg-indigo-200">Finance</button>
                         </div>
                       </td>
                     </tr>
@@ -1219,7 +1131,7 @@ export const StudentsPage: React.FC = () => {
                             {student.tuitionStatus}
                           </span>
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.enrollmentStatus, 'enrollment')}`}>
-                            <UserCheck className="w-3 h-3 mr-1" />
+                            <CheckCircle className="w-3 h-3 mr-1" />
                             {student.enrollmentStatus}
                           </span>
                         </div>
@@ -1253,16 +1165,6 @@ export const StudentsPage: React.FC = () => {
                           <button
                             onClick={() => {
                               setSelectedStudent(student);
-                              setShowPaymentDialog(true);
-                            }}
-                            className="p-2 text-emerald-600 hover:text-emerald-900 hover:bg-emerald-100 rounded-lg transition-all"
-                            title="Record Payment"
-                          >
-                            <CreditCard className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedStudent(student);
                               setShowEditModal(true);
                             }}
                             className="p-2 text-amber-600 hover:text-amber-900 hover:bg-amber-100 rounded-lg transition-all"
@@ -1270,6 +1172,27 @@ export const StudentsPage: React.FC = () => {
                           >
                             <Edit className="w-4 h-4" />
                           </button>
+                          <button
+                            onClick={() => {
+                              setLedgerStudent(student);
+                              setShowLedger(true);
+                            }}
+                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all"
+                            title="View Ledger"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedStudent(student);
+                              setShowPaymentDialog(true);
+                            }}
+                            className="p-2 text-emerald-600 hover:text-emerald-900 hover:bg-emerald-50 rounded-lg transition-all"
+                            title="Record Payment"
+                          >
+                            <CreditCard className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setFinanceStudentId(student._id)} className="text-xs px-2 py-1 rounded bg-indigo-100 hover:bg-indigo-200">Finance</button>
                         </div>
                       </div>
                     </div>
@@ -1368,7 +1291,7 @@ export const StudentsPage: React.FC = () => {
                   </button>
                 )}
                 <button
-                  onClick={() => setShowCreateModal(true)}
+                  onClick={() => {}}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all flex items-center space-x-2 shadow-lg"
                 >
                   <Plus className="w-4 h-4" />
@@ -1466,6 +1389,17 @@ export const StudentsPage: React.FC = () => {
             }}
           />
         )}
+
+        {/* Student Ledger Modal */}
+        <StudentLedgerModal
+          studentId={ledgerStudent?._id || null}
+          studentName={ledgerStudent ? (ledgerStudent.names || `${ledgerStudent.firstName} ${ledgerStudent.lastName}`) : undefined}
+          open={showLedger}
+          onClose={() => { setShowLedger(false); setLedgerStudent(null); }}
+        />
+
+        {/* Student Finance Modal */}
+        <StudentFinanceModal open={Boolean(financeStudentId)} studentId={financeStudentId} onClose={() => setFinanceStudentId(null)} />
       </div>
     </div>
   );
@@ -1522,7 +1456,7 @@ function StudentDetailsModal({
               <p className="text-gray-600">Student ID: {student.studentId}</p>
               <div className="flex items-center space-x-2 mt-2">
                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.enrollmentStatus, 'enrollment')}`}>
-                  <UserCheck className="w-3 h-3 mr-1" />
+                  <CheckCircle className="w-3 h-3 mr-1" />
                   {student.enrollmentStatus}
                 </span>
                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.tuitionStatus, 'tuition')}`}>
@@ -1662,7 +1596,7 @@ function StudentDetailsModal({
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Enrollment Status:</span>
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.enrollmentStatus, 'enrollment')}`}>
-                      <UserCheck className="w-3 h-3 mr-1" />
+                      <CheckCircle className="w-3 h-3 mr-1" />
                       {student.enrollmentStatus}
                     </span>
                   </div>
@@ -1701,7 +1635,11 @@ function StudentDetailsModal({
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                      <p className="text-sm text-green-600 font-medium">Total Paid</p>
+                      <p className="text-sm text-green-600 font-medium flex items-center gap-2">Total Paid
+                        {(!tuitionDetails.student?.tuitionInstallments || !tuitionDetails.student?.tuitionInstallments.length) && (
+                          <span className="text-[10px] text-green-700 bg-green-100 px-2 py-0.5 rounded" title="No installments defined; showing direct payments total if any">(direct)</span>
+                        )}
+                      </p>
                       <p className="text-2xl font-bold text-green-700">
                         {(tuitionDetails.student?.totalPaid || 0).toLocaleString()} XAF
                       </p>
@@ -1939,6 +1877,27 @@ function PaymentDialog({ student, tuitionDetails, onClose }: { student: Student;
   const [notes, setNotes] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const { showToast } = useUI();
+  const [creditAccountCode, setCreditAccountCode] = useState<string>('');
+  const [incomeAccounts, setIncomeAccounts] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      // fetch income accounts once when modal opens
+      fetchClient.get('/api/ohada/accounts?type=income').then(async r => {
+        if (r.ok) {
+          const json = await r.json();
+          setIncomeAccounts(json.data || []);
+          if (!creditAccountCode && (json.data || []).length) {
+            const tuition = (json.data || []).find((a: any) => /tuition/i.test(a.name));
+            setCreditAccountCode(tuition ? tuition.code : json.data[0].code);
+          }
+        } else {
+          const t = await r.text();
+          showToast(t || 'Failed to initialize', 'error');
+        }
+      }).catch(()=>{});
+    }
+  }, [open]);
 
   const installments = tuitionDetails?.student?.tuitionInstallments || [];
   const [selectedInstallment, setSelectedInstallment] = useState<any>(null);
@@ -1986,7 +1945,8 @@ function PaymentDialog({ student, tuitionDetails, onClose }: { student: Student;
         amount: Number(amount), 
         installmentKey: installmentKey || undefined, 
         method, 
-        notes 
+        notes,
+        creditAccountCode: creditAccountCode || undefined
       });
       showToast('Payment recorded successfully', 'success');
       onClose();
@@ -2121,6 +2081,56 @@ function PaymentDialog({ student, tuitionDetails, onClose }: { student: Student;
               <option value="Online">Online Payment</option>
               <option value="Check">Check</option>
             </select>
+          </div>
+
+          {/* Credit (Income) Account */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Credit Account (Income)</label>
+            {incomeAccounts.length === 0 && (
+              <div className="mb-2 p-3 rounded border border-amber-300 bg-amber-50 text-amber-800 text-sm flex items-start gap-3">
+                <div className="flex-1">
+                  <p className="font-medium">No income accounts found.</p>
+                  <p className="text-xs mt-1">Initialize the OHADA chart of accounts to select an income account for this payment.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const r = await fetchClient.postJson('/api/ohada/accounts/initialize', {});
+                      if (r.ok) {
+                        const json = await r.json();
+                        showToast('Chart initialized');
+                        // refetch accounts
+                        const again = await fetchClient.get('/api/ohada/accounts?type=income');
+                        if (again.ok) {
+                          const data = await again.json();
+                          setIncomeAccounts(data.data || []);
+                          if ((data.data || []).length) setCreditAccountCode((data.data[0] || {}).code);
+                        }
+                      } else {
+                        const t = await r.text();
+                        showToast(t || 'Failed to initialize', 'error');
+                      }
+                    } catch (e:any) {
+                      showToast(e.message || 'Initialization failed', 'error');
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-medium"
+                >Initialize</button>
+              </div>
+            )}
+            <select
+              value={creditAccountCode}
+              onChange={e => setCreditAccountCode(e.target.value)}
+              disabled={incomeAccounts.length === 0}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60"
+            >
+              {incomeAccounts.map((acc:any) => (
+                <option key={acc.code} value={acc.code}>{acc.code} — {acc.name}</option>
+              ))}
+              {incomeAccounts.length === 0 && <option value="">Loading / None</option>}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">Select which income account to credit for this payment.</p>
           </div>
 
           {/* Notes */}

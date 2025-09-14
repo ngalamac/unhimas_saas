@@ -67,7 +67,7 @@ export async function getStudent(id: string): Promise<{ data: Student }> {
     return res.json();
 }
 
-export async function payTuition(id: string, payload: { amount: number; currency?: string; installmentKey?: string; method?: string; notes?: string }): Promise<{ data: any }> {
+export async function payTuition(id: string, payload: { amount: number; currency?: string; installmentKey?: string; method?: string; notes?: string; creditAccountCode?: string }): Promise<{ data: any }> {
     const res = await fetchClient.postJson(`${BASE}/${id}/payments`, payload);
     if (!res.ok) {
         await handleFetchError(res);
@@ -105,5 +105,72 @@ export async function deleteStudent(id: string): Promise<any> {
         await handleFetchError(res);
     }
     return res.json();
+}
 
+export interface StudentLedgerLine {
+    date: string;
+    reference: string;
+    description: string;
+    accountCode: string;
+    accountName: string;
+    debit: number;
+    credit: number;
+    runningBalance: number;
+}
+
+export interface StudentLedgerResponse {
+    data: {
+        studentId: string;
+        period?: string;
+        lines: StudentLedgerLine[];
+        totalDebit: number;
+        totalCredit: number;
+        balance: number;
+    }
+}
+
+export async function getStudentLedger(id: string, opts?: { period?: string }): Promise<StudentLedgerResponse> {
+    const params = new URLSearchParams();
+    if (opts?.period) params.set('period', opts.period);
+    const res = await fetchClient.get(`${BASE}/${id}/ledger${params.toString() ? `?${params.toString()}` : ''}`);
+    if (!res.ok) {
+        await handleFetchError(res);
+    }
+    return res.json();
+}
+
+export interface StudentFinanceSummary {
+  tuitionStatus: string;
+  totalInstallmentDue: number;
+  totalInstallmentPaid: number;
+  totalInstallmentRemaining: number;
+    paymentsTotal: number;
+  studentRecordedTotalPaid: number;
+  studentRecordedBalance: number;
+  accountingLedgerDebit: number;
+  accountingLedgerCredit: number;
+  accountingLedgerBalance: number;
+  paymentsCount: number;
+  ledgerLinesCount: number;
+}
+
+export interface StudentFinanceResponse {
+  data: {
+    student: any;
+    payments: any[];
+    installments: Array<{ key?: string; label?: string; amountDue: number; paid: number; remaining: number; status: string; dueDate?: string|null }>;
+    ledger: { lines: any[]; totals: { debit: number; credit: number; balance: number } };
+    summary: StudentFinanceSummary;
+  }
+}
+
+export async function getStudentFinance(id: string, opts?: { period?: string; paymentsLimit?: number }): Promise<StudentFinanceResponse> {
+  const params = new URLSearchParams();
+  if (opts?.period) params.set('period', opts.period);
+  if (opts?.paymentsLimit) params.set('paymentsLimit', String(opts.paymentsLimit));
+  const res = await fetchClient.get(`${BASE}/${id}/finance${params.toString() ? `?${params.toString()}` : ''}`);
+  if (!res.ok) {
+    await handleFetchError(res);
+  }
+  return res.json();
 }
