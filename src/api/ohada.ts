@@ -180,8 +180,37 @@ export async function exportOHADAReport(
   const query = new URLSearchParams({ period, format });
   if (branch) query.append('branch', branch);
 
-  const res = await fetchClient.get(`${BASE}/reports/${reportType}/export?${query.toString()}`);
-  if (!res.ok) {
+  // Backend expects hyphenated segment (trial-balance, balance-sheet, income-statement, etc.)
+  const pathMap: Record<string, string> = {
+    trial_balance: 'trial-balance',
+    balance_sheet: 'balance-sheet',
+    income_statement: 'income-statement',
+    cash_flow: 'cash-flow',
+    general_ledger: 'general-ledger'
+  };
+  const segment = pathMap[reportType] || reportType;
+
+  const attempt = async (seg: string) => {
+    const r = await fetchClient.get(`${BASE}/reports/${seg}/export?${query.toString()}`);
+    return r;
+  };
+
+  let res = await attempt(segment);
+  if (!res.ok && res.status === 400) {
+    // Try fallback underscore variant if first was hyphen and server rejected
+    if (segment.includes('-')) {
+      const underscore = segment.replace(/-/g, '_');
+      const fallbackRes = await attempt(underscore);
+      if (fallbackRes.ok) {
+        res = fallbackRes;
+      } else {
+        // propagate first error if both fail
+        await handleFetchError(res);
+      }
+    } else {
+      await handleFetchError(res);
+    }
+  } else if (!res.ok) {
     await handleFetchError(res);
   }
   return res.blob();

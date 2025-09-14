@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Shield, Users, Eye, AlertTriangle, CheckCircle, Activity, Clock, Building2, BarChart3 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Shield, Users, AlertTriangle, CheckCircle, Activity, Clock, Building2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useUI } from '../../context/UIContext';
 import fetchClient from '../../lib/fetchClient';
@@ -29,60 +29,107 @@ const AccessControlDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('7d');
 
-  useEffect(() => {
-    fetchAccessStats();
-  }, [timeRange]);
-
-  const fetchAccessStats = async () => {
+  const fetchAccessStats = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Mock comprehensive access control data
-      const mockStats: AccessStats = {
-        totalUsers: 89,
-        activeUsers: 76,
-        inactiveUsers: 13,
-        recentLogins: 45,
-        failedLogins: 3,
-        roleDistribution: [
-          { role: 'Lecturer', count: 45, percentage: 50.6 },
-          { role: 'Admin', count: 8, percentage: 9.0 },
-          { role: 'Accountant', count: 12, percentage: 13.5 },
-          { role: 'Dean of Studies', count: 3, percentage: 3.4 },
-          { role: 'Head Of Department', count: 6, percentage: 6.7 },
-          { role: 'SuperAdmin', count: 1, percentage: 1.1 },
-          { role: 'Other', count: 14, percentage: 15.7 }
-        ],
-        branchDistribution: [
-          { branch: 'Main Campus', count: 45 },
-          { branch: 'Yaoundé Branch', count: 28 },
-          { branch: 'Bamenda Branch', count: 12 },
-          { branch: 'Bafoussam Branch', count: 4 }
-        ],
-        permissionUsage: [
-          { feature: 'students', users: 67, percentage: 75.3 },
-          { feature: 'accounting', users: 23, percentage: 25.8 },
-          { feature: 'courses', users: 51, percentage: 57.3 },
-          { feature: 'grades', users: 48, percentage: 53.9 },
-          { feature: 'reports', users: 34, percentage: 38.2 },
-          { feature: 'communication', users: 19, percentage: 21.3 }
-        ],
-        recentActivity: [
-          { id: '1', user: 'Dr. Jean Mbarga', action: 'Updated student record', timestamp: '2 minutes ago', status: 'success' },
-          { id: '2', user: 'Prof. Marie Nkomo', action: 'Failed login attempt', timestamp: '5 minutes ago', status: 'warning' },
-          { id: '3', user: 'Admin User', action: 'Created new user account', timestamp: '12 minutes ago', status: 'success' },
-          { id: '4', user: 'Finance Officer', action: 'Generated financial report', timestamp: '18 minutes ago', status: 'success' },
-          { id: '5', user: 'System', action: 'Permission denied for unauthorized access', timestamp: '25 minutes ago', status: 'error' }
-        ]
-      };
+      // Fetch users & branches concurrently
+      const [usersRes, branchesRes] = await Promise.all([
+        fetchClient.get('/api/users?limit=1000'),
+        fetchClient.get('/api/branches')
+      ]);
 
-      setStats(mockStats);
-    } catch (error) {
+      const usersJson = usersRes.ok ? await usersRes.json() : { data: [] };
+      const branchesJson = branchesRes.ok ? await branchesRes.json() : { data: [] };
+      const users = usersJson.data || [];
+      const branches = branchesJson.data || [];
+
+      const totalUsers = users.length;
+      const activeUsers = users.filter((u: any) => u.isActive !== false).length;
+      const inactiveUsers = totalUsers - activeUsers;
+
+      // Basic recentLogins placeholder: count users with lastLogin within timeRange window
+      const now = Date.now();
+      const rangeDays = timeRange === '24h' ? 1 : timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
+      const recentLogins = users.filter((u: any) => {
+        if (!u.lastLogin) return false;
+        const diffDays = (now - new Date(u.lastLogin).getTime()) / (1000*60*60*24);
+        return diffDays <= rangeDays;
+      }).length;
+
+      // Placeholder failedLogins until backend endpoint exists
+      const failedLogins = 0; // TODO: replace with /api/audit/failed-logins
+
+      // Role distribution
+      const roleCounts: Record<string, number> = {};
+      users.forEach((u: any) => {
+        const r = u.type || 'Unknown';
+        roleCounts[r] = (roleCounts[r] || 0) + 1;
+      });
+      const roleDistribution = Object.entries(roleCounts).map(([role, count]) => ({
+        role,
+        count,
+        percentage: totalUsers ? (count / totalUsers) * 100 : 0
+      })).sort((a,b) => b.count - a.count);
+
+      // Branch distribution
+      const branchCounts: Record<string, number> = {};
+      users.forEach((u: any) => {
+        const b = u.branch?.name || 'Unassigned';
+        branchCounts[b] = (branchCounts[b] || 0) + 1;
+      });
+      const branchDistribution = Object.entries(branchCounts).map(([branch, count]) => ({ branch, count }))
+        .sort((a,b) => b.count - a.count);
+
+      // Permission usage (feature-level)
+      const featureUserSet: Record<string, Set<string>> = {};
+      users.forEach((u: any) => {
+        const perms = u.permissions || {};
+        Object.entries(perms).forEach(([feature, actions]) => {
+          const hasAny = Object.values(actions as any).some((v: any) => v === true);
+          if (hasAny) {
+            const f = feature.toLowerCase();
+            if (!featureUserSet[f]) featureUserSet[f] = new Set();
+            featureUserSet[f].add(u._id);
+          }
+        });
+      });
+      const permissionUsage = Object.entries(featureUserSet).map(([feature, set]) => ({
+        feature,
+        users: set.size,
+        percentage: totalUsers ? (set.size / totalUsers) * 100 : 0
+      })).sort((a,b) => b.users - a.users).slice(0, 12);
+
+      // Recent activity placeholder until audit log endpoint exists
+      const recentActivity: AccessStats['recentActivity'] = [
+        { id: 'placeholder-1', user: user?.username || 'System', action: 'Permissions viewed', timestamp: 'Just now', status: 'success' }
+      ];
+
+      const dynamicStats: AccessStats = {
+        totalUsers,
+        activeUsers,
+        inactiveUsers,
+        recentLogins,
+        failedLogins,
+        roleDistribution,
+        branchDistribution,
+        permissionUsage,
+        recentActivity
+      };
+      setStats(dynamicStats);
+    } catch (e) {
       showToast('Failed to load access statistics', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast, timeRange, user?.username]);
+
+  useEffect(() => { fetchAccessStats(); }, [fetchAccessStats]);
+  // Refresh when permissionsUpdated event fires
+  useEffect(() => {
+    const handler = () => fetchAccessStats();
+    window.addEventListener('permissionsUpdated', handler);
+    return () => window.removeEventListener('permissionsUpdated', handler);
+  }, [fetchAccessStats]);
 
   const getActivityIcon = (status: string) => {
     switch (status) {

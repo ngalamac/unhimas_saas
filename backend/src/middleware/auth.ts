@@ -84,42 +84,71 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
 export default authMiddleware;
 
 // Enhanced permissions middleware with hierarchical support
-export function requirePermission(permission: string) {
+/**
+ * Strict permission middleware.
+ * Accepts a single permission string (feature:action) or an array where ANY match grants access.
+ * Supports wildcards:
+ *   feature:*  => any action for feature
+ *   *:action   => action allowed on any feature having that action true
+ *   *          => (SuperAdmin only) – discouraged elsewhere
+ */
+export function requirePermission(required: string | string[]) {
+  const requiredList = Array.isArray(required) ? required : [required];
+
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    // SuperAdmin has all permissions
     if (req.user.isSuperAdmin) {
       return next();
     }
 
-    // Check if user has the specific permission
     const userPermissions = req.user.permissions || {};
-    const hasPermission = Object.keys(userPermissions).some(feature => {
-      const actions = userPermissions[feature];
-      if (typeof actions === 'object') {
-        return Object.values(actions).some(Boolean);
+
+    const matches = (perm: string): boolean => {
+      if (!perm) return false;
+      if (perm === '*') return false; // reserved for SuperAdmin only
+
+      // Support plain feature name (e.g. 'accounting') => any granted action under that feature
+      if (!perm.includes(':')) {
+        const featurePerms = userPermissions[perm];
+        if (!featurePerms) return false;
+        return Object.values(featurePerms).some(Boolean); // any action true
       }
-      return false;
-    });
 
-    // Check for specific permission in the format "feature:action"
-    const [feature, action] = permission.split(':');
-    if (feature && action) {
-      const featurePermissions = userPermissions[feature];
-      if (featurePermissions && featurePermissions[action]) {
-        return next();
+      const [feature, action] = perm.split(':');
+      if (!feature) return false;
+
+      // feature:* => any action for that feature
+      if (action === '*') {
+        const featurePerms = userPermissions[feature];
+        return !!featurePerms && Object.values(featurePerms).some(Boolean);
       }
-    }
 
-    // Check for general permission
-    if (userPermissions[permission] || hasPermission) {
-      return next();
-    }
+      // *:action => that action on any feature
+      if (feature === '*') {
+        return Object.values(userPermissions).some(fp => !!fp && fp[action]);
+      }
 
-    return res.status(403).json({ error: 'Insufficient permissions' });
+      // 'all' umbrella feature (if present) can satisfy specific action
+      if (userPermissions['all'] && userPermissions['all'][action]) {
+        return true;
+      }
+
+      return !!userPermissions[feature]?.[action];
+    };
+
+    const allowed = requiredList.some(r => matches(r));
+
+    if (!allowed) {
+      return res.status(403).json({
+        error: 'Insufficient permissions',
+        required: requiredList,
+        granted: userPermissions
+      });
+    }
+    return next();
   };
 }
 

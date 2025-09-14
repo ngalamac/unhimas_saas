@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, TrendingDown, Users, DollarSign, GraduationCap, Building2, Calendar, Filter, Download } from 'lucide-react';
+import { BarChart3, Users, DollarSign, Building2, Filter } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
-import { useBranch } from '../../../context/BranchContext';
 import { useUI } from '../../../context/UIContext';
 import fetchClient from '../../../lib/fetchClient';
 
@@ -39,7 +38,8 @@ interface AnalyticsData {
 
 export const AnalyticsPage: React.FC = () => {
   const { user } = useAuth();
-  const { selectedBranch } = useBranch();
+  // Branch context available if needed for future filtering, currently unused
+  // const { currentBranch } = useBranch();
   const { showToast } = useUI();
   
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
@@ -104,11 +104,8 @@ export const AnalyticsPage: React.FC = () => {
         ...(selectedBranchFilter && { branch: selectedBranchFilter })
       });
 
-      const response = await fetchClient.get(`/api/analytics/export?${params}`, {
-        responseType: 'blob'
-      });
-
-      const blob = new Blob([response.data]);
+  const response = await fetchClient.get(`/api/analytics/export?${params}`);
+  const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -209,7 +206,7 @@ export const AnalyticsPage: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             />
           </div>
-          {user?.type === 'SuperAdmin' && (
+          {(user?.role === 'SuperAdmin') && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
               <select
@@ -334,7 +331,7 @@ export const AnalyticsPage: React.FC = () => {
             <div className="bg-white p-6 rounded-lg shadow-sm border">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Students by Gender</h3>
               <div className="space-y-3">
-                {analyticsData.students.byGender.map((item) => (
+                {(analyticsData.students.byGender || []).map((item) => (
                   <div key={item._id} className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">{item._id}</span>
                     <div className="flex items-center space-x-2">
@@ -354,7 +351,7 @@ export const AnalyticsPage: React.FC = () => {
             <div className="bg-white p-6 rounded-lg shadow-sm border">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Staff by Type</h3>
               <div className="space-y-3">
-                {analyticsData.staff.byType.map((item) => (
+                {(analyticsData.staff.byType || []).map((item) => (
                   <div key={item._id} className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">{item._id}</span>
                     <div className="flex items-center space-x-2">
@@ -373,11 +370,11 @@ export const AnalyticsPage: React.FC = () => {
           </div>
 
           {/* Branch Distribution */}
-          {user?.type === 'SuperAdmin' && (
+          {(user?.role === 'SuperAdmin') && (
             <div className="bg-white p-6 rounded-lg shadow-sm border">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Branch Distribution</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {analyticsData.branches.studentDistribution.map((branch) => (
+                {(analyticsData.branches.studentDistribution || []).map((branch) => (
                   <div key={branch._id} className="p-4 border rounded-lg">
                     <h4 className="font-medium text-gray-900">{branch.name}</h4>
                     <div className="mt-2 space-y-1">

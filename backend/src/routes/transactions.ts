@@ -314,6 +314,43 @@ router.get('/summary', requirePermission('accounting:view'), async (req: any, re
     }
 });
 
+// GET /api/transactions/summary/trends - Monthly income vs expense (last 6 months)
+router.get('/summary/trends', requirePermission('accounting:view'), async (req: any, res) => {
+    try {
+        const { branch } = req.query;
+        const now = new Date();
+        const results: { month: string; label: string; income: number; expense: number; net: number }[] = [];
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthStart = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+            const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+            const monthKey = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`;
+            const label = monthStart.toLocaleString('en-US', { month: 'short' });
+
+            const filter: any = { status: 'approved', date: { $gte: monthStart, $lte: monthEnd } };
+            if (branch) filter.branch = branch;
+            const entries = await JournalEntry.find(filter).populate('lines.account');
+            let income = 0;
+            let expense = 0;
+            for (const entry of entries) {
+                for (const line of entry.lines) {
+                    const account = (line as any).account;
+                    if (account) {
+                        if (account.type === 'income') income += line.credit;
+                        else if (account.type === 'expense') expense += line.debit;
+                    }
+                }
+            }
+            results.push({ month: monthKey, label, income, expense, net: income - expense });
+        }
+
+        res.json({ data: { months: results } });
+    } catch (err: any) {
+        console.error('GET /api/transactions/summary/trends error', err);
+        res.status(500).json({ error: { message: 'Failed to compute trends', details: err.message } });
+    }
+});
+
 // POST /api/transactions - Create a simple transaction (e.g., from a form)
 router.post('/', requirePermission('accounting:create'), async (req: any, res) => {
     try {

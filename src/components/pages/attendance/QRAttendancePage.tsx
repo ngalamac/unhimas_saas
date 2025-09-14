@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { QrCode, Camera, Users, Clock, CheckCircle, XCircle } from 'lucide-react';
+// Import required mock datasets (adjust path if real API integration is added later)
+import { mockAttendance, mockStudents, mockCourses } from '../../../data/mockData';
 
 export const QRAttendancePage: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState('');
-  const [attendanceData, setAttendanceData] = useState(mockAttendance);
+  // Initialize with imported mockAttendance; ensure it's an array fallback
+  const [attendanceData] = useState(() => Array.isArray(mockAttendance) ? mockAttendance : []);
 
   const todayAttendance = attendanceData.filter(
     attendance => attendance.date === new Date().toISOString().split('T')[0]
@@ -76,7 +79,7 @@ export const QRAttendancePage: React.FC = () => {
             <div>
               <p className="text-sm text-gray-600">Absent Today</p>
               <p className="text-xl font-bold text-gray-900">
-                {mockStudents.length - todayAttendance.length}
+                {(mockStudents || []).length - todayAttendance.length}
               </p>
             </div>
           </div>
@@ -109,7 +112,7 @@ export const QRAttendancePage: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select a course</option>
-              {mockCourses.map(course => (
+              {(mockCourses || []).map(course => (
                 <option key={course.id} value={course.id}>
                   {course.code} - {course.name}
                 </option>
@@ -163,8 +166,8 @@ export const QRAttendancePage: React.FC = () => {
           
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {todayAttendance.map((attendance) => {
-              const student = mockStudents.find(s => s.id === attendance.studentId);
-              const course = mockCourses.find(c => c.id === attendance.courseId);
+              const student = (mockStudents || []).find((s: any) => (s.id || s._id) === attendance.studentId);
+              const course = (mockCourses || []).find((c: any) => (c.id || c._id) === attendance.courseId);
               
               return (
                 <div key={attendance.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">

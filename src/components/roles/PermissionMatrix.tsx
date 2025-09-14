@@ -3,6 +3,7 @@ import { Shield, Users, Eye, Edit, Save, X, Check, AlertCircle, Info } from 'luc
 import { useAuth } from '../../context/AuthContext';
 import { useUI } from '../../context/UIContext';
 import fetchClient from '../../lib/fetchClient';
+import { normalizePermissions, dispatchPermissionsUpdated } from '../../utils/permissions';
 
 interface Permission {
   feature: string;
@@ -166,23 +167,27 @@ const PermissionMatrix: React.FC = () => {
       const user = users.find(u => u._id === userId);
       if (!user) return;
 
-      const updatedPermissions = { ...user.permissions };
+      // Clone and mutate then normalize (drops any false/empty remnants)
+      const updatedPermissions = { ...user.permissions } as Record<string, Record<string, boolean>>;
       if (!updatedPermissions[feature]) {
         updatedPermissions[feature] = {};
       }
       updatedPermissions[feature][action] = value;
+      const normalized = normalizePermissions(updatedPermissions);
 
       const response = await fetchClient.put(`/api/users/${userId}/permissions`, {
-        permissions: updatedPermissions
+        permissions: normalized,
+        replace: true
       });
 
       if (response.ok) {
         setUsers(prev => prev.map(u => 
           u._id === userId 
-            ? { ...u, permissions: updatedPermissions }
+            ? { ...u, permissions: normalized }
             : u
         ));
         showToast('Permission updated successfully', 'success');
+        dispatchPermissionsUpdated({ userId });
       } else {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to update permission');
@@ -219,7 +224,9 @@ const PermissionMatrix: React.FC = () => {
       case 'Lecturer': return 'bg-green-100 text-green-800 border-green-200';
       case 'Accountant': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'Dean of Studies': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'Head Of Department': return 'bg-pink-100 text-pink-800 border-pink-200';
+      case 'Head Of Department':
+      case 'Head of Department':
+        return 'bg-pink-100 text-pink-800 border-pink-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
@@ -358,8 +365,8 @@ const PermissionMatrix: React.FC = () => {
                         <div className="flex flex-col items-center space-y-1">
                           <div className="text-xs text-purple-600 font-medium">Full Access</div>
                           <div className="flex space-x-1">
-                            {permission.actions.map(() => (
-                              <Check key={Math.random()} className="w-3 h-3 text-purple-600" />
+                            {permission.actions.map((action) => (
+                              <Check key={action} className="w-3 h-3 text-purple-600" />
                             ))}
                           </div>
                         </div>

@@ -141,25 +141,26 @@ export const Calendar: React.FC = () => {
         ))}
       </div>
 
-      {/* Birthday Section */}
+      {/* Birthday Section (placeholder) */}
       <div className="mt-6 space-y-4">
+        {/* TODO: Backend endpoint to fetch birthdays for current day, e.g. /api/students/birthdays?day=YYYY-MM-DD */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Users className="w-5 h-5 text-blue-500" />
-            <span className="font-medium">Student</span>
+            <span className="font-medium">Student Birthdays</span>
           </div>
-          <span className="text-2xl font-bold text-orange-500">0</span>
+          <span className="text-2xl font-bold text-orange-500">--</span>
         </div>
-        <div className="text-xs text-gray-500 border-t pt-2">TODAY BIRTHDAY</div>
+        <div className="text-xs text-gray-500 border-t pt-2">Pending implementation</div>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Users className="w-5 h-5 text-blue-500" />
-            <span className="font-medium">Employee</span>
+            <span className="font-medium">Employee Birthdays</span>
           </div>
-          <span className="text-2xl font-bold text-orange-500">0</span>
+          <span className="text-2xl font-bold text-orange-500">--</span>
         </div>
-        <div className="text-xs text-gray-500 border-t pt-2">TODAY BIRTHDAY</div>
+        <div className="text-xs text-gray-500 border-t pt-2">Pending implementation</div>
       </div>
     </div>
   );

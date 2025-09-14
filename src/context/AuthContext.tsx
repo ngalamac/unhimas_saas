@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 interface User {
   id: string;
@@ -7,7 +7,10 @@ interface User {
   role: string;
   firstName: string;
   lastName: string;
+  // Flattened permissions like feature:action for quick checks (legacy support)
   permissions: string[];
+  // Raw nested permission map from backend
+  rawPermissions: Record<string, Record<string, boolean>>;
   department?: string;
   employeeId?: string;
 }
@@ -15,9 +18,12 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string, role: string) => Promise<boolean>;
+  login: (username: string, password: string, role?: string) => Promise<boolean>;
   logout: () => void;
+  // Backwards compatible single string check ("feature:action")
   hasPermission: (permission: string) => boolean;
+  // New granular check
+  can: (feature: string, action: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,52 +49,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return !!localStorage.getItem('token');
   });
 
-  const getRolePermissions = (role: string): string[] => {
-    switch (role) {
-      case 'SuperAdmin':
-        return ['all'];
-      case 'Admin':
-        return ['students', 'fees', 'reports', 'announcements', 'branches', 'programs', 'departments'];
-      case 'Lecturer':
-        return ['students', 'grades', 'attendance', 'courses', 'academic_reports'];
-      case 'Accountant':
-        return ['fees', 'payments', 'financial_reports', 'accounting'];
-      case 'Dean of Studies':
-        return ['students', 'courses', 'programs', 'academic_reports', 'grades', 'departments'];
-      case 'Head Of Department':
-        return ['department_students', 'department_courses', 'department_reports', 'grades', 'attendance'];
-      default:
-        return [];
-    }
-  };
+  // Listen for permission updates (other tabs/components) and refresh user from latest backend if needed later.
+  useEffect(() => {
+    const handler = () => {
+      // For now just re-read from localStorage (could be extended to refetch /me endpoint)
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          setUser(parsed);
+        } catch {}
+      }
+    };
+    window.addEventListener('permissionsUpdated', handler as EventListener);
+    return () => window.removeEventListener('permissionsUpdated', handler as EventListener);
+  }, []);
 
-  const login = async (username: string, password: string, role: string): Promise<boolean> => {
+
+  const login = async (username: string, password: string, role?: string): Promise<boolean> => {
     try {
       const res = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: username, password }),
       });
-      const body = await res.json();
-      if (res.ok && body.data.token && body.data.user) {
-        const { token, user: userData } = body.data;
+  const body = await res.json();
+  // Backend returns { token, user } (no data wrapper). Support both shapes.
+  const token = body?.data?.token || body?.token;
+  const userData = body?.data?.user || body?.user;
+  if (res.ok && token && userData) {
         // Optionally check role match
         if (role && userData.type !== role) {
           return false;
         }
         // Only include features with at least one action set to true
         // Extract granular permissions: 'feature:action' for all actions set to true
-        const featurePermissions = Object.entries(userData.permissions || {})
+  const rawPermissions: Record<string, Record<string, boolean>> = userData.permissions || {};
+  const featurePermissions = Object.entries(rawPermissions || {})
           .flatMap(([feature, actions]) => {
             if (!actions || typeof actions !== 'object') return [];
             return Object.entries(actions)
-              .filter(([action, value]) => value === true)
+              .filter(([, value]) => value === true)
               .map(([action]) => `${feature.toLowerCase()}:${action.toLowerCase()}`);
           });
         // Defensive name parsing in case name is missing or single-token
         const fullName = typeof userData.name === 'string' ? userData.name.trim() : '';
         const nameParts = fullName ? fullName.split(/\s+/) : [];
-        const user = {
+        const user: User = {
           id: userData._id,
           username: userData.name || '',
           email: userData.email || '',
@@ -96,6 +103,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           firstName: nameParts[0] || '',
           lastName: nameParts[1] || '',
           permissions: featurePermissions,
+          rawPermissions: rawPermissions,
           department: userData.department || '',
           employeeId: userData.employeeId || '',
         };
@@ -121,33 +129,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const hasPermission = (permission: string): boolean => {
     if (!user) return false;
     if (user.permissions.includes('all')) return true;
-    return user.permissions.includes(permission);
+    return user.permissions.includes(permission.toLowerCase());
   };
 
-  const getFirstName = (role: string): string => {
-    switch (role) {
-      case 'SuperAdmin': return 'Super';
-      case 'Admin': return 'Admin';
-      case 'Lecturer': return 'Prof.';
-      case 'Accountant': return 'Finance';
-      case 'Dean of Studies': return 'Dean';
-      case 'Head Of Department': return 'HOD';
-      default: return 'User';
-    }
+  const can = (feature: string, action: string): boolean => {
+    if (!user) return false;
+    if (user.permissions.includes('all')) return true;
+    const f = feature.toLowerCase();
+    const a = action.toLowerCase();
+    return !!user.rawPermissions?.[f]?.[a];
   };
 
-  const getDepartment = (role: string): string => {
-    switch (role) {
-      case 'Lecturer': return 'Computer Engineering';
-      case 'Accountant': return 'Finance Department';
-      case 'Dean of Studies': return 'Academic Affairs';
-      case 'Head Of Department': return 'Computer Engineering';
-      default: return 'Administration';
-    }
-  };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, hasPermission }}>
+  <AuthContext.Provider value={{ user, isAuthenticated, login, logout, hasPermission, can }}>
       {children}
     </AuthContext.Provider>
   );

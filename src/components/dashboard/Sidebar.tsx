@@ -128,6 +128,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   };
 
   // Enhanced sidebar items with real-time data integration
+  // Map sidebar feature requirements so we can evaluate granular access.
+  // Use feature:action pairs aligned with backend permission feature/action names.
+  const permissionMap: Record<string, string[]> = {
+    dashboard: ['dashboard:view','all'],
+    students: ['students:read','students:create','all'],
+    academics: ['programs:read','departments:read','courses:read','grades:read','all'],
+    accounting: ['accounting:read','all'],
+    'human-resources': ['staff:read','all'],
+    operations: ['attendance:read','communication:read','all'],
+    analytics: ['reports:read','all'],
+    administration: ['users:read','roles:read','branches:read','backup:read','all'],
+    settings: ['all']
+  };
+
+  const { can } = useAuth();
+
+  const hasAnyPermission = (id: string): boolean => {
+    const req = permissionMap[id];
+    if (!req || req.length === 0) return true; // default visible
+    return req.some(r => {
+      if (r === 'all') return user?.permissions?.includes?.('all');
+      const [feature, action] = r.split(':');
+      return can(feature, action);
+    });
+  };
+
   const sidebarItems: SidebarItem[] = [
     // Dashboard
     { 
@@ -259,21 +285,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const userPermissions = React.useMemo(() => getUserPermissions(), [user]);
   const isSuperAdmin = (user as any)?.role === 'SuperAdmin' || (user as any)?.type === 'SuperAdmin' || (user as any)?.isSuperAdmin === true;
 
-  const filteredSidebarItems = sidebarItems.filter(item => {
-    if (isSuperAdmin) return true;
-    if (!item.requiredPermissions || item.requiredPermissions.length === 0) return true;
-    
-    return item.requiredPermissions.some(requiredPerm => {
-      return userPermissions.some(userPerm => {
-        if (userPerm === 'all') return true;
-        const normalizedUserPerm = userPerm.toLowerCase();
-        const normalizedRequiredPerm = requiredPerm.toLowerCase();
-        return normalizedUserPerm === normalizedRequiredPerm || 
-               normalizedUserPerm.includes(normalizedRequiredPerm) || 
-               normalizedRequiredPerm.includes(normalizedUserPerm);
+  const filteredSidebarItems = sidebarItems
+    .filter(item => isSuperAdmin ? true : hasAnyPermission(item.id))
+    .map(item => {
+      if (!item.hasSubmenu || !item.submenuItems) return item;
+      const filteredSubs = item.submenuItems.filter(sub => {
+        // Derive feature from sub id heuristically (prefix before '-') or fall back to parent id
+        const base = sub.id.split('-')[0];
+        // Attempt typical plural forms mapping
+        const possibleFeatures = [base, item.id, base + 's'];
+        // Accept if user has any read access among possible features
+        const allowed = possibleFeatures.some(f => can(f, 'read') || can(f, 'view')) || isSuperAdmin;
+        return allowed;
       });
-    });
-  });
+      return { ...item, submenuItems: filteredSubs };
+    })
+    .filter(item => !item.hasSubmenu || (item.submenuItems && item.submenuItems.length > 0));
 
   // Filter sidebar items based on search
   const filteredItems = searchQuery 

@@ -18,7 +18,9 @@ import {
   Calendar,
   Filter,
   Search,
-  RefreshCw
+  RefreshCw,
+  Save,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
@@ -33,13 +35,14 @@ import {
   getOHADABalanceSheet,
   getOHADAIncomeStatement,
   exportOHADAReport,
-  importOHADAJournalEntries
+  importOHADAJournalEntries,
+  createOHADAAccount
 } from '../../../api/ohada';
 import { OHADAAccount, OHADAJournalEntry, OHADAChartOfAccounts } from '../../../types/ohada';
 
 const OHADAAccountingPage: React.FC = () => {
   const { user } = useAuth();
-  const { currentBranch } = useBranch();
+  const { currentBranch, managedBranches } = useBranch();
   const { showToast } = useUI();
 
   const [activeTab, setActiveTab] = useState<'journal' | 'accounts' | 'reports' | 'periods'>('journal');
@@ -62,6 +65,13 @@ const OHADAAccountingPage: React.FC = () => {
       { account: '', accountCode: '', accountName: '', debit: 0, credit: 0, description: '' }
     ]
   });
+  // For super admin explicit branch selection in journal modal
+  const [journalBranchId, setJournalBranchId] = useState<string>(() => (currentBranch as any)?._id || '');
+  useEffect(() => {
+    // Sync default when modal opens or branch context changes
+    if (!showJournalForm) return;
+    if (currentBranch?._id && !journalBranchId) setJournalBranchId(currentBranch._id);
+  }, [currentBranch, showJournalForm]);
 
   // Account Form State
   const [showAccountForm, setShowAccountForm] = useState(false);
@@ -69,8 +79,35 @@ const OHADAAccountingPage: React.FC = () => {
     code: '',
     name: '',
     description: '',
-    parentCode: ''
+    parentCode: '',
+    type: 'asset'
   });
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const deriveTypeFromCode = (code: string) => {
+    if (!code) return { type: '-', category: '-' };
+    const first = code.charAt(0);
+    switch (first) {
+      case '1': return { type: 'equity', category: 'non-current' };
+      case '2': return { type: 'asset', category: 'non-current' };
+      case '3': return { type: 'asset', category: 'current' };
+      case '4': return { type: (code.startsWith('41') || code.startsWith('46')) ? 'asset' : 'liability', category: 'current' };
+      case '5': return { type: 'asset', category: 'current' };
+      case '6': {
+        if (code.startsWith('64') || code.startsWith('65')) return { type: 'expense', category: 'financial' };
+        if (code.startsWith('69')) return { type: 'expense', category: 'extraordinary' };
+        return { type: 'expense', category: 'operating' };
+      }
+      case '7': {
+        if (code.startsWith('74') || code.startsWith('75')) return { type: 'income', category: 'financial' };
+        if (code.startsWith('79')) return { type: 'income', category: 'extraordinary' };
+        return { type: 'income', category: 'operating' };
+      }
+      case '8': return { type: 'asset', category: 'extraordinary' };
+      default: return { type: '-', category: '-' };
+    }
+  };
+  const derived = deriveTypeFromCode(accountForm.code.trim());
+  const mismatch = derived.type !== '-' && derived.type !== accountForm.type;
 
   // Filters
   const [filters, setFilters] = useState({
@@ -121,6 +158,38 @@ const OHADAAccountingPage: React.FC = () => {
     }
   };
 
+  const resetAccountForm = () => {
+    setAccountForm({ code: '', name: '', description: '', parentCode: '', type: 'asset' });
+  };
+
+  const handleCreateAccount = async () => {
+    if (!accountForm.code || !accountForm.name) {
+      showToast('Code and Name are required', 'error');
+      return;
+    }
+    try {
+      setCreatingAccount(true);
+      const payload: any = { ...accountForm };
+      if (!payload.parentCode) delete payload.parentCode;
+      // Super admin may need to specify branch (use currentBranch if available)
+      if ((user as any)?.isSuperAdmin && currentBranch?._id) {
+        payload.branch = currentBranch._id;
+      }
+      await createOHADAAccount(payload);
+      showToast(`Account ${payload.code} created`, 'success');
+      setShowAccountForm(false);
+      resetAccountForm();
+      // refresh accounts list
+      await fetchAccounts();
+    } catch (e: any) {
+      console.error('Failed to create account', e);
+      const serverMsg = e?.message && typeof e.message === 'string' ? e.message : 'Failed to create account';
+      showToast(serverMsg, 'error');
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
+
   const handleCreateJournalEntry = async () => {
     try {
       // Validate form
@@ -129,9 +198,26 @@ const OHADAAccountingPage: React.FC = () => {
         return;
       }
 
-      const validLines = journalForm.lines.filter(line => 
-        line.account && (line.debit > 0 || line.credit > 0)
-      );
+      // Frontend line validation: collect issues for better UX
+      const lineIssues: string[] = [];
+      journalForm.lines.forEach((line, idx) => {
+        if (!line.account) {
+          lineIssues.push(`Line ${idx + 1}: account not selected`);
+        }
+        if ((line.debit || 0) === 0 && (line.credit || 0) === 0) {
+          lineIssues.push(`Line ${idx + 1}: debit or credit required`);
+        }
+        if ((line.debit || 0) > 0 && (line.credit || 0) > 0) {
+          lineIssues.push(`Line ${idx + 1}: cannot have both debit and credit > 0`);
+        }
+      });
+
+      if (lineIssues.length) {
+        showToast(lineIssues.slice(0,3).join(' | ') + (lineIssues.length>3 ? ` (+${lineIssues.length-3} more)` : ''), 'error');
+        return;
+      }
+
+      const validLines = journalForm.lines.filter(line => line.account && ((line.debit || 0) > 0 || (line.credit || 0) > 0));
 
       if (validLines.length < 2) {
         showToast('At least 2 journal lines are required', 'error');
@@ -146,18 +232,75 @@ const OHADAAccountingPage: React.FC = () => {
         return;
       }
 
-      await createOHADAJournalEntry({
+      // Branch requirement: backend now enforces branch. For super admin select currentBranch.
+      const journalPayload: any = {
         ...journalForm,
         lines: validLines
-      });
+      };
+      if ((user as any)?.isSuperAdmin) {
+        if (!journalBranchId) {
+          showToast('Select a branch before creating a journal entry', 'error');
+          return;
+        }
+        journalPayload.branch = journalBranchId;
+      } else if (!journalPayload.branch) {
+        // Non super admin: default to their context branch if available
+        if (currentBranch?._id) {
+          journalPayload.branch = (currentBranch as any)._id;
+        }
+      }
+
+      await createOHADAJournalEntry(journalPayload);
 
       setShowJournalForm(false);
       resetJournalForm();
       fetchJournalEntries();
       showToast('Journal entry created successfully', 'success');
     } catch (error: any) {
-      showToast(error.message || 'Failed to create journal entry', 'error');
+      // Backend now returns shapes:
+      // { error: { message: 'One or more accounts not found', missingAccounts: [...] } }
+      // { error: { message: 'Validation failed', fieldErrors: { period: '...', branch: '...' } } }
+      // { error: { message: 'Debits must equal credits' } }
+      // Generic network / other errors
+      const errObj = error?.response?.data?.error;
+      let msg = 'Failed to create journal entry';
+      if (errObj) {
+        if (errObj.missingAccounts && Array.isArray(errObj.missingAccounts)) {
+          msg = `${errObj.message}: ${errObj.missingAccounts.join(', ')}`;
+        } else if (errObj.fieldErrors) {
+          const fieldMsgs = Object.entries(errObj.fieldErrors).map(([f, m]) => `${f}: ${m}`);
+            msg = fieldMsgs.slice(0,3).join(' | ') + (fieldMsgs.length>3 ? ` (+${fieldMsgs.length-3} more)` : '');
+        } else if (errObj.message) {
+          msg = errObj.message;
+        }
+      } else if (error.message) {
+        msg = error.message;
+      }
+      showToast(msg, 'error');
     }
+  };
+
+  // ...existing code...
+
+  const renderBranchSelectForJournal = () => {
+    if (!(user as any)?.isSuperAdmin) return null;
+    return (
+      <div className="mb-3">
+        <label className="block text-sm font-medium mb-1">Branch<span className="text-red-500">*</span></label>
+        <select
+          value={journalBranchId}
+          onChange={e => setJournalBranchId(e.target.value)}
+          className="w-full border rounded px-2 py-1 text-sm"
+        >
+          <option value="">-- Select Branch --</option>
+          {managedBranches.map(b => (
+            <option key={(b as any)._id || (b as any).id} value={(b as any)._id || (b as any).id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
   };
 
   const handlePostJournalEntry = async (entryId: string) => {
@@ -171,7 +314,9 @@ const OHADAAccountingPage: React.FC = () => {
       fetchAccounts(); // Refresh account balances
       showToast('Journal entry posted successfully', 'success');
     } catch (error: any) {
-      showToast(error.message || 'Failed to post journal entry', 'error');
+      const errObj = error?.response?.data?.error;
+      const msg = errObj?.message || error.message || 'Failed to post journal entry';
+      showToast(msg, 'error');
     }
   };
 
@@ -726,7 +871,7 @@ const OHADAAccountingPage: React.FC = () => {
             </div>
             <div className="p-6 space-y-6">
               {/* Entry Header */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
                   <input
@@ -758,6 +903,22 @@ const OHADAAccountingPage: React.FC = () => {
                     placeholder="Transaction description"
                     required
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Branch *</label>
+                  <select
+                    value={journalBranchId}
+                    onChange={e => setJournalBranchId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                    required
+                    disabled={!(user as any)?.isSuperAdmin}
+                  >
+                    <option value="">Select Branch</option>
+                    {managedBranches.map(b => (
+                      <option key={(b as any)._id || (b as any).id} value={(b as any)._id || (b as any).id}>{b.name}</option>
+                    ))}
+                  </select>
+                  {!(user as any)?.isSuperAdmin && <p className="mt-1 text-xs text-gray-500">Your branch is set automatically.</p>}
                 </div>
               </div>
 
@@ -890,6 +1051,105 @@ const OHADAAccountingPage: React.FC = () => {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create Entry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Account Modal */}
+      {showAccountForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Add Account</h3>
+              <button
+                onClick={() => { setShowAccountForm(false); resetAccountForm(); }}
+                className="p-2 rounded hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Code *</label>
+                  <input
+                    type="text"
+                    value={accountForm.code}
+                    onChange={e => setAccountForm(p => ({ ...p, code: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. 101"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                  <input
+                    type="text"
+                    value={accountForm.name}
+                    onChange={e => setAccountForm(p => ({ ...p, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Cash on Hand"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+                  <select
+                    value={accountForm.type}
+                    onChange={e => setAccountForm(p => ({ ...p, type: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="asset">Asset</option>
+                    <option value="liability">Liability</option>
+                    <option value="equity">Equity</option>
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                  </select>
+                  {accountForm.code && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Suggested: <span className="font-medium">{derived.type}</span>{derived.category !== '-' && ` (${derived.category})`}
+                    </p>
+                  )}
+                  {mismatch && (
+                    <p className="mt-1 text-xs text-amber-600 flex items-center">
+                      ⚠ Selected type differs from code’s suggested classification.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Parent Code</label>
+                  <input
+                    type="text"
+                    value={accountForm.parentCode}
+                    onChange={e => setAccountForm(p => ({ ...p, parentCode: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="(optional)"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={accountForm.description}
+                  onChange={e => setAccountForm(p => ({ ...p, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  placeholder="Optional details"
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
+              <button
+                onClick={() => { setShowAccountForm(false); resetAccountForm(); }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >Cancel</button>
+              <button
+                onClick={handleCreateAccount}
+                disabled={creatingAccount || !accountForm.code || !accountForm.name}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                <Save className="w-4 h-4" />
+                <span>{creatingAccount ? 'Saving...' : 'Create'}</span>
               </button>
             </div>
           </div>

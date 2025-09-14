@@ -44,9 +44,9 @@ export const SuperAdminDashboard: React.FC = () => {
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start space-x-3">
         <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
         <div className="text-sm text-red-700">
-          <span className="font-medium">⚠️ Demo data reset every 30 minute. Any type of </span>
-          <span className="font-medium text-red-600">image/logo</span>
-          <span className="font-medium"> upload is disabled for demo version. Since many users are simultaneously testing the demo, you may find some inconsistencies, If so, you can check it again after a while.</span>
+          <span className="font-medium">⚠️ Please make sure you restrict this dashboard only for confidential users. </span>
+          <span className="font-medium text-red-600">Do not share your credentials with anybody.</span>
+          <span className="font-medium"> <br />Click Here to contact <a href="mailto:macngala4@gmail.com"><b className='bold text-blue-700'>Codegisoft</b></a> in case of any challenge  </span>
         </div>
       </div>
 

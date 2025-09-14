@@ -238,7 +238,7 @@ router.put('/:id', authMiddleware, requireUserManagement(), async (req: AuthRequ
 // Update user permissions
 router.put('/:id/permissions', authMiddleware, requireUserManagement(), async (req: AuthRequest, res) => {
   try {
-    const { permissions } = req.body;
+    const { permissions, replace } = req.body as { permissions: any; replace?: boolean };
     
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -265,9 +265,30 @@ router.put('/:id/permissions', authMiddleware, requireUserManagement(), async (r
       return res.status(403).json({ error: 'Cannot modify your own permissions' });
     }
 
+    let nextPermissions = permissions || {};
+
+    // If not replace mode, merge with existing so unspecified actions remain unchanged
+    if (!replace) {
+      const merged: Record<string, Record<string, boolean>> = { ...(user.permissions || {}) };
+      for (const feature of Object.keys(nextPermissions)) {
+        merged[feature] = { ...(merged[feature] || {}), ...nextPermissions[feature] };
+      }
+      nextPermissions = merged;
+    }
+
+    // Sanitize: remove any features with only falsy values or empty objects after replace
+    if (replace) {
+      for (const feature of Object.keys(nextPermissions)) {
+        const actions = nextPermissions[feature];
+        if (!actions || Object.values(actions).every(v => v === false)) {
+          delete nextPermissions[feature];
+        }
+      }
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
-      req.params.id, 
-      { permissions }, 
+      req.params.id,
+      { permissions: nextPermissions },
       { new: true }
     ).populate('branch', 'name').populate('createdBy', 'name email');
 

@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { Shield, Users, GraduationCap, DollarSign, Building2, Copy, Plus, Edit, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Shield, Users, GraduationCap, DollarSign, Building2, Copy, Plus, Trash2, X } from 'lucide-react';
+import fetchClient from '../../lib/fetchClient';
+import { dispatchPermissionsUpdated } from '../../utils/permissions';
+import { useAuth } from '../../context/AuthContext';
 import { useUI } from '../../context/UIContext';
 
 interface RoleTemplate {
@@ -21,7 +24,7 @@ const defaultRoleTemplates: RoleTemplate[] = [
     icon: <Shield className="w-5 h-5" />,
     color: 'bg-purple-100 text-purple-800 border-purple-200',
     permissions: { all: ['*'] },
-    userCount: 1,
+  userCount: 0, // dynamic
     isDefault: true
   },
   {
@@ -39,7 +42,7 @@ const defaultRoleTemplates: RoleTemplate[] = [
       communication: ['create', 'read', 'update', 'delete'],
       reports: ['read', 'export']
     },
-    userCount: 8,
+  userCount: 0,
     isDefault: true
   },
   {
@@ -55,7 +58,7 @@ const defaultRoleTemplates: RoleTemplate[] = [
       attendance: ['create', 'read', 'update'],
       reports: ['read']
     },
-    userCount: 45,
+  userCount: 0,
     isDefault: true
   },
   {
@@ -69,7 +72,7 @@ const defaultRoleTemplates: RoleTemplate[] = [
       students: ['read'],
       reports: ['read', 'export']
     },
-    userCount: 12,
+  userCount: 0,
     isDefault: true
   },
   {
@@ -86,7 +89,7 @@ const defaultRoleTemplates: RoleTemplate[] = [
       grades: ['read', 'update'],
       reports: ['read', 'export']
     },
-    userCount: 3,
+  userCount: 0,
     isDefault: true
   },
   {
@@ -102,7 +105,7 @@ const defaultRoleTemplates: RoleTemplate[] = [
       attendance: ['read', 'update'],
       reports: ['read']
     },
-    userCount: 6,
+  userCount: 0,
     isDefault: true
   }
 ];
@@ -110,13 +113,86 @@ const defaultRoleTemplates: RoleTemplate[] = [
 const RoleTemplates: React.FC = () => {
   const [templates, setTemplates] = useState<RoleTemplate[]>(defaultRoleTemplates);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<RoleTemplate | null>(null);
   const [newTemplate, setNewTemplate] = useState({
     name: '',
     description: '',
     permissions: {} as Record<string, string[]>
   });
+  const [users, setUsers] = useState<any[]>([]); // user list for apply modal
+  const [applyTemplate, setApplyTemplate] = useState<RoleTemplate | null>(null);
+  const [detailsTemplate, setDetailsTemplate] = useState<RoleTemplate | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [applying, setApplying] = useState(false);
   const { showToast } = useUI();
+  const { user: currentUser } = useAuth();
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetchClient.get('/api/users?limit=500');
+        if (res.ok) {
+          const data = await res.json();
+          setUsers(data.data || []);
+        }
+      } catch (_) {}
+    };
+    load();
+  }, []);
+
+  // Map template id to backend user.type strings
+  const templateIdToType: Record<string, string> = {
+    superadmin: 'SuperAdmin',
+    admin: 'Admin',
+    lecturer: 'Lecturer',
+    accountant: 'Accountant',
+    dean: 'Dean of Studies',
+    hod: 'Head Of Department'
+  };
+
+  const getDynamicUserCount = (template: RoleTemplate): number => {
+    const type = templateIdToType[template.id];
+    if (!type) return 0;
+    return users.filter(u => u.type === type).length;
+  };
+
+  const buildPermissionMap = (perm: Record<string, string[]>): Record<string, Record<string, boolean>> => {
+    if (perm.all) return { all: { '*': true } };
+    const map: Record<string, Record<string, boolean>> = {};
+    Object.entries(perm).forEach(([feature, actions]) => {
+      map[feature.toLowerCase()] = {};
+      actions.forEach(a => { map[feature.toLowerCase()][a.toLowerCase()] = true; });
+    });
+    return map;
+  };
+
+  const handleApplyTemplate = async () => {
+    if (!applyTemplate || !selectedUserId) return;
+    if (selectedUserId === currentUser?.id) {
+      showToast('Cannot modify your own permissions', 'error');
+      return;
+    }
+    setApplying(true);
+    try {
+      const permissionMap = buildPermissionMap(applyTemplate.permissions);
+      const res = await fetchClient.put(`/api/users/${selectedUserId}/permissions`, {
+        permissions: permissionMap,
+        replace: true
+      });
+      if (res.ok) {
+        showToast('Template applied successfully', 'success');
+        dispatchPermissionsUpdated({ userId: selectedUserId, template: applyTemplate.id });
+        setApplyTemplate(null);
+        setSelectedUserId('');
+      } else {
+        const err = await res.json().catch(()=>({}));
+        throw new Error(err.error || 'Failed to apply template');
+      }
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    } finally {
+      setApplying(false);
+    }
+  };
 
   const handleCreateTemplate = () => {
     if (!newTemplate.name.trim()) {
@@ -218,13 +294,7 @@ const RoleTemplates: React.FC = () => {
                   </button>
                   {!template.isDefault && (
                     <>
-                      <button
-                        onClick={() => setEditingTemplate(template)}
-                        className="text-gray-400 hover:text-gray-600 p-1 rounded"
-                        title="Edit template"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
+                      {/* Edit functionality reserved for future implementation */}
                       <button
                         onClick={() => handleDeleteTemplate(template.id)}
                         className="text-gray-400 hover:text-red-600 p-1 rounded"
@@ -242,7 +312,7 @@ const RoleTemplates: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Users with this role:</span>
-                  <span className="font-medium text-gray-900">{template.userCount}</span>
+                  <span className="font-medium text-gray-900">{getDynamicUserCount(template)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Permissions:</span>
@@ -252,10 +322,10 @@ const RoleTemplates: React.FC = () => {
 
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="flex space-x-2">
-                  <button className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm">
+                  <button onClick={() => { setApplyTemplate(template); }} className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm">
                     Apply to User
                   </button>
-                  <button className="flex-1 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 text-sm">
+                  <button onClick={() => setDetailsTemplate(template)} className="flex-1 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 text-sm">
                     View Details
                   </button>
                 </div>
@@ -307,6 +377,99 @@ const RoleTemplates: React.FC = () => {
               >
                 Create Template
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apply Template Modal */}
+      {applyTemplate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Apply Template: {applyTemplate.name}</h3>
+              <button onClick={() => { if(!applying){ setApplyTemplate(null); setSelectedUserId(''); } }} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select User</label>
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Choose User --</option>
+                  {users.filter(u => u.type !== 'SuperAdmin').map(u => (
+                    <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="text-xs text-gray-500">
+                Applying this template will overwrite the user's existing permissions. This cannot be undone.
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => { if(!applying){ setApplyTemplate(null); setSelectedUserId(''); } }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                disabled={applying}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApplyTemplate}
+                disabled={!selectedUserId || applying}
+                className={`px-4 py-2 rounded-lg text-white ${!selectedUserId || applying ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'}`}
+              >
+                {applying ? 'Applying...' : 'Apply Template'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Details Modal */}
+      {detailsTemplate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{detailsTemplate.name}</h3>
+                <p className="text-sm text-gray-600 mt-1">{detailsTemplate.description}</p>
+              </div>
+              <button onClick={() => setDetailsTemplate(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              {detailsTemplate.permissions.all ? (
+                <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-4">
+                  Full system access (all permissions)
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(detailsTemplate.permissions).map(([feature, actions]) => (
+                    <div key={feature} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-gray-900 capitalize">{feature}</h4>
+                        <span className="text-xs text-gray-500">{actions.length} actions</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {actions.map(a => (
+                          <span key={a} className="inline-flex items-center space-x-1 text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded-full">
+                            <span>{a}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end">
+              <button onClick={() => setDetailsTemplate(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Close</button>
             </div>
           </div>
         </div>

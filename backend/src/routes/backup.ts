@@ -25,7 +25,7 @@ const tempDir = path.join(__dirname, '../../tmp');
 });
 
 // Get all backup jobs
-router.get('/jobs', authMiddleware, requirePermission('all'), async (req: AuthRequest, res) => {
+router.get('/jobs', authMiddleware, requirePermission(['backup:read','all:read']), async (req: AuthRequest, res) => {
   try {
     const page = Math.max(1, parseInt((req.query.page as string) || '1'));
     const limit = Math.max(10, parseInt((req.query.limit as string) || '20'));
@@ -50,7 +50,7 @@ router.get('/jobs', authMiddleware, requirePermission('all'), async (req: AuthRe
 });
 
 // Create new backup
-router.post('/create', authMiddleware, requirePermission('all'), async (req: AuthRequest, res) => {
+router.post('/create', authMiddleware, requirePermission(['backup:create','backup:write','all:write']), async (req: AuthRequest, res) => {
   try {
     const { type, metadata } = req.body;
 
@@ -86,7 +86,7 @@ router.post('/create', authMiddleware, requirePermission('all'), async (req: Aut
 });
 
 // Cancel backup job
-router.post('/jobs/:id/cancel', authMiddleware, requirePermission('all'), async (req: AuthRequest, res) => {
+router.post('/jobs/:id/cancel', authMiddleware, requirePermission(['backup:update','backup:write','all:write']), async (req: AuthRequest, res) => {
   try {
     const job = await BackupJob.findById(req.params.id);
     if (!job) {
@@ -113,7 +113,7 @@ router.post('/jobs/:id/cancel', authMiddleware, requirePermission('all'), async 
 });
 
 // Download backup file
-router.get('/jobs/:id/download', authMiddleware, requirePermission('all'), async (req: AuthRequest, res) => {
+router.get('/jobs/:id/download', authMiddleware, requirePermission(['backup:read','backup:export','all:read']), async (req: AuthRequest, res) => {
   try {
     const job = await BackupJob.findById(req.params.id);
     if (!job) {
@@ -141,7 +141,7 @@ router.get('/jobs/:id/download', authMiddleware, requirePermission('all'), async
 });
 
 // Delete backup job and file
-router.delete('/jobs/:id', authMiddleware, requirePermission('all'), async (req: AuthRequest, res) => {
+router.delete('/jobs/:id', authMiddleware, requirePermission(['backup:delete','backup:write','all:write']), async (req: AuthRequest, res) => {
   try {
     const job = await BackupJob.findById(req.params.id);
     if (!job) {
@@ -167,7 +167,7 @@ router.delete('/jobs/:id', authMiddleware, requirePermission('all'), async (req:
 });
 
 // Upload backup file for restoration
-router.post('/upload', authMiddleware, requirePermission('all'), upload.single('backup'), async (req: AuthRequest, res) => {
+router.post('/upload', authMiddleware, requirePermission(['backup:upload','backup:write','all:write']), upload.single('backup'), async (req: AuthRequest, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: { message: 'No backup file uploaded' } });

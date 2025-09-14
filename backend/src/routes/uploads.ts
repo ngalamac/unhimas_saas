@@ -41,26 +41,31 @@ router.post('/profile', upload.single('file'), async (req: Request & { file?: Ex
 
         const originalResult: any = await originalUploadPromise;
 
-        // --- Create and upload thumbnail ---
-        const thumbnailBuffer = await sharp(req.file.buffer).resize(100, 100).toBuffer();
-        const thumbnailUploadPromise = new Promise((resolve, reject) => {
-            const thumbFilename = `thumb-${originalResult.id}.png`;
-            const uploadStream = bucket.openUploadStream(thumbFilename, {
-                contentType: 'image/png',
-                metadata: { originalFileId: originalResult.id, isThumbnail: true },
-            });
-            const bufferStream = new stream.PassThrough();
-            bufferStream.end(thumbnailBuffer);
-            bufferStream.pipe(uploadStream)
-                .on('error', (err) => reject(err))
-                .on('finish', () => {
-                    const id = uploadStream.id.toString();
-                    const relativeUrl = `/api/uploads/file/${id}`;
-                    resolve({ id, url: relativeUrl });
-                });
+    // --- Create and upload thumbnail (graceful fallback if sharp fails) ---
+    let thumbnailResult: any;
+    try {
+      const thumbnailBuffer = await sharp(req.file.buffer).resize(100, 100).toBuffer();
+      const thumbnailUploadPromise = new Promise((resolve, reject) => {
+        const thumbFilename = `thumb-${originalResult.id}.png`;
+        const uploadStream = bucket.openUploadStream(thumbFilename, {
+          contentType: 'image/png',
+          metadata: { originalFileId: originalResult.id, isThumbnail: true },
         });
-
-        const thumbnailResult: any = await thumbnailUploadPromise;
+        const bufferStream = new stream.PassThrough();
+        bufferStream.end(thumbnailBuffer);
+        bufferStream.pipe(uploadStream)
+          .on('error', (err) => reject(err))
+          .on('finish', () => {
+            const id = uploadStream.id.toString();
+            const relativeUrl = `/api/uploads/file/${id}`;
+            resolve({ id, url: relativeUrl });
+          });
+      });
+      thumbnailResult = await thumbnailUploadPromise;
+    } catch (thumbErr: any) {
+      // Fallback to original if thumbnail generation failed
+      thumbnailResult = { ...originalResult, fallback: true, reason: thumbErr?.message };
+    }
 
         return res.json({
             original: originalResult,

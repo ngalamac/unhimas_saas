@@ -57,62 +57,62 @@ OHADAAccountSchema.index({ isActive: 1 });
 
 // Determine account type and category from OHADA code
 OHADAAccountSchema.pre<IOHADAAccount>('save', function(next) {
-  const firstDigit = this.code.charAt(0);
+  // Always compute level
   this.level = this.code.length;
-  
-  switch (firstDigit) {
-    case '1':
-      this.type = 'equity';
-      this.category = 'non-current';
-      break;
-    case '2':
-      this.type = 'asset';
-      this.category = 'non-current';
-      break;
-    case '3':
-      this.type = 'asset';
-      this.category = 'current';
-      break;
-    case '4':
-      // Determine if asset or liability based on specific codes
-      if (this.code.startsWith('41') || this.code.startsWith('46')) {
-        this.type = 'asset';
-      } else {
-        this.type = 'liability';
-      }
-      this.category = 'current';
-      break;
-    case '5':
-      this.type = 'asset';
-      this.category = 'current';
-      break;
-    case '6':
-      this.type = 'expense';
-      if (this.code.startsWith('64') || this.code.startsWith('65')) {
-        this.category = 'financial';
-      } else if (this.code.startsWith('69')) {
-        this.category = 'extraordinary';
-      } else {
-        this.category = 'operating';
-      }
-      break;
-    case '7':
-      this.type = 'income';
-      if (this.code.startsWith('74') || this.code.startsWith('75')) {
-        this.category = 'financial';
-      } else if (this.code.startsWith('79')) {
-        this.category = 'extraordinary';
-      } else {
-        this.category = 'operating';
-      }
-      break;
-    case '8':
-      this.type = 'asset'; // Off-balance sheet items
-      this.category = 'extraordinary';
-      break;
+
+  // Respect manual override: if a route explicitly set type & category, it should also set a hidden flag.
+  // We detect by checking if there is a non-empty this.$__.priorDoc? Not reliable. Instead rely on a symbol field not in schema is not persisted.
+  // Simpler: if type & category already set AND they don't match what derivation would produce, keep them.
+  const currentType = this.type;
+  const currentCategory = this.category;
+
+  const derive = () => {
+    const firstDigit = this.code.charAt(0);
+    switch (firstDigit) {
+      case '1':
+        return { t: 'equity', c: 'non-current' } as const;
+      case '2':
+        return { t: 'asset', c: 'non-current' } as const;
+      case '3':
+        return { t: 'asset', c: 'current' } as const;
+      case '4':
+        if (this.code.startsWith('41') || this.code.startsWith('46')) {
+          return { t: 'asset', c: 'current' } as const;
+        }
+        return { t: 'liability', c: 'current' } as const;
+      case '5':
+        return { t: 'asset', c: 'current' } as const;
+      case '6':
+        if (this.code.startsWith('64') || this.code.startsWith('65')) {
+          return { t: 'expense', c: 'financial' } as const;
+        } else if (this.code.startsWith('69')) {
+          return { t: 'expense', c: 'extraordinary' } as const;
+        }
+        return { t: 'expense', c: 'operating' } as const;
+      case '7':
+        if (this.code.startsWith('74') || this.code.startsWith('75')) {
+          return { t: 'income', c: 'financial' } as const;
+        } else if (this.code.startsWith('79')) {
+          return { t: 'income', c: 'extraordinary' } as const;
+        }
+        return { t: 'income', c: 'operating' } as const;
+      case '8':
+        return { t: 'asset', c: 'extraordinary' } as const; // off balance sheet
+      default:
+        return { t: currentType, c: currentCategory } as const;
+    }
+  };
+
+  const { t: derivedType, c: derivedCategory } = derive();
+
+  // If current values are blank or undefined, fill them.
+  const manualProvided = !!currentType && !!currentCategory && (currentType !== derivedType || currentCategory !== derivedCategory);
+  if (!manualProvided) {
+    this.type = derivedType;
+    this.category = derivedCategory;
   }
-  
-  next();
+
+  return next();
 });
 
 export default mongoose.model<IOHADAAccount>('OHADAAccount', OHADAAccountSchema);

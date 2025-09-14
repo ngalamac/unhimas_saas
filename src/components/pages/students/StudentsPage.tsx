@@ -15,6 +15,7 @@ import {
   Calendar, 
   MapPin, 
   GraduationCap,
+  User,
   MoreVertical,
   RefreshCw,
   FileText,
@@ -28,13 +29,48 @@ import {
   AlertCircle,
   Clock,
   UserCheck,
-  Building2
+  Building2,
+  Save,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
 import { useUI } from '../../../context/UIContext';
 import fetchClient from '../../../lib/fetchClient';
 import { restoreStudent, setEnrollmentStatus, updateStudent, payTuition } from '../../../api/students';
+
+// Map status + category to tailwind classes for consistent pill styling
+function getStatusColor(status: string, category: 'tuition' | 'enrollment') {
+  const base = 'border-';
+  if (category === 'tuition') {
+    switch (status) {
+      case 'Paid': return 'border-green-300 text-green-700 bg-green-50';
+      case 'Partial': return 'border-amber-300 text-amber-700 bg-amber-50';
+      case 'Pending': return 'border-gray-300 text-gray-700 bg-gray-50';
+      case 'Overdue': return 'border-red-300 text-red-700 bg-red-50';
+      default: return 'border-gray-300 text-gray-600 bg-gray-50';
+    }
+  }
+  // enrollment
+  switch (status) {
+    case 'Active': return 'border-green-300 text-green-700 bg-green-50';
+    case 'Suspended': return 'border-yellow-300 text-yellow-700 bg-yellow-50';
+    case 'Graduated': return 'border-blue-300 text-blue-700 bg-blue-50';
+    case 'Withdrawn': return 'border-red-300 text-red-700 bg-red-50';
+    default: return 'border-gray-300 text-gray-600 bg-gray-50';
+  }
+}
+
+// Format date safely (accepts string or Date); returns YYYY-MM-DD fallback '--'
+function formatDate(value: any) {
+  if (!value) return '--';
+  try {
+    const d = value instanceof Date ? value : new Date(value);
+    if (isNaN(d.getTime())) return '--';
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return '--';
+  }
+}
 
 interface Student {
   _id: string;
@@ -204,9 +240,12 @@ export const StudentsPage: React.FC = () => {
       });
 
       const response = await fetchClient.get(`/api/students?${params}`);
-      const data = await response.json();
-      setStudents(data.data || []);
-      setTotal(data.total || 0);
+  const data = await response.json();
+  // API shape: { data: Student[], meta: { total, page, pageSize, aggregates } }
+  const list = data?.data || [];
+  const meta = data?.meta || {};
+  setStudents(list);
+  setTotal(meta.total || data.total || list.length || 0);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch students');
       showToast('Failed to fetch students', 'error');
@@ -225,7 +264,11 @@ export const StudentsPage: React.FC = () => {
 
       const response = await fetchClient.get(`/api/students/stats/overview?${params}`);
       const data = await response.json();
-      setStats(data);
+  // API returns { data: { total, enrollment, tuition, byGender, byProgram } }
+  // Previous code stored the whole wrapper causing UI expecting fields directly to get undefined/zero.
+  // Normalize so downstream usage gets consistent shape.
+  const normalized = data?.data ? data.data : data; // fallback if already unwrapped somewhere
+  setStats(normalized);
     } catch (err: any) {
       console.error('Failed to fetch student statistics:', err);
     }

@@ -16,7 +16,7 @@ function escapeRegExp(str: string) {
 const router = express.Router();
 
 // List transactions with filters, pagination
-router.get('/', authMiddleware, requireBranchAccess(), requirePermission('accounting'), async (req: AuthRequest, res) => {
+router.get('/', authMiddleware, requireBranchAccess(), requirePermission('accounting:read'), async (req: AuthRequest, res) => {
   try {
     const page = Math.max(1, parseInt((req.query.page as string) || '1'));
     const limit = Math.max(10, parseInt((req.query.limit as string) || '20'));
@@ -61,7 +61,7 @@ router.get('/', authMiddleware, requireBranchAccess(), requirePermission('accoun
 });
 
 // Create transaction
-router.post('/', authMiddleware, requireBranchAccess(), requirePermission('accounting'), async (req: AuthRequest, res) => {
+router.post('/', authMiddleware, requireBranchAccess(), requirePermission(['accounting:create','accounting:write']), async (req: AuthRequest, res) => {
   try {
     const {
       type,
@@ -197,7 +197,7 @@ router.post('/', authMiddleware, requireBranchAccess(), requirePermission('accou
 });
 
 // Get single transaction (only match 24-hex ObjectId)
-router.get('/:id([0-9a-fA-F]{24})', authMiddleware, requirePermission('accounting'), async (req, res) => {
+router.get('/:id([0-9a-fA-F]{24})', authMiddleware, requirePermission('accounting:read'), async (req, res) => {
   try {
     const tx = await OfficeTransaction.findById(req.params.id).populate('registeredBy', 'name email');
     if (!tx) return res.status(404).json({ error: 'Not found' });
@@ -209,7 +209,7 @@ router.get('/:id([0-9a-fA-F]{24})', authMiddleware, requirePermission('accountin
 });
 
 // Update
-router.put('/:id([0-9a-fA-F]{24})', authMiddleware, requirePermission('accounting'), async (req, res) => {
+router.put('/:id([0-9a-fA-F]{24})', authMiddleware, requirePermission(['accounting:update','accounting:write']), async (req, res) => {
   try {
     const updates: any = {};
     ['type', 'category', 'amount', 'date', 'linkedStudent', 'linkedStaff', 'description'].forEach(k => {
@@ -229,7 +229,7 @@ router.put('/:id([0-9a-fA-F]{24})', authMiddleware, requirePermission('accountin
 });
 
 // Delete
-router.delete('/:id([0-9a-fA-F]{24})', authMiddleware, requirePermission('accounting'), async (req, res) => {
+router.delete('/:id([0-9a-fA-F]{24})', authMiddleware, requirePermission(['accounting:delete','accounting:write']), async (req, res) => {
   try {
     const r = await OfficeTransaction.findByIdAndDelete(req.params.id);
     if (!r) return res.status(404).json({ error: 'Not found' });
@@ -241,7 +241,7 @@ router.delete('/:id([0-9a-fA-F]{24})', authMiddleware, requirePermission('accoun
 });
 
 // Categories: list & create
-router.get('/categories', authMiddleware, requireBranchAccess(), requirePermission('accounting'), async (req: AuthRequest, res) => {
+router.get('/categories', authMiddleware, requireBranchAccess(), requirePermission('accounting:read'), async (req: AuthRequest, res) => {
   try {
     const filter: any = { isActive: true };
 
@@ -294,7 +294,7 @@ router.get('/categories', authMiddleware, requireBranchAccess(), requirePermissi
   }
 });
 
-router.post('/categories', authMiddleware, requireBranchAccess(), requirePermission('accounting'), async (req: AuthRequest, res) => {
+router.post('/categories', authMiddleware, requireBranchAccess(), requirePermission(['accounting:create','accounting:write']), async (req: AuthRequest, res) => {
   try {
     const { name, type, description, branch } = req.body;
     if (!name || !type) return res.status(400).json({ error: 'Missing fields: name and type are required' });
@@ -329,7 +329,7 @@ router.post('/categories', authMiddleware, requireBranchAccess(), requirePermiss
 });
 
 // Export endpoint (supports csv, excel, pdf, email)
-router.get('/export', authMiddleware, requirePermission('accounting'), async (req: AuthRequest, res) => {
+router.get('/export', authMiddleware, requirePermission(['accounting:export','accounting:read']), async (req: AuthRequest, res) => {
   try {
     const filter: any = {};
     if (req.query.from || req.query.to) {
@@ -544,7 +544,7 @@ router.get('/export', authMiddleware, requirePermission('accounting'), async (re
 });
 
 // Reports: income statement, expense statement, balance sheet
-router.get('/reports/income-statement', authMiddleware, requirePermission('accounting'), async (req: AuthRequest, res) => {
+router.get('/reports/income-statement', authMiddleware, requirePermission(['accounting:read','accounting:reports']), async (req: AuthRequest, res) => {
   try {
     const match: any = { type: 'income', status: 'approved' };
     if (req.query.from || req.query.to) {
@@ -568,7 +568,7 @@ router.get('/reports/income-statement', authMiddleware, requirePermission('accou
   }
 });
 
-router.get('/reports/expense-statement', authMiddleware, requirePermission('accounting'), async (req: AuthRequest, res) => {
+router.get('/reports/expense-statement', authMiddleware, requirePermission(['accounting:read','accounting:reports']), async (req: AuthRequest, res) => {
   try {
     const match: any = { type: 'expense', status: 'approved' };
     if (req.query.from || req.query.to) {
@@ -592,7 +592,7 @@ router.get('/reports/expense-statement', authMiddleware, requirePermission('acco
   }
 });
 
-router.get('/reports/balance-sheet', authMiddleware, requirePermission('accounting'), async (req: AuthRequest, res) => {
+router.get('/reports/balance-sheet', authMiddleware, requirePermission(['accounting:read','accounting:reports']), async (req: AuthRequest, res) => {
   try {
     const match: any = { status: 'approved' };
     if (req.query.from || req.query.to) {
@@ -620,7 +620,7 @@ router.get('/reports/balance-sheet', authMiddleware, requirePermission('accounti
 });
 
 // Summary: totals, breakdown, monthly trends
-router.get('/summary', authMiddleware, requirePermission('accounting'), async (req: AuthRequest, res) => {
+router.get('/summary', authMiddleware, requirePermission(['accounting:read','accounting:stats']), async (req: AuthRequest, res) => {
   try {
     const match: any = {};
     if (req.query.from || req.query.to) {
@@ -699,7 +699,7 @@ router.get('/summary', authMiddleware, requirePermission('accounting'), async (r
 
 export default router;
 // Summary overview endpoint
-router.get('/summary/overview', authMiddleware, requirePermission('accounting'), async (req: AuthRequest, res) => {
+router.get('/summary/overview', authMiddleware, requirePermission(['accounting:read','accounting:stats']), async (req: AuthRequest, res) => {
   try {
     const match: any = {};
     if (req.query.from || req.query.to) {

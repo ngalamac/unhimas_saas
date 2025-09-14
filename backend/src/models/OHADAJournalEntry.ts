@@ -63,10 +63,34 @@ const OHADAJournalEntrySchema: Schema = new Schema({
   period: { type: String, required: true, match: /^\d{4}-\d{2}$/ }
 }, { timestamps: true });
 
-// Generate entry number before saving
-OHADAJournalEntrySchema.pre<IOHADAJournalEntry>('save', async function(next) {
-  if (this.isNew && !this.entryNumber) {
-    try {
+// Prepare derived fields & validate before schema required validators fire
+OHADAJournalEntrySchema.pre<IOHADAJournalEntry>('validate', async function(next) {
+  try {
+    if (!this.date) {
+      return next(); // let required validator for date handle it
+    }
+
+    // Period (YYYY-MM) derived early so required validator passes
+    if (!this.period) {
+      this.period = `${new Date(this.date).getFullYear()}-${(new Date(this.date).getMonth() + 1).toString().padStart(2, '0')}`;
+    }
+
+    // Totals (ensure present for required)
+    this.totalDebit = this.lines?.reduce((sum, line) => sum + line.debit, 0) || 0;
+    this.totalCredit = this.lines?.reduce((sum, line) => sum + line.credit, 0) || 0;
+
+    // Basic line presence
+    if (!this.lines || this.lines.length === 0) {
+      return next(new Error('Journal entry must have at least one line'));
+    }
+
+    // Balance validation
+    if (Math.abs(this.totalDebit - this.totalCredit) > 0.01) {
+      return next(new Error('Debits must equal credits'));
+    }
+
+    // Generate entry number once per new doc
+    if (this.isNew && !this.entryNumber) {
       const year = new Date(this.date).getFullYear();
       const counter = await Counter.findByIdAndUpdate(
         { _id: `journalEntry-${year}` },
@@ -74,35 +98,12 @@ OHADAJournalEntrySchema.pre<IOHADAJournalEntry>('save', async function(next) {
         { new: true, upsert: true }
       );
       this.entryNumber = `JE${year}${counter.seq.toString().padStart(6, '0')}`;
-    } catch (error: any) {
-      return next(error);
     }
+
+    next();
+  } catch (err) {
+    next(err as any);
   }
-
-  // Calculate totals
-  this.totalDebit = this.lines.reduce((sum, line) => sum + line.debit, 0);
-  this.totalCredit = this.lines.reduce((sum, line) => sum + line.credit, 0);
-
-  // Set accounting period
-  this.period = `${new Date(this.date).getFullYear()}-${(new Date(this.date).getMonth() + 1).toString().padStart(2, '0')}`;
-
-  next();
-});
-
-// Validate that debits equal credits
-OHADAJournalEntrySchema.pre<IOHADAJournalEntry>('save', function(next) {
-  if (this.lines.length === 0) {
-    return next(new Error('Journal entry must have at least one line'));
-  }
-
-  const totalDebits = this.lines.reduce((sum, line) => sum + line.debit, 0);
-  const totalCredits = this.lines.reduce((sum, line) => sum + line.credit, 0);
-
-  if (Math.abs(totalDebits - totalCredits) > 0.01) {
-    return next(new Error('Debits must equal credits'));
-  }
-
-  next();
 });
 
 // Indexes for efficient queries

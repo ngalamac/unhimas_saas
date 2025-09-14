@@ -646,7 +646,7 @@ export const StudentRegistrationPage: React.FC = () => {
                 required
               >
                 <option value="">Select Program</option>
-                {programs.map(program => (
+                {(programs || []).map(program => (
                   <option key={program._id || program.id} value={(program._id || program.id) as string}>{program.name}</option>
                 ))}
               </select>
@@ -662,7 +662,7 @@ export const StudentRegistrationPage: React.FC = () => {
                 required
               >
                 <option value="">Select Department</option>
-                {departments.map(dept => (
+                {(departments || []).map(dept => (
                   <option key={dept._id || dept.id} value={(dept._id || dept.id) as string}>{dept.name}</option>
                 ))}
               </select>
@@ -677,7 +677,7 @@ export const StudentRegistrationPage: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Use default / none</option>
-                {tuitionPlans.map((p: any) => (
+                {(tuitionPlans || []).map((p: any) => (
                   <option key={p._id || p.id} value={(p._id || p.id) as string}>
                     {p.academicYear ? `${p.academicYear} - ` : ''}{p.program && p.program.name ? p.program.name : (p.department && p.department.name ? p.department.name : `Plan ${p._id}`)}
                   </option>
@@ -688,8 +688,8 @@ export const StudentRegistrationPage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Payment Plans (optional)</label>
               <div className="border rounded">
                 <div className="p-2 space-y-1 max-h-36 overflow-auto">
-                  {paymentPlans.length === 0 && <div className="text-sm text-gray-500">No payment plans available</div>}
-                  {paymentPlans.map(pp => (
+                  {(paymentPlans || []).length === 0 && <div className="text-sm text-gray-500">No payment plans available</div>}
+                  {(paymentPlans || []).map(pp => (
                     <label key={(pp._id || pp.id)} className="flex items-center space-x-2 px-2 py-1">
                       <input type="checkbox" value={(pp._id || pp.id)} checked={selectedPaymentPlans.includes((pp._id || pp.id) as string)} onChange={(e) => {
                         const id = String(e.target.value);

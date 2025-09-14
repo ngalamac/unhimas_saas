@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Shield, Building2, Search, Filter, UserPlus, Edit, Trash2, Eye, CheckCircle, AlertCircle } from 'lucide-react';
+import { Users, Shield, Building2, Search, UserPlus, Edit, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useUI } from '../../context/UIContext';
 import fetchClient from '../../lib/fetchClient';
+import { summarizePermissions } from '../../utils/permissions';
 
 interface User {
   _id: string;
@@ -246,13 +247,16 @@ const UserRoleAssignment: React.FC = () => {
     return date.toLocaleDateString();
   };
 
-  const getPermissionSummary = (permissions: Record<string, Record<string, boolean>>) => {
-    const totalActions = Object.values(permissions).reduce((sum, actions) => 
-      sum + Object.values(actions).filter(Boolean).length, 0
-    );
-    const totalFeatures = Object.keys(permissions).length;
-    return `${totalActions} actions across ${totalFeatures} features`;
+  const getPermissionSummary = (permissions: Record<string, Record<string, boolean>> | null | undefined) => {
+    return summarizePermissions(permissions as any);
   };
+
+  // Refetch on external permission updates (matrix/template)
+  useEffect(() => {
+    const listener = () => { fetchUsers(); };
+    window.addEventListener('permissionsUpdated', listener);
+    return () => window.removeEventListener('permissionsUpdated', listener);
+  }, []);
 
   return (
     <div className="space-y-6">
