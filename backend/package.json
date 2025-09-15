@@ -11,6 +11,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+  "csv-parser": "^3.2.0",
     "@types/archiver": "^6.0.3",
     "@types/axios": "^0.9.36",
     "@types/nodemailer": "^7.0.1",

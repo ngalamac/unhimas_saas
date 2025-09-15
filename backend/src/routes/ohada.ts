@@ -1112,7 +1112,7 @@ router.post('/journal/import', authMiddleware, requirePermission('accounting'), 
       
       fs.createReadStream(req.file.path)
         .pipe(csv())
-        .on('data', (data) => results.push(data))
+  .on('data', (data: any) => results.push(data))
         .on('end', async () => {
           for (const row of results) {
             try {
