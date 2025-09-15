@@ -24,13 +24,32 @@ import { eventsHandler } from './lib/events';
 import path from 'path';
 
 const app = express();
-app.use(cors());
+
+// CORS configuration: allow configured frontend domain plus localhost during development
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || process.env.APP_BASE_URL || '';
+const allowedOrigins = [
+  ...[FRONTEND_ORIGIN].filter(Boolean),
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // non-browser or same-origin
+    if (allowedOrigins.some(o => origin === o)) return callback(null, true);
+    return callback(new Error('CORS not allowed from origin: ' + origin));
+  },
+  credentials: true
+}));
 // allow larger JSON payloads (some clients may include base64 previews) up to 10MB
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// MongoDB connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://unhimas4:n673927826@cluster0.xeab0d2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+// MongoDB connection (require env variable; no hardcoded secret fallback)
+const MONGO_URI = process.env.MONGO_URI;
+if (!MONGO_URI) {
+  console.error('❌ MONGO_URI not set. Refusing to start.');
+  process.exit(1);
+}
 mongoose.connection.on('connected', () => {
   console.log('✅ MongoDB connection established successfully.');
 });
