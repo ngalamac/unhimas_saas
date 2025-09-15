@@ -263,7 +263,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
                 src="/unhimas-logo.png" 
                 alt="UNHIMAS" 
                 className="w-8 h-8 object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).src = './src/assets/unhimas-logo.png'; }}
+                onError={(e) => { (e.target as HTMLImageElement).src = '/unhimas-logo.png'; }}
               />
               <div className="hidden sm:block">
                 <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">UNHIMAS</div>

@@ -10,14 +10,11 @@ const defaultHeaders = (extra?: Record<string, string>) => {
 };
 
 const getBase = () => {
-    try {
-        const envAny = (import.meta as any)?.env || {};
-        const explicit = envAny?.VITE_API_BASE_URL || envAny?.VITE_BACKEND_URL;
-        if (explicit) return explicit.replace(/\/$/, '');
-        const dev = envAny?.DEV;
-        if (dev) return 'http://localhost:5000';
-    } catch (e) { }
-    // Production fallback (keep origin empty if same domain proxy is used)
+    // IMPORTANT: use direct import.meta.env so Vite replaces at build time
+    const explicit = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_BACKEND_URL;
+    if (explicit) return String(explicit).replace(/\/$/, '');
+    if (import.meta.env.DEV) return 'http://localhost:5000';
+    // Production fallback (same-origin)
     return '';
 };
 
