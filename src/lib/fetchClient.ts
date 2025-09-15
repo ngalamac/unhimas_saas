@@ -9,7 +9,7 @@ const defaultHeaders = (extra?: Record<string, string>) => {
     return h;
 };
 
-const getBase = () => {
+export const getBase = () => {
     // IMPORTANT: use direct import.meta.env so Vite replaces at build time
     const explicit = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_BACKEND_URL;
     if (explicit) return String(explicit).replace(/\/$/, '');
@@ -36,8 +36,9 @@ async function fetchWithLoading(url: string, options: RequestInit) {
 
 export async function handleFetchError(res: Response) {
     if (res.status === 401) {
-        try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch (e) { }
-        try { window.location.hash = '#/login'; } catch (e) { }
+    try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch (e) { }
+    // Use pathname redirect to work with BrowserRouter (no hash routing)
+    try { window.location.assign('/login'); } catch (e) { }
     }
     try {
         const err = await res.clone().json();
