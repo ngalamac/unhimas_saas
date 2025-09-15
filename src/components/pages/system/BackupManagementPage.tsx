@@ -38,6 +38,7 @@ import {
   getBackupSchedule
 } from '../../../api/backup';
 import { BackupJob, RestoreJob, BackupSettings, SystemHealth } from '../../../types/backup';
+import useSSE from '../../../lib/useSSE';
 
 const BackupManagementPage: React.FC = () => {
   const { user } = useAuth();
@@ -81,19 +82,17 @@ const BackupManagementPage: React.FC = () => {
 
   useEffect(() => {
     fetchAllData();
-    
-    // Set up real-time updates
-    const eventSource = new EventSource('/api/events');
-    
-    eventSource.addEventListener('backup.started', () => fetchBackupJobs());
-    eventSource.addEventListener('backup.progress', () => fetchBackupJobs());
-    eventSource.addEventListener('backup.completed', () => fetchBackupJobs());
-    eventSource.addEventListener('backup.failed', () => fetchBackupJobs());
-    eventSource.addEventListener('restore.started', () => fetchRestoreJobs());
-    eventSource.addEventListener('restore.completed', () => fetchRestoreJobs());
-    
-    return () => eventSource.close();
   }, []);
+
+  // Real-time updates via SSE with backend base
+  useSSE('/api/events', {
+    'backup.started': () => fetchBackupJobs(),
+    'backup.progress': () => fetchBackupJobs(),
+    'backup.completed': () => fetchBackupJobs(),
+    'backup.failed': () => fetchBackupJobs(),
+    'restore.started': () => fetchRestoreJobs(),
+    'restore.completed': () => fetchRestoreJobs(),
+  });
 
   const fetchAllData = async () => {
     try {

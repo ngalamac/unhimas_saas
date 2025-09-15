@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, X, CheckCircle, AlertTriangle, Info, Clock } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { useBranch } from '../../context/BranchContext';
-import fetchClient from '../../lib/fetchClient';
+import { useState, useEffect } from 'react';
+import { Bell, CheckCircle, AlertTriangle, Info } from 'lucide-react';
+import useSSE from '../../lib/useSSE';
 
 interface Notification {
   id: string;
@@ -15,62 +13,49 @@ interface Notification {
   actionLabel?: string;
 }
 
-export const NotificationCenter: React.FC = () => {
-  const { user } = useAuth();
-  const { currentBranch } = useBranch();
+export const NotificationCenter = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchNotifications();
-    
-    // Set up real-time notifications via SSE
-    const eventSource = new EventSource('/api/events');
-    
-    eventSource.addEventListener('student.created', (event) => {
-      const data = JSON.parse(event.data);
+  // Wire SSE to backend via centralized helper
+  useSSE('/api/events', {
+    'student.created': (data: any) => {
       addNotification({
         id: `student-${data.id}`,
         title: 'New Student Registered',
         message: `Student ${data.student?.names || 'Unknown'} has been registered`,
         type: 'success',
         timestamp: new Date().toISOString(),
-        read: false
+        read: false,
       });
-    });
-
-    eventSource.addEventListener('student.tuition.paid', (event) => {
-      const data = JSON.parse(event.data);
+    },
+    'student.tuition.paid': (data: any) => {
       addNotification({
         id: `payment-${data.tx._id}`,
         title: 'Payment Received',
         message: `Payment of ${data.tx.amount} XAF received`,
         type: 'success',
         timestamp: new Date().toISOString(),
-        read: false
+        read: false,
       });
-    });
-
-    eventSource.addEventListener('accounting.transaction.created', (event) => {
-      const data = JSON.parse(event.data);
+    },
+    'accounting.transaction.created': (data: any) => {
       addNotification({
         id: `transaction-${data.transaction._id}`,
         title: 'New Transaction',
         message: `${data.transaction.type} transaction: ${data.transaction.category}`,
         type: 'info',
         timestamp: new Date().toISOString(),
-        read: false
+        read: false,
       });
-    });
+    },
+  });
 
-    return () => {
-      eventSource.close();
-    };
+  useEffect(() => {
+    fetchNotifications();
   }, []);
 
   const fetchNotifications = async () => {
     try {
-      setLoading(true);
       // For now, use mock data. Replace with real API call when available
       const mockNotifications: Notification[] = [
         {
@@ -96,9 +81,7 @@ export const NotificationCenter: React.FC = () => {
       setNotifications(mockNotifications);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
-    } finally {
-      setLoading(false);
-    }
+  }
   };
 
   const addNotification = (notification: Notification) => {
