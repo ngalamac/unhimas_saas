@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Filter, Eye, Edit, Trash2, Download, Plus, GraduationCap, Users, Clock, BookOpen } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
@@ -33,6 +33,131 @@ interface ProgramStats {
   totalStudents: number;
   byLevel: Array<{ _id: string; count: number }>;
 }
+
+// Dedicated modal component (memoized) to prevent unnecessary unmounts that cause input focus loss
+interface ProgramModalProps {
+  mode: 'create' | 'edit' | 'view' | null;
+  program: Program | null;
+  formName: string; formCode: string; formDescription: string; formDuration: number; formLevel: string; formIsActive: boolean;
+  setFormName: (v: string) => void; setFormCode: (v: string) => void; setFormDescription: (v: string) => void; setFormDuration: (v: number) => void; setFormLevel: (v: string) => void; setFormIsActive: (v: boolean) => void;
+  onClose: () => void;
+  onSave: () => void;
+}
+
+const ProgramModal: React.FC<ProgramModalProps> = React.memo(({ mode, program, formName, formCode, formDescription, formDuration, formLevel, formIsActive, setFormName, setFormCode, setFormDescription, setFormDuration, setFormLevel, setFormIsActive, onClose, onSave }) => {
+  if (!mode) return null;
+  const isView = mode === 'view';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30" role="dialog" aria-modal="true" aria-labelledby="program-modal-title">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg" onClick={e => e.stopPropagation()}>
+        <h2 id="program-modal-title" className="text-xl font-bold mb-4">
+          {mode === 'create' ? 'Add Program' : mode === 'edit' ? 'Edit Program' : 'View Program'}
+        </h2>
+        <form
+          onSubmit={(e) => { e.preventDefault(); if (!isView) onSave(); }}
+          className="space-y-4"
+          aria-describedby="program-form-help"
+        >
+          <div>
+            <label htmlFor="program-name" className="block text-sm font-medium text-gray-700 mb-1">Program Name <span className="text-red-500" aria-hidden="true">*</span></label>
+            <input
+              id="program-name"
+              disabled={isView}
+              value={formName}
+              onChange={e => setFormName(e.target.value)}
+              aria-required="true"
+              aria-invalid={(!(formName || '').trim()).toString()}
+              className="w-full px-3 py-2 border rounded"
+              placeholder="e.g. Computer Science"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label htmlFor="program-code" className="block text-sm font-medium text-gray-700 mb-1">Code <span className="text-red-500" aria-hidden="true">*</span></label>
+            <input
+              id="program-code"
+              disabled={isView}
+              value={formCode}
+              onChange={e => setFormCode(e.target.value)}
+              aria-required="true"
+              aria-invalid={(!(formCode || '').trim()).toString()}
+              className="w-full px-3 py-2 border rounded"
+              placeholder="e.g. CS101"
+            />
+          </div>
+          <div>
+            <label htmlFor="program-description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea
+              id="program-description"
+              disabled={isView}
+              value={formDescription}
+              onChange={e => setFormDescription(e.target.value)}
+              aria-describedby="program-description-help"
+              className="w-full px-3 py-2 border rounded min-h-[90px]"
+              placeholder="Summarize the program objectives..."
+            />
+            <p id="program-description-help" className="mt-1 text-xs text-gray-500">Optional short summary (students can see this).</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="program-duration" className="block text-sm font-medium text-gray-700 mb-1">Duration (months) <span className="text-red-500" aria-hidden="true">*</span></label>
+              <input
+                id="program-duration"
+                disabled={isView}
+                type="number"
+                min={1}
+                value={formDuration}
+                onChange={e => setFormDuration(Number(e.target.value) || 0)}
+                aria-required="true"
+                aria-invalid={(formDuration < 1).toString()}
+                className="w-full px-3 py-2 border rounded"
+              />
+            </div>
+            <div>
+              <label htmlFor="program-level" className="block text-sm font-medium text-gray-700 mb-1">Level <span className="text-red-500" aria-hidden="true">*</span></label>
+              <select
+                id="program-level"
+                disabled={isView}
+                value={formLevel}
+                onChange={e => setFormLevel(e.target.value)}
+                aria-required="true"
+                aria-invalid={(!(formLevel || '').trim()).toString()}
+                className="w-full px-3 py-2 border rounded"
+              >
+                <option value="">Select Level</option>
+                <option value="Certificate">Certificate</option>
+                <option value="Diploma">Diploma</option>
+                <option value="Bachelor">Bachelor</option>
+                <option value="Master">Master</option>
+                <option value="PhD">PhD</option>
+              </select>
+            </div>
+          </div>
+          <fieldset className="border rounded px-3 py-2">
+            <legend className="text-sm font-medium text-gray-700">Status</legend>
+            <label htmlFor="program-active" className="flex items-center space-x-2 text-sm mt-1">
+              <input
+                id="program-active"
+                disabled={isView}
+                type="checkbox"
+                checked={formIsActive}
+                onChange={e => setFormIsActive(e.target.checked)}
+              />
+              <span>Active</span>
+            </label>
+          </fieldset>
+          <div id="program-form-help" className="sr-only">Fields marked * are required.</div>
+          <div className="pt-4 flex justify-end space-x-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+            {!isView && (
+              <button type="submit" className="px-4 py-2 bg-orange-600 text-white rounded">Save</button>
+            )}
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+});
 
 export const ProgramsPage: React.FC = () => {
   // Modal state for create/edit/view
@@ -70,7 +195,7 @@ export const ProgramsPage: React.FC = () => {
 
   // Save program (create or edit)
   const handleSaveProgram = async () => {
-    if (!formName.trim() || !formCode.trim() || !formLevel.trim()) {
+  if (!(formName || '').trim() || !(formCode || '').trim() || !(formLevel || '').trim()) {
       showToast('Name, code, and level are required', 'error');
       return;
     }
@@ -106,42 +231,7 @@ export const ProgramsPage: React.FC = () => {
     }
   };
 
-  // Modal component
-  const ProgramModal = () => {
-    if (!modalMode) return null;
-    const isView = modalMode === 'view';
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-        <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
-          <h2 className="text-xl font-bold mb-4">{modalMode === 'create' ? 'Add Program' : modalMode === 'edit' ? 'Edit Program' : 'View Program'}</h2>
-          <div className="space-y-4">
-            <input disabled={isView} value={formName} onChange={e => setFormName(e.target.value)} placeholder="Program Name" className="w-full px-3 py-2 border rounded" />
-            <input disabled={isView} value={formCode} onChange={e => setFormCode(e.target.value)} placeholder="Code" className="w-full px-3 py-2 border rounded" />
-            <textarea disabled={isView} value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Description" className="w-full px-3 py-2 border rounded" />
-            <input disabled={isView} type="number" value={formDuration} onChange={e => setFormDuration(Number(e.target.value))} placeholder="Duration (months)" className="w-full px-3 py-2 border rounded" />
-            <select disabled={isView} value={formLevel} onChange={e => setFormLevel(e.target.value)} className="w-full px-3 py-2 border rounded">
-              <option value="">Select Level</option>
-              <option value="Certificate">Certificate</option>
-              <option value="Diploma">Diploma</option>
-              <option value="Bachelor">Bachelor</option>
-              <option value="Master">Master</option>
-              <option value="PhD">PhD</option>
-            </select>
-            <label className="flex items-center space-x-2">
-              <input disabled={isView} type="checkbox" checked={formIsActive} onChange={e => setFormIsActive(e.target.checked)} />
-              <span>Active</span>
-            </label>
-          </div>
-          <div className="mt-6 flex justify-end space-x-2">
-            <button onClick={() => setModalMode(null)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
-            {!isView && (
-              <button onClick={handleSaveProgram} className="px-4 py-2 bg-orange-600 text-white rounded">Save</button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
+  const memoizedCloseModal = useCallback(() => setModalMode(null), []);
   const { user } = useAuth();
   const { selectedBranch } = useBranch();
   const { showToast } = useUI();
@@ -184,9 +274,23 @@ export const ProgramsPage: React.FC = () => {
       });
 
       const response = await fetchClient.get(`/api/programs?${params}`);
-      const data = await response.json();
-      setPrograms(data.data || []);
-      setTotal(data.total || 0);
+      const raw = await response.json();
+      // Accept shapes:
+      // 1) Array<Program>
+      // 2) { data: Program[], total?: number }
+      // 3) { results: Program[], total: number }
+      // 4) { items: Program[], pagination: { total } }
+      let list: any[] = [];
+      let totalCount = 0;
+      if (Array.isArray(raw)) {
+        list = raw;
+        totalCount = raw.length;
+      } else if (raw) {
+        list = raw.data || raw.results || raw.items || [];
+        totalCount = raw.total || raw.count || raw.pagination?.total || list.length;
+      }
+      setPrograms(list);
+      setTotal(totalCount);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch programs');
       showToast('Failed to fetch programs', 'error');
@@ -239,11 +343,8 @@ export const ProgramsPage: React.FC = () => {
         ...(showActiveOnly && { isActive: 'true' })
       });
 
-      const response = await fetchClient.get(`/api/programs/export?${params}`, {
-        responseType: 'blob'
-      });
-
-      const blob = new Blob([response.data]);
+  const response = await fetchClient.get(`/api/programs/export?${params}`);
+  const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -265,7 +366,8 @@ export const ProgramsPage: React.FC = () => {
       : 'bg-red-100 text-red-800';
   };
 
-  const getLevelColor = (level: string) => {
+  const getLevelColor = (level?: string) => {
+    if (!level || typeof level !== 'string') return 'bg-gray-100 text-gray-800';
     switch (level.toLowerCase()) {
       case 'certificate': return 'bg-blue-100 text-blue-800';
       case 'diploma': return 'bg-green-100 text-green-800';
@@ -276,9 +378,7 @@ export const ProgramsPage: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  // (Removed unused formatDate to satisfy lint)
 
   if (loading && programs.length === 0) {
     return (
@@ -290,7 +390,24 @@ export const ProgramsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <ProgramModal />
+      <ProgramModal
+        mode={modalMode}
+        program={modalProgram}
+        formName={formName}
+        formCode={formCode}
+        formDescription={formDescription}
+        formDuration={formDuration}
+        formLevel={formLevel}
+        formIsActive={formIsActive}
+        setFormName={setFormName}
+        setFormCode={setFormCode}
+        setFormDescription={setFormDescription}
+        setFormDuration={setFormDuration}
+        setFormLevel={setFormLevel}
+        setFormIsActive={setFormIsActive}
+        onClose={memoizedCloseModal}
+        onSave={handleSaveProgram}
+      />
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -507,19 +624,19 @@ export const ProgramsPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="space-y-1">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLevelColor(program.level)}`}>
-                        {program.level}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLevelColor((program as any).level || (program as any).subType)}`}>
+                        {(program as any).level || (program as any).subType || '—'}
                       </span>
                       <div className="text-sm text-gray-500 flex items-center">
                         <Clock className="w-3 h-3 mr-1" />
-                        {program.duration} months
+                        {(program as any).duration != null ? (program as any).duration : '?'} months
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 flex items-center">
                       <Users className="w-3 h-3 mr-1" />
-                      {program.studentCount} students
+                      {(program as any).studentCount != null ? (program as any).studentCount : 0} students
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

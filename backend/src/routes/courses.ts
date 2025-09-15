@@ -18,24 +18,37 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { title, code, credit, department, semester, caWeight, examWeight } = req.body;
+  const { title, code, credit, department, semester, caWeight, examWeight, program: bodyProgram } = req.body;
   if (!title || !code || !department) return res.status(400).json({ message: 'title, code and department are required' });
-
-  const dept = await Department.findById(department);
-  if (!dept) return res.status(400).json({ message: 'department not found' });
-
-  // derive program and validate semester bounds before saving
-  const program = await Program.findById(dept.program);
-  if (!program) return res.status(400).json({ message: 'associated program for department not found' });
-  const maxSem = (program.duration ?? 1) * (program.semestersPerYear ?? 1);
-  if (semester && (semester < 1 || semester > maxSem)) return res.status(400).json({ message: 'semester out of bounds for program' });
-
   try {
-    const course = new Course({ title, code, credit, program: dept.program, department, semester, caWeight, examWeight });
+    const dept = await Department.findById(department).lean();
+    if (!dept) return res.status(400).json({ message: 'department not found' });
+
+    // Gather diagnostics for easier debugging on client
+    const diagnostics: any = { bodyProgramProvided: !!bodyProgram, departmentHasProgram: !!dept.program };
+
+    // Prefer explicitly provided body program (user selection) over department linkage
+    let programId: any = bodyProgram || dept.program;
+    let program = programId ? await Program.findById(programId) : null;
+    // If still not found and dept has a different program id, try that as fallback
+    if (!program && dept.program && dept.program !== programId) {
+      diagnostics.firstLookupId = String(programId || '');
+      diagnostics.retryWithDeptProgram = String(dept.program);
+      programId = dept.program;
+      program = await Program.findById(programId);
+      diagnostics.deptFallbackTried = true;
+    }
+    diagnostics.finalProgramId = String(programId || '');
+    if (!program) return res.status(400).json({ message: 'associated program not found', diagnostics });
+
+    const maxSem = (program.duration ?? 1) * (program.semestersPerYear ?? 1);
+  if (semester && (semester < 1 || semester > maxSem)) return res.status(400).json({ message: 'semester out of bounds for program', maxSemester: maxSem, diagnostics });
+
+  const course = new Course({ title, code, credit, program: programId, department, semester, caWeight, examWeight });
     await course.save();
     res.status(201).json(course);
   } catch (err: any) {
-    res.status(400).json({ message: err.message || 'could not create course' });
+  res.status(400).json({ message: err.message || 'could not create course' });
   }
 });
 

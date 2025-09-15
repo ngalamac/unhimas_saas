@@ -8,7 +8,6 @@ import {
   Download, 
   Plus, 
   Users, 
-  UserPlus, 
   Mail, 
   Phone, 
   CreditCard, 
@@ -33,12 +32,14 @@ import { useBranch } from '../../../context/BranchContext';
 import { useUI } from '../../../context/UIContext';
 import fetchClient from '../../../lib/fetchClient';
 import { restoreStudent, updateStudent, payTuition } from '../../../api/students';
+import { getTuitionPlans } from '../../../api/tuition';
+import { getTuitionStructures } from '../../../api/tuitionManagement';
 import StudentLedgerModal from '../../students/StudentLedgerModal';
 import StudentFinanceModal from '../../students/StudentFinanceModal';
+import { formatXAF } from '../../../utils/currency';
 
 // Map status + category to tailwind classes for consistent pill styling
 function getStatusColor(status: string, category: 'tuition' | 'enrollment') {
-  const base = 'border-';
   if (category === 'tuition') {
     switch (status) {
       case 'Paid': return 'border-green-300 text-green-700 bg-green-50';
@@ -1306,7 +1307,7 @@ export const StudentsPage: React.FC = () => {
         {showPaymentDialog && selectedStudent && (
           <PaymentDialog 
             student={selectedStudent} 
-            tuitionDetails={tuitionDetails} 
+            tuitionDetails={tuitionDetails}
             onClose={() => { 
               setShowPaymentDialog(false); 
               if (selectedStudent) {
@@ -1421,6 +1422,24 @@ function StudentDetailsModal({
 }) {
   const [activeTab, setActiveTab] = useState('overview');
 
+  // Tuition aggregations
+  const tuitionStudent = tuitionDetails?.student || {};
+  const installments: any[] = tuitionStudent.tuitionInstallments || [];
+  const totalPaid = typeof tuitionStudent.totalPaid === 'number'
+    ? tuitionStudent.totalPaid
+    : installments.reduce((sum, i) => sum + Number(i.paid || 0), 0);
+  const totalDue = installments.reduce((sum, i) => sum + Number(i.amountDue || i.amount || 0), 0);
+  const balanceDue = Math.max(0, totalDue - totalPaid);
+  const overdueCount = installments.filter(i => (i.status || '').toLowerCase() === 'overdue').length;
+  const partialCount = installments.filter(i => (i.status || '').toLowerCase() === 'partial').length;
+  const paidCount = installments.filter(i => (i.status || '').toLowerCase() === 'paid').length;
+  const pendingCount = installments.length - (overdueCount + partialCount + paidCount);
+
+  const shortDate = (v: any) => {
+    if (!v) return '—';
+    try { return new Date(v).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric'}); } catch { return '—'; }
+  };
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: <User className="w-4 h-4" /> },
     { id: 'academic', label: 'Academic', icon: <GraduationCap className="w-4 h-4" /> },
@@ -1516,45 +1535,26 @@ function StudentDetailsModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <h4 className="font-semibold text-gray-900">Personal Information</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Full Name:</span>
-                    <span className="font-medium">{student.names}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Date of Birth:</span>
-                    <span className="font-medium">{formatDate(student.dateOfBirth)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Place of Birth:</span>
-                    <span className="font-medium">{student.placeOfBirth}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Region of Origin:</span>
-                    <span className="font-medium">{student.regionOfOrigin}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Gender:</span>
-                    <span className="font-medium">{student.gender}</span>
-                  </div>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-600">Full Name:</span><span className="font-medium truncate max-w-[180px] text-right">{student.names}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Date of Birth:</span><span className="font-medium">{shortDate(student.dateOfBirth)}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Place of Birth:</span><span className="font-medium truncate max-w-[160px] text-right">{student.placeOfBirth || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Region:</span><span className="font-medium">{student.regionOfOrigin || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Gender:</span><span className="font-medium">{student.gender}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Academic Year:</span><span className="font-medium">{student.academicYear || '—'}</span></div>
                 </div>
               </div>
               <div className="space-y-4">
                 <h4 className="font-semibold text-gray-900">Guardian Information</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Guardian Name:</span>
-                    <span className="font-medium">{student.guardian?.name || '—'}</span>
+                {student.guardian ? (
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between"><span className="text-gray-600">Name:</span><span className="font-medium truncate max-w-[160px] text-right">{student.guardian.name || '—'}</span></div>
+                    {student.guardian.contact && <div className="flex justify-between"><span className="text-gray-600">Contact:</span><span className="font-medium">{student.guardian.contact}</span></div>}
+                    {student.guardian.address && <div className="flex justify-between"><span className="text-gray-600">Address:</span><span className="font-medium truncate max-w-[160px] text-right">{student.guardian.address}</span></div>}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Guardian Contact:</span>
-                    <span className="font-medium">{student.guardian?.contact || '—'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Guardian Address:</span>
-                    <span className="font-medium text-right max-w-48">{student.guardian?.address || '—'}</span>
-                  </div>
-                </div>
+                ) : (
+                  <p className="text-xs text-gray-500">No guardian info.</p>
+                )}
               </div>
             </div>
           )}
@@ -1563,59 +1563,22 @@ function StudentDetailsModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <h4 className="font-semibold text-gray-900">Academic Details</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Program:</span>
-                    <span className="font-medium">{student.program?.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Department:</span>
-                    <span className="font-medium">{student.department?.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Level:</span>
-                    <span className="font-medium">Level {student.level}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Session:</span>
-                    <span className="font-medium">{student.session}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Academic Year:</span>
-                    <span className="font-medium">{student.academicYear}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Admission Date:</span>
-                    <span className="font-medium">{formatDate(student.admissionDate)}</span>
-                  </div>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-600">Program:</span><span className="font-medium truncate max-w-[180px] text-right">{(student.program as any)?.name || (typeof student.program === 'string' ? student.program : '—')}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Department:</span><span className="font-medium truncate max-w-[180px] text-right">{(student.department as any)?.name || (typeof student.department === 'string' ? student.department : '—')}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Level:</span><span className="font-medium">{student.level || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Session:</span><span className="font-medium">{student.session || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Academic Year:</span><span className="font-medium">{student.academicYear || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Admission Date:</span><span className="font-medium">{shortDate(student.admissionDate)}</span></div>
                 </div>
               </div>
               <div className="space-y-4">
                 <h4 className="font-semibold text-gray-900">Status Information</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Enrollment Status:</span>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.enrollmentStatus, 'enrollment')}`}>
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      {student.enrollmentStatus}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Account Status:</span>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      student.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {student.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Created By:</span>
-                    <span className="font-medium">{student.createdBy?.name || '—'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Created Date:</span>
-                    <span className="font-medium">{formatDate(student.createdAt)}</span>
-                  </div>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center"><span className="text-gray-600">Enrollment Status:</span><span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.enrollmentStatus, 'enrollment')}`}><CheckCircle className="w-3 h-3 mr-1" />{student.enrollmentStatus}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-gray-600">Account Status:</span><span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${student.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{student.isActive ? 'Active' : 'Inactive'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Created By:</span><span className="font-medium">{(student.createdBy as any)?.name || '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-600">Created Date:</span><span className="font-medium">{shortDate(student.createdAt)}</span></div>
                 </div>
               </div>
             </div>
@@ -1630,71 +1593,75 @@ function StudentDetailsModal({
                   {student.tuitionStatus}
                 </span>
               </div>
-              
               {tuitionDetails ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                      <p className="text-sm text-green-600 font-medium flex items-center gap-2">Total Paid
-                        {(!tuitionDetails.student?.tuitionInstallments || !tuitionDetails.student?.tuitionInstallments.length) && (
-                          <span className="text-[10px] text-green-700 bg-green-100 px-2 py-0.5 rounded" title="No installments defined; showing direct payments total if any">(direct)</span>
-                        )}
-                      </p>
-                      <p className="text-2xl font-bold text-green-700">
-                        {(tuitionDetails.student?.totalPaid || 0).toLocaleString()} XAF
-                      </p>
-                    </div>
-                    <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                      <p className="text-sm text-red-600 font-medium">Balance Due</p>
-                      <p className="text-2xl font-bold text-red-700">
-                        {(tuitionDetails.student?.balanceDue || 0).toLocaleString()} XAF
-                      </p>
+                      <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Total Paid</p>
+                      <p className="text-xl md:text-2xl font-bold text-green-700 mt-1">{formatXAF(totalPaid)}</p>
                     </div>
                     <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                      <p className="text-sm text-blue-600 font-medium">Installments</p>
-                      <p className="text-2xl font-bold text-blue-700">
-                        {(tuitionDetails.student?.tuitionInstallments || []).length}
-                      </p>
+                      <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Total Due</p>
+                      <p className="text-xl md:text-2xl font-bold text-blue-700 mt-1">{formatXAF(totalDue)}</p>
+                    </div>
+                    <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                      <p className="text-xs font-medium text-red-600 uppercase tracking-wide">Balance</p>
+                      <p className="text-xl md:text-2xl font-bold text-red-700 mt-1">{formatXAF(balanceDue)}</p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Installments</p>
+                      <p className="text-xl md:text-2xl font-bold text-gray-800 mt-1">{installments.length}</p>
                     </div>
                   </div>
-
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                    <div className="p-3 rounded-lg bg-green-50 border border-green-100 flex items-center justify-between"><span className="text-green-700">Paid</span><span className="font-semibold text-green-700">{paidCount}</span></div>
+                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-between"><span className="text-amber-700">Partial</span><span className="font-semibold text-amber-700">{partialCount}</span></div>
+                    <div className="p-3 rounded-lg bg-red-50 border border-red-100 flex items-center justify-between"><span className="text-red-700">Overdue</span><span className="font-semibold text-red-700">{overdueCount}</span></div>
+                    <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-between"><span className="text-gray-700">Pending</span><span className="font-semibold text-gray-700">{pendingCount}</span></div>
+                  </div>
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h5 className="font-medium text-gray-900 mb-3">Installment Breakdown</h5>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-left border-b border-gray-200">
-                            <th className="pb-2 font-medium text-gray-700">Installment</th>
-                            <th className="pb-2 font-medium text-gray-700">Amount Due</th>
-                            <th className="pb-2 font-medium text-gray-700">Paid</th>
-                            <th className="pb-2 font-medium text-gray-700">Due Date</th>
-                            <th className="pb-2 font-medium text-gray-700">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(tuitionDetails.student?.tuitionInstallments || []).map((installment: any, index: number) => (
-                            <tr key={installment.key || index} className="border-b border-gray-100">
-                              <td className="py-3 font-medium">{installment.label || installment.key}</td>
-                              <td className="py-3">{(installment.amountDue || 0).toLocaleString()} XAF</td>
-                              <td className="py-3">{(installment.paid || 0).toLocaleString()} XAF</td>
-                              <td className="py-3">
-                                {installment.dueDate ? formatDate(installment.dueDate) : '—'}
-                              </td>
-                              <td className="py-3">
-                                <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                                  installment.status === 'Paid' ? 'bg-green-100 text-green-800' :
-                                  installment.status === 'Partial' ? 'bg-yellow-100 text-yellow-800' :
-                                  installment.status === 'Overdue' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {installment.status}
-                                </span>
-                              </td>
+                    {!installments.length && <p className="text-xs text-gray-500">No installments available.</p>}
+                    {!!installments.length && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs md:text-sm">
+                          <thead>
+                            <tr className="text-gray-600 border-b">
+                              <th className="py-2 pr-3 text-left font-medium">Label</th>
+                              <th className="py-2 pr-3 text-right font-medium">Amount</th>
+                              <th className="py-2 pr-3 text-right font-medium">Paid</th>
+                              <th className="py-2 pr-3 text-right font-medium">Remaining</th>
+                              <th className="py-2 pr-3 text-left font-medium">Due Date</th>
+                              <th className="py-2 pr-3 text-left font-medium">Status</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody>
+                            {installments.map((ins, idx) => {
+                              const amt = Number(ins.amountDue || ins.amount || 0);
+                              const paid = Number(ins.paid || 0);
+                              const remaining = Math.max(0, amt - paid);
+                              const status = ins.status || (remaining === 0 ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending'));
+                              return (
+                                <tr key={ins.key || idx} className="border-b last:border-b-0">
+                                  <td className="py-2 pr-3 font-medium text-gray-900 whitespace-nowrap max-w-[140px] truncate">{ins.label || ins.key || `Installment ${idx+1}`}</td>
+                                  <td className="py-2 pr-3 text-right">{formatXAF(amt)}</td>
+                                  <td className="py-2 pr-3 text-right text-green-700">{formatXAF(paid)}</td>
+                                  <td className="py-2 pr-3 text-right text-blue-700">{formatXAF(remaining)}</td>
+                                  <td className="py-2 pr-3 whitespace-nowrap">{ins.dueDate ? shortDate(ins.dueDate) : '—'}</td>
+                                  <td className="py-2 pr-3">
+                                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium inline-block ${
+                                      status==='Paid' ? 'bg-green-100 text-green-700' :
+                                      status==='Partial' ? 'bg-amber-100 text-amber-700' :
+                                      status==='Overdue' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                                    }`}>{status}</span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -1710,59 +1677,20 @@ function StudentDetailsModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <h4 className="font-semibold text-gray-900">Student Contact</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <Phone className="w-4 h-4 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-600">Phone Number</p>
-                      <p className="font-medium">{student.phoneNumber}</p>
-                    </div>
-                  </div>
-                  {student.email && (
-                    <div className="flex items-center space-x-3">
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-600">Email Address</p>
-                        <p className="font-medium">{student.email}</p>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-start space-x-3">
-                    <MapPin className="w-4 h-4 text-gray-400 mt-1" />
-                    <div>
-                      <p className="text-sm text-gray-600">Address</p>
-                      <p className="font-medium">
-                        {student.address ? 
-                          `${student.address.street}, ${student.address.city}, ${student.address.region}` : 
-                          '—'
-                        }
-                      </p>
-                    </div>
-                  </div>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center space-x-3"><Phone className="w-4 h-4 text-gray-400" /><div><p className="font-medium">{student.phoneNumber || '—'}</p></div></div>
+                  {student.email && (<div className="flex items-center space-x-3"><Mail className="w-4 h-4 text-gray-400" /><span className="truncate max-w-[200px]">{student.email}</span></div>)}
+                  <div className="flex items-start space-x-3"><MapPin className="w-4 h-4 text-gray-400 mt-1" /><div className="text-sm max-w-[240px] break-words">{student.address ? `${student.address.street}, ${student.address.city}, ${student.address.region}` : '—'}</div></div>
                 </div>
               </div>
               <div className="space-y-4">
                 <h4 className="font-semibold text-gray-900">Emergency Contact</h4>
                 {student.emergencyContact ? (
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Name:</span>
-                      <span className="font-medium">{student.emergencyContact.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Relationship:</span>
-                      <span className="font-medium">{student.emergencyContact.relationship}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Phone:</span>
-                      <span className="font-medium">{student.emergencyContact.phone}</span>
-                    </div>
-                    {student.emergencyContact.email && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Email:</span>
-                        <span className="font-medium">{student.emergencyContact.email}</span>
-                      </div>
-                    )}
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between"><span className="text-gray-600">Name:</span><span className="font-medium truncate max-w-[160px] text-right">{student.emergencyContact.name}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Relationship:</span><span className="font-medium">{student.emergencyContact.relationship}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Phone:</span><span className="font-medium">{student.emergencyContact.phone}</span></div>
+                    {student.emergencyContact.email && (<div className="flex justify-between"><span className="text-gray-600">Email:</span><span className="font-medium truncate max-w-[140px] text-right">{student.emergencyContact.email}</span></div>)}
                   </div>
                 ) : (
                   <p className="text-gray-500 text-center py-4">No emergency contact information available.</p>
@@ -1800,8 +1728,8 @@ function EditStudentModal({ student, onClose, onSaved }: { student: Student; onC
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 shrink-0">
           <h3 className="text-xl font-semibold text-gray-900">Edit Student Information</h3>
           <button 
             onClick={onClose} 
@@ -1810,7 +1738,7 @@ function EditStudentModal({ student, onClose, onSaved }: { student: Student; onC
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6 space-y-6">
+  <div className="p-6 space-y-6 overflow-y-auto flex-1">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
@@ -1848,7 +1776,7 @@ function EditStudentModal({ student, onClose, onSaved }: { student: Student; onC
             />
           </div>
         </div>
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+  <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 shrink-0">
           <button 
             onClick={onClose} 
             className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -1872,81 +1800,112 @@ function EditStudentModal({ student, onClose, onSaved }: { student: Student; onC
 // Enhanced Payment Dialog
 function PaymentDialog({ student, tuitionDetails, onClose }: { student: Student; tuitionDetails: any; onClose: () => void }) {
   const [amount, setAmount] = useState<number>(0);
-  const [installmentKey, setInstallmentKey] = useState<string>('');
   const [method, setMethod] = useState<string>('Cash');
   const [notes, setNotes] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const { showToast } = useUI();
-  const [creditAccountCode, setCreditAccountCode] = useState<string>('');
-  const [incomeAccounts, setIncomeAccounts] = useState<any[]>([]);
+  // Tuition plan selection (replaces installment + credit account logic)
+  // (Legacy) tuitionPlans replaced by tuitionStructures for naming consistency
+  // const [tuitionPlans, setTuitionPlans] = useState<any[]>([]);
+  const [selectedTuitionPlanId, setSelectedTuitionPlanId] = useState<string>('');
+  const [tuitionStructures, setTuitionStructures] = useState<any[]>([]);
+  // Removed displayPlanName / deriveStructureNameForPlan after migrating to structures-only selection
+  const [installmentKey, setInstallmentKey] = useState<string>('');
+  // Raw installments directly attached to the student (already contain paid info/status)
+  const studentInstallments = tuitionDetails?.student?.tuitionInstallments || [];
+  // Build a merged installment list based on the selected structure's blueprint so user can pick even before student blueprint initialized
+  const mergedInstallments = React.useMemo(() => {
+    if (!selectedTuitionPlanId) return studentInstallments; // nothing selected yet
+    const structure = tuitionStructures.find(s => s._id === selectedTuitionPlanId);
+    if (!structure) return studentInstallments;
+    const blueprint: any[] = Array.isArray(structure.installments) ? structure.installments : [];
+    // Map blueprint installments to existing student installments where keys (or labels) match; fallback to blueprint amounts
+    return blueprint.map((bp: any, index: number) => {
+      // attempt to match by key first; if not present, match by label ignoring case/whitespace
+      const match = studentInstallments.find((si: any) => (bp.key && si.key === bp.key) || (bp.label && si.label && si.label.toLowerCase().trim() === bp.label.toLowerCase().trim()));
+      if (match) return match; // already contains amountDue / paid / status
+      // fabricate a temporary installment so payment can still be allocated
+      return {
+        key: bp.key || bp.label || `inst_${index+1}`,
+        label: bp.label || bp.key || `Installment ${index+1}`,
+        amountDue: Number(bp.amount) || 0,
+        paid: 0,
+        status: 'Pending',
+        dueDate: bp.dueDate || null,
+        _temp: true
+      };
+    });
+  }, [selectedTuitionPlanId, tuitionStructures, studentInstallments]);
+  const selectedInstallment = mergedInstallments.find((it: any) => it.key === installmentKey);
+  const remainingForSelected = selectedInstallment ? Math.max(0, (selectedInstallment.amountDue || 0) - (selectedInstallment.paid || 0)) : 0;
+
+  // Reset installment selection if structure changes
+  useEffect(() => { setInstallmentKey(''); }, [selectedTuitionPlanId]);
 
   useEffect(() => {
-    if (open) {
-      // fetch income accounts once when modal opens
-      fetchClient.get('/api/ohada/accounts?type=income').then(async r => {
-        if (r.ok) {
-          const json = await r.json();
-          setIncomeAccounts(json.data || []);
-          if (!creditAccountCode && (json.data || []).length) {
-            const tuition = (json.data || []).find((a: any) => /tuition/i.test(a.name));
-            setCreditAccountCode(tuition ? tuition.code : json.data[0].code);
+    // Fetch available tuition plans when dialog mounts
+    let cancelled = false;
+    (async () => {
+      try {
+        const [/*plansRaw*/, structuresRaw] = await Promise.all([
+          getTuitionPlans() as any, // kept call if backend still expects plan assignment, but we ignore listing
+          getTuitionStructures() as any
+        ]);
+        const structures = Array.isArray(structuresRaw?.data) ? structuresRaw.data : Array.isArray(structuresRaw) ? structuresRaw : [];
+        if (!cancelled) {
+            setTuitionStructures(structures);
+          const anyStudent: any = student as any;
+          if (anyStudent?.tuitionPlan && !selectedTuitionPlanId) {
+            const id = typeof anyStudent.tuitionPlan === 'object' ? (anyStudent.tuitionPlan as any)._id : anyStudent.tuitionPlan;
+            if (id) setSelectedTuitionPlanId(id);
           }
-        } else {
-          const t = await r.text();
-          showToast(t || 'Failed to initialize', 'error');
         }
-      }).catch(()=>{});
-    }
-  }, [open]);
-
-  const installments = tuitionDetails?.student?.tuitionInstallments || [];
-  const [selectedInstallment, setSelectedInstallment] = useState<any>(null);
-  const [isAdvance, setIsAdvance] = useState(false);
-
-  useEffect(() => {
-    if (installmentKey) {
-      const sel = installments.find((it: any) => it.key === installmentKey) || null;
-      setSelectedInstallment(sel);
-      if (sel) {
-        setAmount(sel.amountDue - (sel.paid || 0));
-        setIsAdvance(false);
+      } catch (e: any) {
+        console.warn('Failed loading tuition plans / structures', e);
+        showToast(e?.message || 'Failed to load tuition plans/structures', 'error');
       }
-    } else {
-      setSelectedInstallment(null);
-    }
-  }, [installmentKey, tuitionDetails]);
-
-  useEffect(() => {
-    if (selectedInstallment) {
-      const expected = Math.max(0, (selectedInstallment.amountDue || 0) - (selectedInstallment.paid || 0));
-      setIsAdvance(Number(amount) < expected);
-    } else {
-      setIsAdvance(false);
-    }
-  }, [amount, selectedInstallment]);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSubmit = async () => {
     if (!amount || Number(amount) <= 0) { 
       showToast('Enter a valid amount', 'error'); 
       return; 
     }
-    
+    if (!selectedTuitionPlanId) {
+      showToast('Select a tuition plan', 'error');
+      return;
+    }
+    if (!installmentKey) {
+      showToast('Select an installment', 'error');
+      return;
+    }
     if (selectedInstallment) {
-      const expected = Math.max(0, (selectedInstallment.amountDue || 0) - (selectedInstallment.paid || 0));
-      if (Number(amount) > expected) { 
-        showToast('Amount cannot exceed the expected remaining for the selected installment', 'error'); 
-        return; 
+      const expectedRemaining = remainingForSelected;
+      if (Number(amount) > expectedRemaining) {
+        showToast('Amount cannot exceed remaining for installment', 'error');
+        return;
       }
     }
     
     setLoading(true);
     try {
+      // If student doesn't have this plan yet, update student first
+      const anyStudent: any = student as any;
+      const currentPlanId = typeof anyStudent.tuitionPlan === 'object' ? anyStudent.tuitionPlan?._id : anyStudent.tuitionPlan;
+      if (selectedTuitionPlanId && selectedTuitionPlanId !== currentPlanId) {
+        try {
+          await updateStudent(student._id, { tuitionPlan: selectedTuitionPlanId } as any);
+        } catch (e:any) {
+          console.warn('Failed to update student tuition plan before payment', e);
+        }
+      }
       await payTuition(student._id, { 
         amount: Number(amount), 
-        installmentKey: installmentKey || undefined, 
+        installmentKey,
         method, 
-        notes,
-        creditAccountCode: creditAccountCode || undefined
+        notes
       });
       showToast('Payment recorded successfully', 'success');
       onClose();
@@ -1960,8 +1919,8 @@ function PaymentDialog({ student, tuitionDetails, onClose }: { student: Student;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 shrink-0">
           <div className="flex items-center space-x-3">
             <div className="bg-emerald-100 p-2 rounded-lg">
               <CreditCard className="w-6 h-6 text-emerald-600" />
@@ -1979,7 +1938,7 @@ function PaymentDialog({ student, tuitionDetails, onClose }: { student: Student;
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {/* Payment Amount */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Payment Amount (XAF)</label>
@@ -2000,70 +1959,89 @@ function PaymentDialog({ student, tuitionDetails, onClose }: { student: Student;
             )}
           </div>
 
-          {/* Installment Selection */}
+          {/* Tuition Structure Selection (replaces direct plan name usage) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">Apply to Installment</label>
-            <div className="grid grid-cols-1 gap-3">
-              <button 
-                type="button" 
-                onClick={() => { 
-                  setInstallmentKey(''); 
-                  setSelectedInstallment(null); 
-                  setAmount(0); 
-                }} 
-                className={`p-3 border rounded-lg text-left transition-all ${
-                  !installmentKey ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="font-medium text-gray-900">Apply to earliest unpaid installment</div>
-                <div className="text-sm text-gray-600">System will automatically distribute the payment</div>
-              </button>
-              
-              {installments.map((installment: any) => {
-                const remaining = Math.max(0, (installment.amountDue || 0) - (installment.paid || 0));
-                const selected = installmentKey === installment.key;
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tuition Structure</label>
+            <select
+              value={selectedTuitionPlanId}
+              onChange={e => setSelectedTuitionPlanId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select a tuition structure...</option>
+              {tuitionStructures.map((s: any) => (
+                <option key={s._id} value={s._id}>{s.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">Choose the structure this payment applies to.</p>
+            {selectedTuitionPlanId && (
+              <div className="mt-2 text-xs text-gray-600">
+                {(() => {
+                  const structure = tuitionStructures.find(s => s._id === selectedTuitionPlanId);
+                  if (!structure) return null;
+                  const total = (structure.installments || []).reduce((sum:number,i:any)=> sum + Number(i.amount||0), 0);
+                  return <span>Selected: <strong>{structure.name}</strong> • Total {total.toLocaleString()} XAF • {(structure.installments||[]).length} installments</span>;
+                })()}
+              </div>
+            )}
+            {!tuitionStructures.length && (
+              <div className="mt-2 text-xs text-amber-600 flex items-center gap-2">
+                <span>No tuition structures found. Create one in Tuition Management.</span>
+                <button
+                  type="button"
+                  className="px-2 py-1 border rounded bg-white hover:bg-gray-50"
+                  onClick={async () => {
+                    try {
+                      const res = await getTuitionStructures() as any;
+                      const structures = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+                      setTuitionStructures(structures);
+                      showToast('Refreshed structures');
+                    } catch (e:any) {
+                      showToast(e.message || 'Refresh failed', 'error');
+                    }
+                  }}
+                >Refresh</button>
+              </div>
+            )}
+          </div>
+
+          {/* Installments Listing (merged blueprint + existing) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Installments</label>
+            {(!mergedInstallments || !mergedInstallments.length) && (
+              <p className="text-xs text-gray-500">Select a tuition structure to view its installments.</p>
+            )}
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {mergedInstallments.map((ins: any) => {
+                const remaining = Math.max(0, (ins.amountDue || 0) - (ins.paid || 0));
+                const selected = installmentKey === ins.key;
                 return (
-                  <button 
-                    key={installment.key} 
-                    type="button" 
-                    onClick={() => { setInstallmentKey(installment.key); }} 
-                    className={`p-3 border rounded-lg text-left transition-all ${
-                      selected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                  <button
+                    key={ins.key}
+                    type="button"
+                    onClick={() => setInstallmentKey(ins.key)}
+                    className={`w-full p-3 border rounded-lg text-left transition-all ${selected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="font-medium text-gray-900">{installment.label || installment.key}</div>
-                        <div className="text-sm text-gray-600">
-                          {remaining.toLocaleString()} XAF remaining
-                          {installment.dueDate && ` • Due: ${formatDate(installment.dueDate)}`}
+                        <div className="font-medium text-gray-900 flex items-center gap-2">
+                          {ins.label || ins.key}
+                          {ins._temp && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">new</span>}
                         </div>
+                        <div className="text-xs text-gray-600">Remaining: {remaining.toLocaleString()} XAF {ins.dueDate ? `• Due ${formatDate(ins.dueDate)}` : ''}</div>
                       </div>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        installment.status === 'Paid' ? 'bg-green-100 text-green-800' :
-                        installment.status === 'Partial' ? 'bg-yellow-100 text-yellow-800' :
-                        installment.status === 'Overdue' ? 'bg-red-100 text-red-800' :
+                        ins.status === 'Paid' ? 'bg-green-100 text-green-800' :
+                        ins.status === 'Partial' ? 'bg-yellow-100 text-yellow-800' :
+                        ins.status === 'Overdue' ? 'bg-red-100 text-red-800' :
                         'bg-gray-100 text-gray-800'
-                      }`}>
-                        {installment.status}
-                      </span>
+                      }`}>{ins.status}</span>
                     </div>
                   </button>
                 );
               })}
             </div>
-            
             {selectedInstallment && (
-              <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-800">
-                  <strong>Expected remaining:</strong> {Math.max(0, (selectedInstallment.amountDue || 0) - (selectedInstallment.paid || 0)).toLocaleString()} XAF
-                </p>
-                {isAdvance && (
-                  <p className="text-sm text-amber-700 mt-1">
-                    <strong>Note:</strong> This payment is less than the full installment amount and will be marked as an advance.
-                  </p>
-                )}
-              </div>
+              <p className="text-xs text-blue-600 mt-1">Selected remaining: {remainingForSelected.toLocaleString()} XAF</p>
             )}
           </div>
 
@@ -2083,55 +2061,7 @@ function PaymentDialog({ student, tuitionDetails, onClose }: { student: Student;
             </select>
           </div>
 
-          {/* Credit (Income) Account */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Credit Account (Income)</label>
-            {incomeAccounts.length === 0 && (
-              <div className="mb-2 p-3 rounded border border-amber-300 bg-amber-50 text-amber-800 text-sm flex items-start gap-3">
-                <div className="flex-1">
-                  <p className="font-medium">No income accounts found.</p>
-                  <p className="text-xs mt-1">Initialize the OHADA chart of accounts to select an income account for this payment.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      const r = await fetchClient.postJson('/api/ohada/accounts/initialize', {});
-                      if (r.ok) {
-                        const json = await r.json();
-                        showToast('Chart initialized');
-                        // refetch accounts
-                        const again = await fetchClient.get('/api/ohada/accounts?type=income');
-                        if (again.ok) {
-                          const data = await again.json();
-                          setIncomeAccounts(data.data || []);
-                          if ((data.data || []).length) setCreditAccountCode((data.data[0] || {}).code);
-                        }
-                      } else {
-                        const t = await r.text();
-                        showToast(t || 'Failed to initialize', 'error');
-                      }
-                    } catch (e:any) {
-                      showToast(e.message || 'Initialization failed', 'error');
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-medium"
-                >Initialize</button>
-              </div>
-            )}
-            <select
-              value={creditAccountCode}
-              onChange={e => setCreditAccountCode(e.target.value)}
-              disabled={incomeAccounts.length === 0}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60"
-            >
-              {incomeAccounts.map((acc:any) => (
-                <option key={acc.code} value={acc.code}>{acc.code} — {acc.name}</option>
-              ))}
-              {incomeAccounts.length === 0 && <option value="">Loading / None</option>}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">Select which income account to credit for this payment.</p>
-          </div>
+          {/* Removed Credit (Income) Account selection per new requirements */}
 
           {/* Notes */}
           <div>
@@ -2146,7 +2076,7 @@ function PaymentDialog({ student, tuitionDetails, onClose }: { student: Student;
           </div>
         </div>
 
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+  <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 shrink-0">
           <button 
             onClick={onClose} 
             className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"

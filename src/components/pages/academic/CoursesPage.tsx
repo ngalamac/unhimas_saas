@@ -1,193 +1,300 @@
-import React, { useEffect, useState } from 'react';
-import { BookOpen, Plus, Edit, Trash2, Eye, User, Building2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import fetchClient from '../../../lib/fetchClient';
+import { BookOpen, Plus, Edit, Trash2, Eye, User, Building2, X } from 'lucide-react';
 import { Course, Program, Department } from '../../../types/school';
-import { getCourses, createCourse, deleteCourse } from '../../../api/courses';
+import { createCourse, updateCourse, deleteCourse } from '../../../api/courses';
 import { getPrograms } from '../../../api/programs';
 import { getDepartments } from '../../../api/departments';
 
+// Stable modal component extracted to avoid remount on each parent render
+interface CourseModalProps {
+  mode: 'create' | 'edit' | 'view' | null;
+  onClose: () => void;
+  programs: Program[];
+  departments: Department[];
+  formTitle: string; setFormTitle: (v: string) => void;
+  formCode: string; setFormCode: (v: string) => void;
+  formCredit: number; setFormCredit: (v: number) => void;
+  formProgramId: string; setFormProgramId: (v: string) => void;
+  formDepartmentId: string; setFormDepartmentId: (v: string) => void;
+  formSemester: number; setFormSemester: (v: number) => void;
+  formCAWeight: number; setFormCAWeight: (v: number) => void;
+  formExamWeight: number; setFormExamWeight: (v: number) => void;
+  isFormValid: () => boolean;
+  onSave: () => void;
+}
+
+const RawCourseModal: React.FC<CourseModalProps> = ({
+  mode, onClose, programs, departments,
+  formTitle, setFormTitle,
+  formCode, setFormCode,
+  formCredit, setFormCredit,
+  formProgramId, setFormProgramId,
+  formDepartmentId, setFormDepartmentId,
+  formSemester, setFormSemester,
+  formCAWeight, setFormCAWeight,
+  formExamWeight, setFormExamWeight,
+  isFormValid, onSave
+}) => {
+  if (!mode) return null;
+  const isView = mode === 'view';
+  const titleRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (!isView) titleRef.current?.focus(); }, [isView]);
+  const prog = programs?.find?.(p => (p as any)?._id === formProgramId || (p as any)?.id === formProgramId);
+  const duration = typeof prog?.duration === 'number' && prog.duration > 0 ? prog.duration : 1;
+  const semPerYear = typeof prog?.semestersPerYear === 'number' && prog.semestersPerYear > 0 ? prog.semestersPerYear : 2;
+  const maxSem = duration * semPerYear || 1;
+  const safeSemesterOptions = Array.from({ length: Math.min(60, Math.max(1, maxSem)) }, (_,i)=>i+1);
+  const currentSum = Number((formCAWeight ?? 0)) + Number((formExamWeight ?? 0));
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={e=>{ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-xl flex flex-col max-h-[90vh]" role="dialog" aria-modal="true">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <h2 className="text-lg font-semibold">{mode === 'create' ? 'Add Course' : mode === 'edit' ? 'Edit Course' : 'View Course'}</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700" aria-label="Close modal">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="px-6 py-4 overflow-y-auto space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Title *</label>
+              <input ref={titleRef} disabled={isView} value={formTitle} onChange={e=>setFormTitle(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="Course Title" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Code *</label>
+              <input disabled={isView} value={formCode} onChange={e=>setFormCode(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="Code" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Credit *</label>
+              <input disabled={isView} type="number" value={formCredit} onChange={e=>setFormCredit(Number(e.target.value) || 0)} className="w-full px-3 py-2 border rounded" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Program *</label>
+              <select disabled={isView} value={formProgramId} onChange={e=>{setFormProgramId(e.target.value); setFormSemester(1);}} className="w-full px-3 py-2 border rounded">
+                <option value="">Select Program</option>
+                {programs.map(p=> <option key={(p._id || (p as any).id)} value={(p._id || (p as any).id) as string}>{p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Department *</label>
+              <select disabled={isView} value={formDepartmentId} onChange={e=>setFormDepartmentId(e.target.value)} className="w-full px-3 py-2 border rounded">
+                <option value="">Select Department</option>
+                {departments.map(d=> <option key={(d._id || (d as any).id)} value={(d._id || (d as any).id) as string}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Semester *</label>
+              <select disabled={isView} value={formSemester} onChange={e=>setFormSemester(Number(e.target.value) || 1)} className="w-full px-3 py-2 border rounded">
+                {safeSemesterOptions.map(s=> <option key={s} value={s}>Sem {s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">CA Weight *</label>
+              <input disabled={isView} type="number" step="0.01" min={0} max={1} value={formCAWeight} onChange={e=>setFormCAWeight(Number(e.target.value) || 0)} className="w-full px-3 py-2 border rounded" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Exam Weight *</label>
+              <input disabled={isView} type="number" step="0.01" min={0} max={1} value={formExamWeight} onChange={e=>setFormExamWeight(Number(e.target.value) || 0)} className="w-full px-3 py-2 border rounded" />
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">CA + Exam weights must sum to 1. Currently: {currentSum.toFixed(2)}</p>
+        </div>
+        <div className="px-6 py-4 border-t flex justify-between items-center">
+          <div className="text-xs text-gray-500">{!isFormValid() && !isView && 'Complete required fields.'}</div>
+          <div className="flex space-x-2">
+            <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded text-sm">Cancel</button>
+            {!isView && (
+              <button disabled={!isFormValid()} onClick={onSave} className={`px-4 py-2 rounded text-sm ${isFormValid() ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}>Save</button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CourseModal = React.memo(RawCourseModal);
+
 export const CoursesPage: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [filterProgram, setFilterProgram] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
-  const [filterLevel, setFilterLevel] = useState('');
-  const [title, setTitle] = useState('');
-  const [code, setCode] = useState('');
+  const [filterSemester, setFilterSemester] = useState('');
+  const [search, setSearch] = useState('');
   const [programs, setPrograms] = useState<Program[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [selectedProgramId, setSelectedProgramId] = useState<string>('');
-    // Modal state for create/edit/view
-    const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null);
-    const [modalCourse, setModalCourse] = useState<Course | null>(null);
-    const [formTitle, setFormTitle] = useState('');
-    const [formCode, setFormCode] = useState('');
-    const [formCredit, setFormCredit] = useState(3);
-    const [formProgramId, setFormProgramId] = useState('');
-    const [formDepartmentId, setFormDepartmentId] = useState('');
-    const [formSemester, setFormSemester] = useState(1);
-    const [formCAWeight, setFormCAWeight] = useState(0.3);
-    const [formExamWeight, setFormExamWeight] = useState(0.7);
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
-  const [semester, setSemester] = useState<number>(1);
-  const [credit, setCredit] = useState<number>(3);
-  const [caWeight, setCaWeight] = useState<number>(0.3);
-  const [examWeight, setExamWeight] = useState<number>(0.7);
+  // Modal state
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null);
+  const [modalCourse, setModalCourse] = useState<Course | null>(null);
+  const [formTitle, setFormTitle] = useState('');
+  const [formCode, setFormCode] = useState('');
+  const [formCredit, setFormCredit] = useState(3);
+  const [formProgramId, setFormProgramId] = useState('');
+  const [formDepartmentId, setFormDepartmentId] = useState('');
+  const [formSemester, setFormSemester] = useState(1);
+  const [formCAWeight, setFormCAWeight] = useState(0.3);
+  const [formExamWeight, setFormExamWeight] = useState(0.7);
 
+  // Initial fetch of programs & departments
   useEffect(() => { 
-    getCourses().then(setCourses).catch(() => {});
-    getPrograms().then(setPrograms).catch(()=>{});
-    getDepartments().then(setDepartments).catch(()=>{});
+    getPrograms().then(resp => {
+      const list: any = (resp as any)?.data || resp;
+      setPrograms(Array.isArray(list) ? list : []);
+    }).catch(()=>{});
+    getDepartments().then(resp => {
+      const list: any = (resp as any)?.data || resp;
+      setDepartments(Array.isArray(list) ? list : []);
+    }).catch(()=>{});
   }, []);
 
-  const filteredCourses = courses.filter(course => {
-    // Open modal for create/edit/view
-    const openModal = (mode: 'create' | 'edit' | 'view', course?: Course) => {
-      setModalMode(mode);
-      setModalCourse(course || null);
-      if (mode === 'edit' && course) {
-        setFormTitle(course.title);
-        setFormCode(course.code);
-        setFormCredit(course.credit || 3);
-        setFormProgramId((course.program as any)?._id || (course.program as any)?.id || '');
-        setFormDepartmentId((course.department as any)?._id || (course.department as any)?.id || '');
-        setFormSemester(course.semester || 1);
-        setFormCAWeight(course.caWeight ?? 0.3);
-        setFormExamWeight(course.examWeight ?? 0.7);
-      } else if (mode === 'create') {
-        setFormTitle('');
-        setFormCode('');
-        setFormCredit(3);
-        setFormProgramId('');
-        setFormDepartmentId('');
-        setFormSemester(1);
-        setFormCAWeight(0.3);
-        setFormExamWeight(0.7);
-      }
+  // Fetch courses whenever filterProgram / filterDepartment / filterSemester changes
+  useEffect(() => {
+    const fetch = async () => {
+      const params = new URLSearchParams();
+      if (filterProgram) params.append('programId', filterProgram);
+      if (filterDepartment) params.append('departmentId', filterDepartment);
+      if (filterSemester) params.append('semester', filterSemester);
+      const url = '/api/courses' + (params.toString() ? `?${params.toString()}` : '');
+      try {
+        const res = await fetchClient.get(url);
+        if (!res.ok) return; // error already globally handled
+        const data = await res.json();
+        setCourses(Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []));
+      } catch {}
     };
-    const matchesDepartment = !filterDepartment || ((course.department as any)?.id === filterDepartment || (course.department as any)?._id === filterDepartment);
-    const matchesLevel = !filterLevel || (course.level ? course.level.toString() === filterLevel : false);
-    return matchesDepartment && matchesLevel;
-  });
+    fetch();
+  }, [filterProgram, filterDepartment, filterSemester]);
 
-  const isFormValid = () => {
-    if (!title.trim() || !code.trim()) return false;
-    if (!selectedProgramId) return false;
-    if (!credit || credit <= 0) return false;
-    if (Math.abs(caWeight + examWeight - 1) > 1e-6) return false;
-    // ensure semester within program bounds
-    const prog = programs.find(p => (p._id || (p as any).id) === selectedProgramId || (p as any).id === selectedProgramId);
+  // Ensure semester value stays within bounds if program changes
+  useEffect(() => {
+    if (!filterProgram || !filterSemester) return;
+    const prog = programs.find(p => (p._id || (p as any).id) === filterProgram || (p as any).id === filterProgram);
     if (prog) {
       const maxSem = ((prog.duration ?? 1) * (prog.semestersPerYear ?? 1)) || 1;
-      if (semester < 1 || semester > maxSem) return false;
+      if (Number(filterSemester) > maxSem) setFilterSemester('');
+    }
+  }, [filterProgram, filterSemester, programs]);
+
+  const openModal = useCallback((mode: 'create' | 'edit' | 'view', course?: Course) => {
+    setModalMode(mode);
+    setModalCourse(course || null);
+    if (mode === 'edit' && course) {
+      setFormTitle(course.title || '');
+      setFormCode(course.code || '');
+      setFormCredit(course.credit || (course as any).creditValue || 3);
+      setFormProgramId((course.program as any)?._id || (course.program as any)?.id || '');
+      setFormDepartmentId((course.department as any)?._id || (course.department as any)?.id || '');
+      setFormSemester(course.semester || 1);
+      setFormCAWeight(course.caWeight ?? 0.3);
+      setFormExamWeight(course.examWeight ?? 0.7);
+    } else if (mode === 'create') {
+      setFormTitle('');
+      setFormCode('');
+      setFormCredit(3);
+      setFormProgramId('');
+      setFormDepartmentId('');
+      setFormSemester(1);
+      setFormCAWeight(0.3);
+      setFormExamWeight(0.7);
+    }
+  }, []);
+
+  const filteredCourses = useMemo(() => {
+    return courses.filter(course => {
+      const matchesSearch = !search || (course.title || '').toLowerCase().includes(search.toLowerCase()) || (course.code || '').toLowerCase().includes(search.toLowerCase());
+      return matchesSearch;
+    });
+  }, [courses, search]);
+
+  const isFormValid = () => {
+    if (!formTitle.trim() || !formCode.trim()) return false;
+    if (!formProgramId) return false;
+  // department is required by backend (title, code, department)
+  if (!formDepartmentId) return false;
+    if (!formCredit || formCredit <= 0) return false;
+    if (Math.abs(formCAWeight + formExamWeight - 1) > 1e-6) return false;
+    const prog = programs.find(p => (p._id || (p as any).id) === formProgramId || (p as any).id === formProgramId);
+    if (prog) {
+      const maxSem = ((prog.duration ?? 1) * (prog.semestersPerYear ?? 1)) || 1;
+      if (formSemester < 1 || formSemester > maxSem) return false;
     }
     return true;
   };
 
-  const handleCreate = async () => {
-    if (!isFormValid()) return alert('Please fill all required fields and ensure CA + Exam weights sum to 1.');
-    try {
-    const payload = { title, code, credit, program: selectedProgramId, department: selectedDepartmentId || undefined, semester, caWeight, examWeight };
-      const c = await createCourse(payload as any);
-      setCourses(prev => [c, ...prev]);
-      setTitle(''); setCode(''); setSelectedProgramId(''); setSemester(1); setCredit(3); setCaWeight(0.3); setExamWeight(0.7);
-    } catch (e) { console.error(e); }
-  };
-
   const handleDelete = async (id?: string) => {
     if (!id) return;
-    await deleteCourse(id);
-    const handleSaveCourse = async () => {
-      if (!formTitle.trim() || !formCode.trim() || !formProgramId || !formDepartmentId || !formCredit || formSemester < 1) {
-        alert('All fields are required');
-        return;
-      }
-      if (Math.abs(formCAWeight + formExamWeight - 1) > 1e-6) {
-        alert('CA and Exam weights must sum to 1');
-        return;
-      }
-      try {
-        if (modalMode === 'create') {
-          const payload = {
-            title: formTitle,
-            code: formCode,
-            credit: formCredit,
-            program: formProgramId,
-            department: formDepartmentId,
-            semester: formSemester,
-            caWeight: formCAWeight,
-            examWeight: formExamWeight
-          };
-          const c = await createCourse(payload as any);
-          setCourses(prev => [c, ...prev]);
-        } else if (modalMode === 'edit' && modalCourse) {
-          const payload = {
-            title: formTitle,
-            code: formCode,
-            credit: formCredit,
-            program: formProgramId,
-            department: formDepartmentId,
-            semester: formSemester,
-            caWeight: formCAWeight,
-            examWeight: formExamWeight
-          };
-          // You may need to implement updateCourse in your api/courses
-          const c = await fetchClient.put(`/api/courses/${modalCourse._id || modalCourse.id}`, payload).then(res => res.json());
-          setCourses(prev => prev.map(course => (course._id || course.id) === (c._id || c.id) ? c : course));
-        }
-        setModalMode(null);
-      } catch (e) {
-        alert('Failed to save course');
-      }
-    };
-    setCourses(prev => prev.filter(c => (c._id || c.id) !== id));
-    // Modal component
-    const CourseModal = () => {
-      if (!modalMode) return null;
-      const isView = modalMode === 'view';
-      return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
-            <h2 className="text-xl font-bold mb-4">{modalMode === 'create' ? 'Add Course' : modalMode === 'edit' ? 'Edit Course' : 'View Course'}</h2>
-            <div className="space-y-4">
-              <input disabled={isView} value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Course Title" className="w-full px-3 py-2 border rounded" />
-              <input disabled={isView} value={formCode} onChange={e => setFormCode(e.target.value)} placeholder="Code" className="w-full px-3 py-2 border rounded" />
-              <input disabled={isView} type="number" value={formCredit} onChange={e => setFormCredit(Number(e.target.value))} placeholder="Credit" className="w-full px-3 py-2 border rounded" />
-              <select disabled={isView} value={formProgramId} onChange={e => setFormProgramId(e.target.value)} className="w-full px-3 py-2 border rounded">
-                <option value="">Select Program</option>
-                {programs.map(p => <option key={p._id || p.id} value={p._id || p.id}>{p.name}</option>)}
-              </select>
-              <select disabled={isView} value={formDepartmentId} onChange={e => setFormDepartmentId(e.target.value)} className="w-full px-3 py-2 border rounded">
-                <option value="">Select Department</option>
-                {departments.map(d => <option key={d._id || d.id} value={d._id || d.id}>{d.name}</option>)}
-              </select>
-              <input disabled={isView} type="number" value={formSemester} onChange={e => setFormSemester(Number(e.target.value))} placeholder="Semester" className="w-full px-3 py-2 border rounded" />
-              <input disabled={isView} type="number" step="0.01" value={formCAWeight} onChange={e => setFormCAWeight(Number(e.target.value))} placeholder="CA Weight" className="w-full px-3 py-2 border rounded" />
-              <input disabled={isView} type="number" step="0.01" value={formExamWeight} onChange={e => setFormExamWeight(Number(e.target.value))} placeholder="Exam Weight" className="w-full px-3 py-2 border rounded" />
-            </div>
-            <div className="mt-6 flex justify-end space-x-2">
-              <button onClick={() => setModalMode(null)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
-              {!isView && (
-                <button onClick={handleSaveCourse} className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    };
+    const original = courses;
+    setCourses(prev => prev.filter(c => (c._id || (c as any).id) !== id));
+    try {
+      await deleteCourse(id);
+      try { (window as any).__UI_BRIDGE__?.showToast?.('Course deleted'); } catch {}
+    } catch (e) {
+      setCourses(original); // rollback
+      alert('Failed to delete course');
+    }
   };
+
+  const handleSaveCourse = async () => {
+    if (!isFormValid()) {
+      alert('Please fill all required fields and ensure CA + Exam weights sum to 1.');
+      return;
+    }
+    const payload: any = {
+      title: formTitle,
+      code: formCode,
+      credit: formCredit,
+      program: formProgramId,
+      department: formDepartmentId,
+      semester: formSemester,
+      caWeight: formCAWeight,
+      examWeight: formExamWeight
+    };
+    try {
+      if (modalMode === 'create') {
+        const createdResp = await createCourse(payload as any);
+        const created: any = (createdResp as any)?.data || createdResp;
+        setCourses(prev => [created, ...prev]);
+      } else if (modalMode === 'edit' && modalCourse) {
+        const updatedResp = await updateCourse((modalCourse._id || (modalCourse as any).id) as string, payload);
+        const updated: any = (updatedResp as any)?.data || updatedResp;
+        setCourses(prev => prev.map(c => (c._id || (c as any).id) === (updated._id || (updated as any).id) ? updated : c));
+      }
+      setModalMode(null);
+    } catch (e) {
+      const errAny = e as any;
+      const msg = (errAny && errAny.message) ? errAny.message : 'Failed to save course';
+      try { (window as any).__UI_BRIDGE__?.showToast?.(msg); } catch {}
+      alert(msg);
+    }
+  };
+
+  // removed inline memo modal (replaced by stable external component)
 
   // edit/save flow not implemented yet for courses; update handler omitted to avoid unused symbol
 
   return (
     <div className="p-6">
+      <CourseModal
+        mode={modalMode}
+        onClose={()=>setModalMode(null)}
+        programs={programs}
+        departments={departments}
+        formTitle={formTitle} setFormTitle={setFormTitle}
+        formCode={formCode} setFormCode={setFormCode}
+        formCredit={formCredit} setFormCredit={setFormCredit}
+        formProgramId={formProgramId} setFormProgramId={setFormProgramId}
+        formDepartmentId={formDepartmentId} setFormDepartmentId={setFormDepartmentId}
+        formSemester={formSemester} setFormSemester={setFormSemester}
+        formCAWeight={formCAWeight} setFormCAWeight={setFormCAWeight}
+        formExamWeight={formExamWeight} setFormExamWeight={setFormExamWeight}
+        isFormValid={isFormValid}
+        onSave={handleSaveCourse}
+      />
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Course Management</h1>
-          <p className="text-gray-600">Manage all courses, credits, and lecturers</p>
-        </div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2" onClick={() => openModal('create')}>
-          <Plus className="w-4 h-4" />
-          <span>Add New Course</span>
-        </button>
+      <div className="mb-8 space-y-2">
+        <h1 className="text-2xl font-bold text-gray-900">Course Management</h1>
+        <p className="text-gray-600">Manage all courses, credits, and lecturers</p>
       </div>
 
       {/* Stats */}
@@ -244,58 +351,34 @@ export const CoursesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <select
-            value={filterDepartment}
-            onChange={(e) => setFilterDepartment(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Departments</option>
-            {departments.map(d => <option key={(d._id || (d as any).id)} value={(d._id || (d as any).id) as string}>{d.name}</option>)}
-          </select>
-          <div className="flex space-x-2">
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Course title" className="px-3 py-2 border rounded" />
-            <input value={code} onChange={e => setCode(e.target.value)} placeholder="Code" className="px-3 py-2 border rounded" />
-            <select value={selectedProgramId} onChange={e=>{ setSelectedProgramId(e.target.value); setSemester(1); }} className="px-3 py-2 border rounded">
-              <option value="">Select Program</option>
+      {/* Toolbar */}
+      <div className="bg-white p-4 rounded-lg shadow-sm border mb-6 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-wrap gap-3">
+            <select value={filterProgram} onChange={e=>setFilterProgram(e.target.value)} className="px-3 py-2 border rounded text-sm">
+              <option value="">All Programs</option>
               {programs.map(p=> <option key={(p._id || (p as any).id)} value={(p._id || (p as any).id) as string}>{p.name}</option>)}
             </select>
-            <select id="department" value={selectedDepartmentId} onChange={e => setSelectedDepartmentId(e.target.value)} className="px-3 py-2 border rounded">
-              <option value="">Select Department</option>
-              {departments.map(d=> <option key={(d._id || (d as any).id)} value={(d._id || (d as any).id) as string}>{d.name}</option>) }
+            <select value={filterDepartment} onChange={e=>setFilterDepartment(e.target.value)} className="px-3 py-2 border rounded text-sm">
+              <option value="">All Departments</option>
+              {departments.map(d=> <option key={(d._id || (d as any).id)} value={(d._id || (d as any).id) as string}>{d.name}</option>)}
             </select>
-            <input id="credit" type="number" value={credit} onChange={e=>setCredit(Number(e.target.value))} className="px-3 py-2 border rounded w-20" />
-            <select value={semester} onChange={e=>setSemester(Number(e.target.value))} className="px-3 py-2 border rounded w-32">
-              {(() => {
-                const prog = programs.find(p => (p._id || (p as any).id) === selectedProgramId || (p as any).id === selectedProgramId);
-                const maxSem = prog ? ( (prog.duration ?? 1) * (prog.semestersPerYear ?? 1) ) : 12;
-                return Array.from({ length: maxSem }, (_, i) => i + 1).map(s => <option key={s} value={s}>Sem {s}</option>);
-              })()}
+            <select value={filterSemester} onChange={e=>setFilterSemester(e.target.value)} className="px-3 py-2 border rounded text-sm">
+              <option value="">All Semesters</option>
+              {Array.from({ length: 12 }, (_,i)=>i+1).map(s => <option key={s} value={s}>Semester {s}</option>)}
             </select>
-            <input value={caWeight} onChange={e=>setCaWeight(Number(e.target.value))} type="number" step="0.01" min="0" max="1" className="px-3 py-2 border rounded w-20" title="CA weight (0-1)" />
-            <input value={examWeight} onChange={e=>setExamWeight(Number(e.target.value))} type="number" step="0.01" min="0" max="1" className="px-3 py-2 border rounded w-20" title="Exam weight (0-1)" />
-            <button onClick={handleCreate} disabled={!isFormValid()} className={`px-4 py-2 rounded ${isFormValid() ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}>Create</button>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search title or code" className="px-3 py-2 border rounded text-sm w-56" />
           </div>
-          <select
-            value={filterLevel}
-            onChange={(e) => setFilterLevel(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Levels</option>
-            <option value="1">Level 1</option>
-            <option value="2">Level 2</option>
-            <option value="3">Level 3</option>
-            <option value="4">Level 4</option>
-          </select>
-          <div></div>
-          <div></div>
+          <button onClick={()=>openModal('create')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <Plus className="w-4 h-4" />
+            <span>New Course</span>
+          </button>
         </div>
+        <p className="text-xs text-gray-500">Filters apply instantly. Use search to narrow by title/code.</p>
       </div>
 
       {/* Courses Table */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+  <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -310,6 +393,11 @@ export const CoursesPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+                {filteredCourses.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500">No courses found. Adjust filters or add a new course.</td>
+                  </tr>
+                )}
                 {filteredCourses.map((course) => (
                 <tr key={course._id || course.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -347,10 +435,10 @@ export const CoursesPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900">
+                      <button className="text-blue-600 hover:text-blue-900" onClick={()=>openModal('view', course)}>
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button className="text-green-600 hover:text-green-900">
+                      <button className="text-green-600 hover:text-green-900" onClick={()=>openModal('edit', course)}>
                         <Edit className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(course._id || course.id)} className="text-red-600 hover:text-red-900">

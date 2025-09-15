@@ -32,5 +32,9 @@ export async function deleteCourse(id: string): Promise<any> {
     if (!res.ok) {
         await handleFetchError(res);
     }
-    return res.json();
+    // delete returns 204 (no content)
+    if (res.status === 204) return { success: true };
+    let data: any = null;
+    try { data = await res.json(); } catch { data = { success: true }; }
+    return data;
 }

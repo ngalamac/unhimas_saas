@@ -456,3 +456,31 @@ export interface OHADABudget {
   createdAt: string;
   updatedAt: string;
 }
+
+// Extended OHADA types for tuition integration
+export interface OHADATuitionAccount {
+  code: string;
+  name: string;
+  type: 'registration_fee' | 'tuition_fee' | 'exam_fee' | 'library_fee' | 'other_fee';
+  isActive: boolean;
+  description?: string;
+}
+
+export interface OHADATuitionJournalEntry extends Omit<OHADAJournalEntry, 'lines'> {
+  lines: Array<{
+    account: OHADAAccount | string;
+    accountCode: string;
+    accountName: string;
+    debit: number;
+    credit: number;
+    description?: string;
+    studentReference?: string;
+    installmentKey?: string;
+  }>;
+  studentPayment?: {
+    studentId: string;
+    studentName: string;
+    installmentKey: string;
+    installmentLabel: string;
+  };
+}

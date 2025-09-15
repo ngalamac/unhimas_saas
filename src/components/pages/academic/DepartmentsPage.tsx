@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import fetchClient from '../../../lib/fetchClient';
 import { Building2, Plus, Edit, Trash2, Eye, Users, BookOpen } from 'lucide-react';
 import { Department } from '../../../types/school';
-import { getDepartments, createDepartment, deleteDepartment } from '../../../api/departments';
+import { getDepartments, deleteDepartment } from '../../../api/departments';
 
 export const DepartmentsPage: React.FC = () => {
   // Modal state for create/edit/view
@@ -27,7 +27,7 @@ export const DepartmentsPage: React.FC = () => {
       setFormName(department.name);
       setFormCode(department.code || '');
       setFormProgramId((department.program as any)?._id || (department.program as any)?.id || '');
-      setFormIsActive(department.isActive);
+  setFormIsActive(department.isActive !== undefined ? department.isActive : true);
     } else if (mode === 'create') {
       setFormName('');
       setFormCode('');
@@ -99,21 +99,33 @@ export const DepartmentsPage: React.FC = () => {
     );
   };
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [name, setName] = useState('');
-  const nameRef = React.useRef<HTMLInputElement | null>(null);
+  // Removed unused nameRef after switching to modal-based creation
 
-  useEffect(() => { getDepartments().then(setDepartments).catch(() => {}); }, []);
+  useEffect(() => {
+    getDepartments()
+      .then(resp => {
+        const list: any = (resp as any)?.data || resp;
+        setDepartments(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {});
+  }, []);
 
-  const handleCreate = async () => {
-    const d = await createDepartment({ name });
-    setDepartments(prev => [d, ...prev]);
-    setName('');
-  };
+  // (Removed unused inline create handler in favor of modal-driven creation)
 
   const handleDelete = async (id?: string) => {
     if (!id) return;
-    await deleteDepartment(id);
+    // Optimistic update with rollback if failure
+    const original = departments;
     setDepartments(prev => prev.filter(d => (d._id || d.id) !== id));
+    try {
+      await deleteDepartment(id);
+      try { (window as any).__UI_BRIDGE__?.showToast?.('Department deleted'); } catch (e) { }
+    } catch (e:any) {
+      // rollback
+      setDepartments(original);
+      try { (window as any).__UI_BRIDGE__?.showToast?.(e?.message || 'Failed to delete'); } catch (er) { }
+      alert('Failed to delete department');
+    }
   };
 
   // edit/save flow not implemented yet for departments; update handler omitted to avoid unused symbol
@@ -127,7 +139,7 @@ export const DepartmentsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Academic Departments</h1>
           <p className="text-gray-600">Manage all academic departments and their programs</p>
         </div>
-  <button onClick={() => { nameRef.current?.focus(); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+  <button type="button" onClick={() => openModal('create')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
           <Plus className="w-4 h-4" />
           <span>Add New Department</span>
         </button>
@@ -194,18 +206,26 @@ export const DepartmentsPage: React.FC = () => {
               <div className="space-y-3 mb-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Program:</span>
-                  <span className="font-medium text-gray-900">{typeof department.program === 'object' ? (department.program as any).name : department.program}</span>
+                  <span className="font-medium text-gray-900">
+                    {(() => {
+                      const prog = (department as any).program;
+                      if (!prog) return '—';
+                      if (typeof prog === 'string') return prog || '—';
+                      if (typeof prog === 'object') return (prog.name || prog.code || prog._id || '—');
+                      return '—';
+                    })()}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Students:</span>
                   <span className="font-medium text-gray-900">
-                    {Math.floor(Math.random() * 200) + 50}
+                    {(department as any).studentsCount ?? 0}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Faculty:</span>
                   <span className="font-medium text-gray-900">
-                    {Math.floor(Math.random() * 15) + 5}
+                    {(department as any).facultyCount ?? 0}
                   </span>
                 </div>
               </div>
@@ -216,7 +236,12 @@ export const DepartmentsPage: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-600">Head of Department</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {typeof department.hod === 'string' ? department.hod : (department.hod ? `${(department.hod as any).firstName || ''} ${(department.hod as any).lastName || ''}` : 'Not Assigned')}
+                      {(() => {
+                        const hod: any = (department as any).hod;
+                        if (!hod) return 'Not Assigned';
+                        if (typeof hod === 'string') return hod;
+                        return hod.name || `${hod.firstName || ''} ${hod.lastName || ''}`.trim() || 'Not Assigned';
+                      })()}
                     </p>
                   </div>
                 </div>

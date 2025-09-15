@@ -234,3 +234,50 @@ export async function importOHADAJournalEntries(file: File): Promise<{ data: { i
 
   return response.json();
 }
+
+// Tuition-specific OHADA integration
+export async function getOHADATuitionAccounts(): Promise<{ data: OHADATuitionAccount[] }> {
+  const res = await fetchClient.get(`${BASE}/tuition/accounts`);
+  if (!res.ok) {
+    await handleFetchError(res);
+  }
+  return res.json();
+}
+
+export async function createTuitionJournalEntry(payload: {
+  studentId: string;
+  installmentKey: string;
+  amount: number;
+  paymentMethod: string;
+  reference?: string;
+  notes?: string;
+}): Promise<{ data: OHADATuitionJournalEntry }> {
+  const res = await fetchClient.postJson(`${BASE}/tuition/journal-entry`, payload);
+  if (!res.ok) {
+    await handleFetchError(res);
+  }
+  return res.json();
+}
+
+export async function getTuitionJournalEntries(params?: {
+  studentId?: string;
+  installmentKey?: string;
+  fromDate?: string;
+  toDate?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ data: OHADATuitionJournalEntry[]; meta: any }> {
+  const query = new URLSearchParams();
+  if (params?.studentId) query.append('studentId', params.studentId);
+  if (params?.installmentKey) query.append('installmentKey', params.installmentKey);
+  if (params?.fromDate) query.append('fromDate', params.fromDate);
+  if (params?.toDate) query.append('toDate', params.toDate);
+  if (params?.page) query.append('page', params.page.toString());
+  if (params?.limit) query.append('limit', params.limit.toString());
+
+  const res = await fetchClient.get(`${BASE}/tuition/journal-entries?${query.toString()}`);
+  if (!res.ok) {
+    await handleFetchError(res);
+  }
+  return res.json();
+}

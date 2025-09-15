@@ -71,6 +71,8 @@ export interface Department {
   program?: Program | string;
   isActive?: boolean;
   createdDate?: string;
+  studentsCount?: number;
+  facultyCount?: number;
 }
 
 export interface Course {

@@ -4,11 +4,8 @@ import { BreadcrumbNavigation } from './BreadcrumbNavigation';
 import { NavigationShortcuts } from './NavigationShortcuts';
 
 // Import all page components
-import { AllStudentsPage } from '../pages/students/AllStudentsPage';
 import StudentsPage from '../pages/students/StudentsPage';
 import { StudentRegistrationPage } from '../pages/students/StudentRegistrationPage';
-import TuitionStatusPage from '../pages/students/TuitionStatusPage';
-import { AllBranchesPage } from '../pages/branches/AllBranchesPage';
 import { CreateBranchPage } from '../pages/branches/CreateBranchPage';
 import BranchesPage from '../pages/branches/BranchesPage';
 import { QRAttendancePage } from '../pages/attendance/QRAttendancePage';
@@ -20,8 +17,6 @@ import { CoursesPage } from '../pages/academic/CoursesPage';
 import { GradingSystemPage } from '../pages/academic/GradingSystemPage';
 import { BulkMessagingPage } from '../pages/communication/BulkMessagingPage';
 import { AnnouncementsPage } from '../pages/communication/AnnouncementsPage';
-import { StudentAnalyticsPage } from '../pages/analytics/StudentAnalyticsPage';
-import { FinancialReportsPage } from '../pages/analytics/FinancialReportsPage';
 import AnalyticsPage from '../pages/analytics/AnalyticsPage';
 import { AdmissionApplicationsPage } from '../pages/admissions/AdmissionApplicationsPage';
 import { IDCardManagementPage } from '../pages/cards/IDCardManagementPage';
@@ -34,7 +29,6 @@ import TransactionsPage from '../pages/accounting/TransactionsPage';
 import CategoriesPage from '../pages/accounting/CategoriesPage';
 import ReportsPage from '../pages/accounting/ReportsPage';
 import PaymentPlansPage from '../pages/accounting/PaymentPlansPage';
-import TuitionPlansPage from '../pages/accounting/TuitionPlansPage';
 import BudgetAnalysisPage from '../pages/accounting/BudgetAnalysisPage';
 import FinancialInsightsPage from '../pages/accounting/FinancialInsightsPage';
 import AccountingCoordination from '../accounting/AccountingCoordination';
@@ -51,6 +45,7 @@ import SettingsPage from './SettingsPage';
 import BackupManagementPage from '../pages/system/BackupManagementPage';
 import OHADAAccountingPage from '../pages/accounting/OHADAAccountingPage';
 import OHADAReportsPage from '../pages/accounting/OHADAReportsPage';
+import IntegratedTuitionManagement from '../pages/tuition/IntegratedTuitionManagement';
 
 export const PageRenderer: React.FC = () => {
   const { currentPage } = useNavigation();
@@ -64,7 +59,7 @@ export const PageRenderer: React.FC = () => {
         return <StudentRegistrationPage />;
       case 'tuition-management':
       case 'tuition-status':
-        return <TuitionStatusPage />;
+        return <IntegratedTuitionManagement />;
       
       // Branches
       case 'view-branches':
@@ -109,8 +104,6 @@ export const PageRenderer: React.FC = () => {
         return <CategoriesPage />;
       case 'payment-plans':
         return <PaymentPlansPage />;
-      case 'tuition-plans':
-        return <TuitionPlansPage />;
       case 'reports':
         return <ReportsPage />;
       case 'budget-analysis':

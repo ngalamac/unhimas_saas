@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getStudentFinance, StudentFinanceResponse } from '../../api/students';
+import { getTuitionPaymentHistory } from '../../api/tuitionManagement';
+import { formatXAF } from '../../utils/currency';
 
 interface Props {
   studentId: string | null;
@@ -26,16 +28,23 @@ export const StudentFinanceModal: React.FC<Props> = ({ studentId, open, onClose 
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('summary');
   const [period, setPeriod] = useState<string>('');
+  const [tuitionHistory, setTuitionHistory] = useState<any[]>([]);
 
   useEffect(() => {
     if (open && studentId) {
       setLoading(true); setError(null);
-      getStudentFinance(studentId, period ? { period } : undefined)
-        .then(res => setData(res.data))
+      Promise.all([
+        getStudentFinance(studentId, period ? { period } : undefined),
+        getTuitionPaymentHistory(studentId, period ? { fromDate: `${period}-01`, toDate: `${period}-31` } : undefined)
+      ])
+        .then(([financeRes, historyRes]) => {
+          setData(financeRes.data);
+          setTuitionHistory(historyRes.data || []);
+        })
         .catch(e => setError(e?.message || 'Failed to load finance'))
         .finally(() => setLoading(false));
     } else if (!open) {
-      setData(null); setActiveTab('summary'); setPeriod('');
+      setData(null); setActiveTab('summary'); setPeriod(''); setTuitionHistory([]);
     }
   }, [open, studentId, period]);
 
@@ -62,6 +71,10 @@ export const StudentFinanceModal: React.FC<Props> = ({ studentId, open, onClose 
             <button key={t.key} onClick={() => setActiveTab(t.key)}
               className={`px-3 py-1 text-sm rounded-t ${activeTab === t.key ? 'bg-white border border-b-white' : 'bg-gray-100 hover:bg-gray-200 border border-transparent'}`}>{t.label}</button>
           ))}
+          <button onClick={() => setActiveTab('tuition')}
+            className={`px-3 py-1 text-sm rounded-t ${activeTab === 'tuition' ? 'bg-white border border-b-white' : 'bg-gray-100 hover:bg-gray-200 border border-transparent'}`}>
+            Tuition History
+          </button>
         </div>
         <div className="p-4 overflow-auto text-sm flex-1">
           {loading && <div>Loading...</div>}
@@ -101,6 +114,58 @@ export const StudentFinanceModal: React.FC<Props> = ({ studentId, open, onClose 
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+              {activeTab === 'tuition' && (
+                <div>
+                  <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
+                    <h4 className="font-medium text-blue-900 mb-2">OHADA-Integrated Tuition Payments</h4>
+                    <p className="text-sm text-blue-800">
+                      All tuition payments are automatically recorded in the OHADA accounting system 
+                      with proper journal entries and account classifications.
+                    </p>
+                  </div>
+                  <table className="w-full text-xs border">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="p-2 text-left">Date</th>
+                        <th className="p-2 text-left">Installment</th>
+                        <th className="p-2 text-right">Amount</th>
+                        <th className="p-2 text-left">Method</th>
+                        <th className="p-2 text-left">OHADA Account</th>
+                        <th className="p-2 text-left">Journal Entry</th>
+                        <th className="p-2 text-left">Recorded By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tuitionHistory.map((payment, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="p-2">{new Date(payment.paymentDate).toLocaleDateString()}</td>
+                          <td className="p-2">{payment.installmentKey}</td>
+                          <td className="p-2 text-right font-medium text-green-600">{formatXAF(payment.amount)}</td>
+                          <td className="p-2 capitalize">{payment.paymentMethod?.replace('_', ' ')}</td>
+                          <td className="p-2 font-mono text-xs">{payment.ohadaAccountCode || '—'}</td>
+                          <td className="p-2">
+                            {payment.ohadaJournalEntry ? (
+                              <button className="text-blue-600 hover:underline text-xs">
+                                View Entry
+                              </button>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="p-2">{payment.registeredBy?.name || '—'}</td>
+                        </tr>
+                      ))}
+                      {tuitionHistory.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="p-4 text-center text-gray-500">
+                            No tuition payment history available
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               )}
               {activeTab === 'payments' && (

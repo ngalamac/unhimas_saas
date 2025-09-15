@@ -171,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       submenuItems: [ 
         { id: 'all-students', label: 'All Students', icon: <Users className="w-3 h-3" /> }, 
         { id: 'student-registration', label: 'Register Student', icon: <UserPlus className="w-3 h-3" />, isNew: true }, 
-        { id: 'tuition-management', label: 'Tuition Management', icon: <DollarSign className="w-3 h-3" /> } 
+        { id: 'tuition-management', label: 'Tuition Management', icon: <DollarSign className="w-3 h-3" />, isNew: true } 
       ] 
     },
 

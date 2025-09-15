@@ -33,19 +33,25 @@ CourseSchema.pre('validate', function(next) {
 // derive program from department and validate semester within program duration
 CourseSchema.pre('save', async function(next) {
   try {
-    const deptId = (this as any).department;
+    const doc: any = this as any;
+    const deptId = doc.department;
     if (!deptId) return next(new Error('department is required'));
     const Department = (await import('./Department')).default;
-    const progModel = (await import('./Program')).default;
+    const Program = (await import('./Program')).default;
     const dept = await Department.findById(deptId).exec();
     if (!dept) return next(new Error('department not found'));
-    (this as any).program = dept.program;
-    // validate semester within program bounds
-    const program = await progModel.findById(dept.program).exec();
-    if (program && (this as any).semester) {
-      const maxSem = (program.duration ?? 1) * (program.semestersPerYear ?? 1);
-      if ((this as any).semester < 1 || (this as any).semester > maxSem) {
-        return next(new Error('semester out of bounds for program'));
+    // only set program from department if doc does not already have a program explicitly
+    if (!doc.program && dept.program) {
+      doc.program = dept.program;
+    }
+    const currentProgramId = doc.program || dept.program;
+    if (currentProgramId) {
+      const program = await Program.findById(currentProgramId).exec();
+      if (program && doc.semester) {
+        const maxSem = (program.duration ?? 1) * (program.semestersPerYear ?? 1);
+        if (doc.semester < 1 || doc.semester > maxSem) {
+          return next(new Error('semester out of bounds for program'));
+        }
       }
     }
     next();

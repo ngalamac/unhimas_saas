@@ -32,5 +32,12 @@ export async function deleteDepartment(id: string): Promise<any> {
     if (!res.ok) {
         await handleFetchError(res);
     }
-    return res.json();
+    // Backend returns 204 No Content on successful delete
+    if (res.status === 204) return { success: true };
+    // Fallback in case backend switches to 200 with body later
+    try {
+        return await res.json();
+    } catch {
+        return { success: true };
+    }
 }

@@ -20,7 +20,8 @@ import {
   Search,
   RefreshCw,
   Save,
-  X
+  X,
+  School
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useBranch } from '../../../context/BranchContext';
@@ -39,6 +40,10 @@ import {
   createOHADAAccount
 } from '../../../api/ohada';
 import { OHADAAccount, OHADAJournalEntry, OHADAChartOfAccounts } from '../../../types/ohada';
+import OHADAReportsPage from './OHADAReportsPage';
+
+type TabType = 'accounts' | 'journal' | 'reports' | 'periods' | 'budgets';
+type SubTabType = 'general' | 'tuition';
 
 const OHADAAccountingPage: React.FC = () => {
   const { user } = useAuth();
@@ -46,6 +51,7 @@ const OHADAAccountingPage: React.FC = () => {
   const { showToast } = useUI();
 
   const [activeTab, setActiveTab] = useState<'journal' | 'accounts' | 'reports' | 'periods'>('journal');
+  const [activeSubTab, setActiveSubTab] = useState<SubTabType>('general');
   const [accounts, setAccounts] = useState<OHADAAccount[]>([]);
   const [journalEntries, setJournalEntries] = useState<OHADAJournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,6 +123,52 @@ const OHADAAccountingPage: React.FC = () => {
     dateFrom: '',
     dateTo: ''
   });
+
+  const tabs = [
+    {
+      id: 'accounts' as TabType,
+      name: 'Chart of Accounts',
+      icon: <Calculator className="w-4 h-4" />,
+      description: 'Manage OHADA chart of accounts and account structure'
+    },
+    {
+      id: 'journal' as TabType,
+      name: 'Journal Entries',
+      icon: <FileText className="w-4 h-4" />,
+      description: 'Create and manage journal entries with automatic posting'
+    },
+    {
+      id: 'reports' as TabType,
+      name: 'Financial Reports',
+      icon: <BarChart3 className="w-4 h-4" />,
+      description: 'Generate OHADA-compliant financial statements and reports'
+    },
+    {
+      id: 'periods' as TabType,
+      name: 'Accounting Periods',
+      icon: <Calendar className="w-4 h-4" />,
+      description: 'Manage accounting periods and year-end closing'
+    },
+    {
+      id: 'budgets' as TabType,
+      name: 'Budget Management',
+      icon: <TrendingUp className="w-4 h-4" />,
+      description: 'Budget planning and variance analysis'
+    }
+  ];
+
+  const subTabs = [
+    {
+      id: 'general' as SubTabType,
+      name: 'General Accounting',
+      description: 'Standard OHADA accounting operations'
+    },
+    {
+      id: 'tuition' as SubTabType,
+      name: 'Tuition Integration',
+      description: 'Student tuition payments and OHADA integration'
+    }
+  ];
 
   useEffect(() => {
     fetchData();
@@ -421,742 +473,4 @@ const OHADAAccountingPage: React.FC = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'posted': return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'reversed': return <RefreshCw className="w-4 h-4 text-red-600" />;
-      case 'draft': return <Clock className="w-4 h-4 text-yellow-600" />;
-      default: return <Clock className="w-4 h-4 text-gray-600" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'posted': return 'bg-green-100 text-green-800';
-      case 'reversed': return 'bg-red-100 text-red-800';
-      case 'draft': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const totals = calculateTotals();
-
-  return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">OHADA Accounting System</h1>
-          <p className="text-gray-600 mt-1">Professional accounting following OHADA standards</p>
-          {currentBranch && (
-            <p className="text-sm text-blue-600 mt-1">Branch: {(currentBranch as any).name}</p>
-          )}
-        </div>
-        <div className="flex items-center space-x-3">
-          <select
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            {Array.from({ length: 12 }, (_, i) => {
-              const date = new Date();
-              date.setMonth(date.getMonth() - i);
-              const period = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-              return (
-                <option key={period} value={period}>
-                  {date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
-                </option>
-              );
-            })}
-          </select>
-          <button
-            onClick={() => setShowJournalForm(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Entry</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8 px-6">
-            {[
-              { id: 'journal', name: 'Journal Entries', icon: <FileText className="w-4 h-4" /> },
-              { id: 'accounts', name: 'Chart of Accounts', icon: <Calculator className="w-4 h-4" /> },
-              { id: 'reports', name: 'Financial Reports', icon: <BarChart3 className="w-4 h-4" /> },
-              { id: 'periods', name: 'Accounting Periods', icon: <Calendar className="w-4 h-4" /> }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {tab.icon}
-                <span>{tab.name}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        <div className="p-6">
-          {/* Journal Entries Tab */}
-          {activeTab === 'journal' && (
-            <div className="space-y-6">
-              {/* Filters */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search entries..."
-                      value={filters.search}
-                      onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <select
-                    value={filters.status}
-                    onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">All Status</option>
-                    <option value="draft">Draft</option>
-                    <option value="posted">Posted</option>
-                    <option value="reversed">Reversed</option>
-                  </select>
-                  <input
-                    type="date"
-                    value={filters.dateFrom}
-                    onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="From Date"
-                  />
-                  <input
-                    type="date"
-                    value={filters.dateTo}
-                    onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="To Date"
-                  />
-                </div>
-              </div>
-
-              {/* Journal Entries Table */}
-              <div className="bg-white rounded-lg border overflow-hidden">
-                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Journal Entries</h3>
-                  <div className="flex items-center space-x-2">
-                    <label className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 cursor-pointer flex items-center space-x-2">
-                      <Upload className="w-4 h-4" />
-                      <span>Import</span>
-                      <input
-                        type="file"
-                        accept=".xlsx,.csv"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleImportJournalEntries(file);
-                        }}
-                        className="hidden"
-                      />
-                    </label>
-                    <button
-                      onClick={() => handleExportReport('trial_balance', 'excel')}
-                      className="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Export</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Entry Number
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Reference
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Description
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Amount
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {journalEntries.map((entry) => (
-                        <tr key={entry._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                            {entry.entryNumber}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {new Date(entry.date).toLocaleDateString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {entry.reference}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                            {entry.description}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {formatXAF(entry.totalDebit)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(entry.status)}`}>
-                              {getStatusIcon(entry.status)}
-                              <span className="ml-1 capitalize">{entry.status}</span>
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex items-center space-x-2">
-                              <button
-                                className="text-blue-600 hover:text-blue-900"
-                                title="View Details"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              {entry.status === 'draft' && (
-                                <>
-                                  <button
-                                    className="text-green-600 hover:text-green-900"
-                                    title="Edit Entry"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handlePostJournalEntry(entry._id)}
-                                    className="text-purple-600 hover:text-purple-900"
-                                    title="Post Entry"
-                                  >
-                                    <CheckCircle className="w-4 h-4" />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Chart of Accounts Tab */}
-          {activeTab === 'accounts' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">OHADA Chart of Accounts</h3>
-                <button
-                  onClick={() => setShowAccountForm(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Account</span>
-                </button>
-              </div>
-
-              {/* Accounts Tree View */}
-              <div className="bg-white rounded-lg border">
-                <div className="p-4 border-b border-gray-200">
-                  <div className="flex items-center space-x-4">
-                    <Search className="w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search accounts..."
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                    <select className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                      <option value="">All Types</option>
-                      <option value="asset">Assets</option>
-                      <option value="liability">Liabilities</option>
-                      <option value="equity">Equity</option>
-                      <option value="income">Income</option>
-                      <option value="expense">Expenses</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Account Code
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Account Name
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Type
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Balance
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {accounts.map((account) => (
-                        <tr key={account._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                            {account.code}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className={`text-sm text-gray-900 ${account.level > 1 ? `ml-${(account.level - 1) * 4}` : ''}`}>
-                              {account.name}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              account.type === 'asset' ? 'bg-blue-100 text-blue-800' :
-                              account.type === 'liability' ? 'bg-red-100 text-red-800' :
-                              account.type === 'equity' ? 'bg-purple-100 text-purple-800' :
-                              account.type === 'income' ? 'bg-green-100 text-green-800' :
-                              'bg-orange-100 text-orange-800'
-                            }`}>
-                              {account.type}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {formatXAF(account.balance)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              account.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {account.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex items-center space-x-2">
-                              <button className="text-blue-600 hover:text-blue-900">
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <button className="text-green-600 hover:text-green-900">
-                                <Edit className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Reports Tab */}
-          {activeTab === 'reports' && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">OHADA Financial Reports</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Trial Balance */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="bg-blue-100 p-3 rounded-lg">
-                      <Calculator className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900">Trial Balance</h4>
-                      <p className="text-sm text-gray-600">Account balances summary</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => handleExportReport('trial_balance', 'excel')}
-                      className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
-                    >
-                      Export Excel
-                    </button>
-                    <button
-                      onClick={() => handleExportReport('trial_balance', 'pdf')}
-                      className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm"
-                    >
-                      Export PDF
-                    </button>
-                  </div>
-                </div>
-
-                {/* Balance Sheet */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="bg-green-100 p-3 rounded-lg">
-                      <BarChart3 className="w-6 h-6 text-green-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900">Balance Sheet</h4>
-                      <p className="text-sm text-gray-600">Assets, liabilities & equity</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => handleExportReport('balance_sheet', 'excel')}
-                      className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
-                    >
-                      Export Excel
-                    </button>
-                    <button
-                      onClick={() => handleExportReport('balance_sheet', 'pdf')}
-                      className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm"
-                    >
-                      Export PDF
-                    </button>
-                  </div>
-                </div>
-
-                {/* Income Statement */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="bg-purple-100 p-3 rounded-lg">
-                      <TrendingUp className="w-6 h-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900">Income Statement</h4>
-                      <p className="text-sm text-gray-600">Revenue & expenses</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => handleExportReport('income_statement', 'excel')}
-                      className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
-                    >
-                      Export Excel
-                    </button>
-                    <button
-                      onClick={() => handleExportReport('income_statement', 'pdf')}
-                      className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm"
-                    >
-                      Export PDF
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Journal Entry Form Modal */}
-      {showJournalForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Create Journal Entry</h3>
-            </div>
-            <div className="p-6 space-y-6">
-              {/* Entry Header */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
-                  <input
-                    type="date"
-                    value={journalForm.date}
-                    onChange={(e) => setJournalForm(prev => ({ ...prev, date: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reference *</label>
-                  <input
-                    type="text"
-                    value={journalForm.reference}
-                    onChange={(e) => setJournalForm(prev => ({ ...prev, reference: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Invoice #, Receipt #, etc."
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
-                  <input
-                    type="text"
-                    value={journalForm.description}
-                    onChange={(e) => setJournalForm(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Transaction description"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Branch *</label>
-                  <select
-                    value={journalBranchId}
-                    onChange={e => setJournalBranchId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                    required
-                    disabled={!(user as any)?.isSuperAdmin}
-                  >
-                    <option value="">Select Branch</option>
-                    {managedBranches.map(b => (
-                      <option key={(b as any)._id || (b as any).id} value={(b as any)._id || (b as any).id}>{b.name}</option>
-                    ))}
-                  </select>
-                  {!(user as any)?.isSuperAdmin && <p className="mt-1 text-xs text-gray-500">Your branch is set automatically.</p>}
-                </div>
-              </div>
-
-              {/* Journal Lines */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-md font-medium text-gray-900">Journal Lines</h4>
-                  <button
-                    onClick={addJournalLine}
-                    className="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 text-sm flex items-center space-x-1"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Add Line</span>
-                  </button>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full border border-gray-200 rounded-lg">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Account</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Debit</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credit</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {journalForm.lines.map((line, index) => (
-                        <tr key={index}>
-                          <td className="px-4 py-3">
-                            <select
-                              value={line.account}
-                              onChange={(e) => updateJournalLine(index, 'account', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                            >
-                              <option value="">Select Account</option>
-                              {accounts.map((account) => (
-                                <option key={account._id} value={account._id}>
-                                  {account.code} - {account.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="text"
-                              value={line.description}
-                              onChange={(e) => updateJournalLine(index, 'description', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                              placeholder="Line description"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              value={line.debit}
-                              onChange={(e) => updateJournalLine(index, 'debit', parseFloat(e.target.value) || 0)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                              min="0"
-                              step="0.01"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              value={line.credit}
-                              onChange={(e) => updateJournalLine(index, 'credit', parseFloat(e.target.value) || 0)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                              min="0"
-                              step="0.01"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <button
-                              onClick={() => removeJournalLine(index)}
-                              className="text-red-600 hover:text-red-900"
-                              title="Remove Line"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50">
-                      <tr>
-                        <td colSpan={2} className="px-4 py-3 text-sm font-medium text-gray-900">
-                          TOTALS
-                        </td>
-                        <td className="px-4 py-3 text-sm font-bold text-gray-900">
-                          {formatXAF(totals.totalDebits)}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-bold text-gray-900">
-                          {formatXAF(totals.totalCredits)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className={`flex items-center space-x-2 ${
-                            totals.isBalanced ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {totals.isBalanced ? (
-                              <CheckCircle className="w-4 h-4" />
-                            ) : (
-                              <Clock className="w-4 h-4" />
-                            )}
-                            <span className="text-xs font-medium">
-                              {totals.isBalanced ? 'Balanced' : `Diff: ${formatXAF(Math.abs(totals.difference))}`}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-            </div>
-            <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
-              <button
-                onClick={() => {
-                  setShowJournalForm(false);
-                  resetJournalForm();
-                }}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateJournalEntry}
-                disabled={!totals.isBalanced}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Create Entry
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Account Modal */}
-      {showAccountForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Add Account</h3>
-              <button
-                onClick={() => { setShowAccountForm(false); resetAccountForm(); }}
-                className="p-2 rounded hover:bg-gray-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Code *</label>
-                  <input
-                    type="text"
-                    value={accountForm.code}
-                    onChange={e => setAccountForm(p => ({ ...p, code: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g. 101"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                  <input
-                    type="text"
-                    value={accountForm.name}
-                    onChange={e => setAccountForm(p => ({ ...p, name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Cash on Hand"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
-                  <select
-                    value={accountForm.type}
-                    onChange={e => setAccountForm(p => ({ ...p, type: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="asset">Asset</option>
-                    <option value="liability">Liability</option>
-                    <option value="equity">Equity</option>
-                    <option value="income">Income</option>
-                    <option value="expense">Expense</option>
-                  </select>
-                  {accountForm.code && (
-                    <p className="mt-1 text-xs text-gray-500">
-                      Suggested: <span className="font-medium">{derived.type}</span>{derived.category !== '-' && ` (${derived.category})`}
-                    </p>
-                  )}
-                  {mismatch && (
-                    <p className="mt-1 text-xs text-amber-600 flex items-center">
-                      ⚠ Selected type differs from code’s suggested classification.
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Parent Code</label>
-                  <input
-                    type="text"
-                    value={accountForm.parentCode}
-                    onChange={e => setAccountForm(p => ({ ...p, parentCode: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="(optional)"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={accountForm.description}
-                  onChange={e => setAccountForm(p => ({ ...p, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  rows={3}
-                  placeholder="Optional details"
-                />
-              </div>
-            </div>
-            <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
-              <button
-                onClick={() => { setShowAccountForm(false); resetAccountForm(); }}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              >Cancel</button>
-              <button
-                onClick={handleCreateAccount}
-                disabled={creatingAccount || !accountForm.code || !accountForm.name}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
-              >
-                <Save className="w-4 h-4" />
-                <span>{creatingAccount ? 'Saving...' : 'Create'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default OHADAAccountingPage;
+      case 'posted': return <CheckCircle className="w-4 h-4 text
