@@ -64,7 +64,7 @@ async function startServer() {
   try {
     console.log('Connecting to MongoDB...');
     // increase server selection timeout to allow slower networks
-    await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 30000 });
+  await mongoose.connect(MONGO_URI as string, { serverSelectionTimeoutMS: 30000 });
     console.log('MongoDB connected. Starting server...');
 
     const PORT = process.env.PORT || 5000;

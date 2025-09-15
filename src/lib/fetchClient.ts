@@ -11,9 +11,13 @@ const defaultHeaders = (extra?: Record<string, string>) => {
 
 const getBase = () => {
     try {
-        const dev = (import.meta as any)?.env?.DEV;
+        const envAny = (import.meta as any)?.env || {};
+        const explicit = envAny?.VITE_API_BASE_URL || envAny?.VITE_BACKEND_URL;
+        if (explicit) return explicit.replace(/\/$/, '');
+        const dev = envAny?.DEV;
         if (dev) return 'http://localhost:5000';
     } catch (e) { }
+    // Production fallback (keep origin empty if same domain proxy is used)
     return '';
 };
 

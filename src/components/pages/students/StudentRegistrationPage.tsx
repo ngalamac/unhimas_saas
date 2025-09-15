@@ -327,7 +327,8 @@ export const StudentRegistrationPage: React.FC = () => {
           const returnedUrl = body?.url as string | undefined;
           const returnedId = body?.id as string | undefined;
           if (returnedId) {
-            const devBackend = (import.meta as any)?.env?.DEV ? 'http://localhost:5000' : '';
+            const envAny = (import.meta as any)?.env || {};
+            const devBackend = envAny?.VITE_API_BASE_URL || envAny?.VITE_BACKEND_URL || (envAny?.DEV ? 'http://localhost:5000' : '');
             payload.profilePicture = `${devBackend || window.location.origin}/api/uploads/file/${returnedId}`;
           } else if (returnedUrl) {
             // fallback to returned url (may already be absolute)

@@ -64,7 +64,8 @@ export const AllStudentsPage: React.FC = () => {
   const resolveProfileUrl = (url?: string) => {
     if (!url) return '';
     // If absolute, check if it points to the frontend or the wrong host and remap to backend
-    const devBackend = (import.meta as any)?.env?.DEV ? 'http://localhost:5000' : '';
+  const envAny = (import.meta as any)?.env || {};
+  const devBackend = envAny?.VITE_API_BASE_URL || envAny?.VITE_BACKEND_URL || (envAny?.DEV ? 'http://localhost:5000' : '');
     const backendOrigin = devBackend || window.location.origin;
     if (/^https?:\/\//i.test(url)) {
       try {
