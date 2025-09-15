@@ -470,7 +470,407 @@ const OHADAAccountingPage: React.FC = () => {
     
     return { totalDebits, totalCredits, difference, isBalanced: Math.abs(difference) < 0.01 };
   };
-
+  
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'posted': return <CheckCircle className="w-4 h-4 text
+      case 'posted':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'pending':
+        return <Clock className="w-4 h-4 text-yellow-500" />;
+      case 'draft':
+        return <Clock className="w-4 h-4 text-gray-400" />;
+      default:
+        return <Clock className="w-4 h-4 text-gray-300" />;
+    }
+  };
+
+  // Full page UI
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">OHADA Accounting</h1>
+          {currentBranch && (
+            <p className="text-sm text-blue-600 mt-1">Branch: {(currentBranch as any).name}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="flex items-center gap-1">{getStatusIcon('posted')} Posted</span>
+          <span className="flex items-center gap-1">{getStatusIcon('pending')} Pending</span>
+          <span className="flex items-center gap-1">{getStatusIcon('draft')} Draft</span>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white rounded-xl shadow-sm border">
+        <div className="px-6 pt-4">
+          <div className="flex items-center gap-6">
+            {[
+              { id: 'journal', name: 'Journal Entries', icon: <FileText className="w-4 h-4" /> },
+              { id: 'accounts', name: 'Chart of Accounts', icon: <Calculator className="w-4 h-4" /> },
+              { id: 'reports', name: 'Reports', icon: <BarChart3 className="w-4 h-4" /> },
+              { id: 'periods', name: 'Periods', icon: <Calendar className="w-4 h-4" /> }
+            ].map((t: any) => (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`flex items-center gap-2 py-3 border-b-2 -mb-px ${
+                  activeTab === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                {t.icon}
+                <span className="text-sm font-medium">{t.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-gray-200">
+          {/* Journal Tab */}
+          {activeTab === 'journal' && (
+            <div className="space-y-6">
+              {/* Filters and actions */}
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      value={filters.search}
+                      onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                      placeholder="Search reference/description..."
+                      className="pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <select
+                    value={filters.status}
+                    onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                    className="px-2 py-2 border rounded-lg text-sm"
+                  >
+                    <option value="">All Status</option>
+                    <option value="posted">Posted</option>
+                    <option value="pending">Pending</option>
+                    <option value="draft">Draft</option>
+                  </select>
+                  <button
+                    onClick={fetchJournalEntries}
+                    className="inline-flex items-center gap-1 px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
+                  >
+                    <RefreshCw className="w-4 h-4" /> Refresh
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowJournalForm(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    <Plus className="w-4 h-4" /> New Entry
+                  </button>
+                </div>
+              </div>
+
+              {/* Journal entries table */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Debit</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {journalEntries.map((e: any) => {
+                        const totals = {
+                          debit: (e.lines || []).reduce((s: number, l: any) => s + (l.debit || 0), 0),
+                          credit: (e.lines || []).reduce((s: number, l: any) => s + (l.credit || 0), 0)
+                        };
+                        return (
+                          <tr key={e._id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(e.date || e.createdAt).toLocaleDateString()}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{e.reference || '—'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{e.description || '—'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs">
+                                {getStatusIcon(e.status || 'draft')}
+                                <span className="capitalize">{e.status || 'draft'}</span>
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{formatXAF(totals.debit)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{formatXAF(totals.credit)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                              {(e.status !== 'posted') && (
+                                <button
+                                  onClick={() => handlePostJournalEntry(e._id)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 border rounded hover:bg-gray-50"
+                                >
+                                  <CheckCircle className="w-4 h-4 text-green-600" /> Post
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {journalEntries.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500">No journal entries found</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Create Journal Entry Modal */}
+              {showJournalForm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                  <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between p-4 border-b">
+                      <h3 className="text-lg font-semibold">New Journal Entry</h3>
+                      <button onClick={() => setShowJournalForm(false)} className="text-gray-500 hover:text-gray-700 p-2 rounded">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="p-4 space-y-4 overflow-y-auto">
+                      {(user as any)?.isSuperAdmin && renderBranchSelectForJournal()}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Date</label>
+                          <input type="date" value={journalForm.date} onChange={e => setJournalForm({ ...journalForm, date: e.target.value })} className="w-full border rounded px-2 py-2" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Reference</label>
+                          <input value={journalForm.reference} onChange={e => setJournalForm({ ...journalForm, reference: e.target.value })} className="w-full border rounded px-2 py-2" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Description</label>
+                          <input value={journalForm.description} onChange={e => setJournalForm({ ...journalForm, description: e.target.value })} className="w-full border rounded px-2 py-2" />
+                        </div>
+                      </div>
+
+                      {/* Lines */}
+                      <div className="border rounded">
+                        <div className="p-3 border-b flex items-center justify-between">
+                          <h4 className="font-medium">Lines</h4>
+                          <button onClick={addJournalLine} className="inline-flex items-center gap-1 px-3 py-1.5 border rounded hover:bg-gray-50">
+                            <Plus className="w-4 h-4" /> Add line
+                          </button>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left">Account</th>
+                                <th className="px-3 py-2 text-left">Description</th>
+                                <th className="px-3 py-2 text-right">Debit</th>
+                                <th className="px-3 py-2 text-right">Credit</th>
+                                <th className="px-3 py-2"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {journalForm.lines.map((line, idx) => (
+                                <tr key={idx} className="border-t">
+                                  <td className="px-3 py-2">
+                                    <select
+                                      value={line.account}
+                                      onChange={e => updateJournalLine(idx, 'account', e.target.value)}
+                                      className="w-full border rounded px-2 py-1"
+                                    >
+                                      <option value="">-- Select account --</option>
+                                      {accounts.map((a) => (
+                                        <option key={(a as any)._id} value={(a as any)._id}>{a.code} - {a.name}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <input value={line.description} onChange={e => updateJournalLine(idx, 'description', e.target.value)} className="w-full border rounded px-2 py-1" />
+                                  </td>
+                                  <td className="px-3 py-2 text-right">
+                                    <input type="number" value={line.debit} onChange={e => updateJournalLine(idx, 'debit', Number(e.target.value))} className="w-28 border rounded px-2 py-1 text-right" />
+                                  </td>
+                                  <td className="px-3 py-2 text-right">
+                                    <input type="number" value={line.credit} onChange={e => updateJournalLine(idx, 'credit', Number(e.target.value))} className="w-28 border rounded px-2 py-1 text-right" />
+                                  </td>
+                                  <td className="px-3 py-2 text-right">
+                                    <button onClick={() => removeJournalLine(idx)} className="px-2 py-1 border rounded hover:bg-gray-50">Remove</button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="p-3 border-t flex items-center justify-end gap-4 text-sm">
+                          {(() => {
+                            const t = calculateTotals();
+                            return (
+                              <>
+                                <span>Total Debit: <span className="font-semibold">{formatXAF(t.totalDebits)}</span></span>
+                                <span>Total Credit: <span className="font-semibold">{formatXAF(t.totalCredits)}</span></span>
+                                <span className={t.isBalanced ? 'text-green-600' : 'text-red-600'}>
+                                  {t.isBalanced ? 'Balanced' : `Diff ${formatXAF(Math.abs(t.difference))}`}
+                                </span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 border-t flex items-center justify-end gap-2">
+                      <button onClick={() => setShowJournalForm(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
+                      <button onClick={handleCreateJournalEntry} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                        <Save className="w-4 h-4" /> Save Entry
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Accounts Tab */}
+          {activeTab === 'accounts' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">Chart of Accounts</h3>
+                  <p className="text-sm text-gray-600">Manage your OHADA accounts</p>
+                </div>
+                <button onClick={() => setShowAccountForm(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  <Plus className="w-4 h-4" /> New Account
+                </button>
+              </div>
+
+              <div className="border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {accounts.map((a: any) => (
+                        <tr key={(a as any)._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-3 font-mono text-sm">{a.code}</td>
+                          <td className="px-6 py-3 text-sm">{a.name}</td>
+                          <td className="px-6 py-3 text-sm capitalize">{a.type || '—'}</td>
+                          <td className="px-6 py-3 text-sm">{a.parentCode || '—'}</td>
+                        </tr>
+                      ))}
+                      {accounts.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-10 text-center text-sm text-gray-500">No accounts found</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Create Account Modal */}
+              {showAccountForm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                  <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl mx-4 overflow-hidden">
+                    <div className="flex items-center justify-between p-4 border-b">
+                      <h3 className="text-lg font-semibold">New Account</h3>
+                      <button onClick={() => setShowAccountForm(false)} className="text-gray-500 hover:text-gray-700 p-2 rounded">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Code</label>
+                          <input value={accountForm.code} onChange={e => setAccountForm({ ...accountForm, code: e.target.value })} className="w-full border rounded px-2 py-2" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Name</label>
+                          <input value={accountForm.name} onChange={e => setAccountForm({ ...accountForm, name: e.target.value })} className="w-full border rounded px-2 py-2" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Type</label>
+                          <select value={accountForm.type} onChange={e => setAccountForm({ ...accountForm, type: e.target.value })} className="w-full border rounded px-2 py-2">
+                            <option value="asset">Asset</option>
+                            <option value="liability">Liability</option>
+                            <option value="equity">Equity</option>
+                            <option value="income">Income</option>
+                            <option value="expense">Expense</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Parent Code</label>
+                          <input value={accountForm.parentCode} onChange={e => setAccountForm({ ...accountForm, parentCode: e.target.value })} className="w-full border rounded px-2 py-2" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Description</label>
+                        <textarea value={accountForm.description} onChange={e => setAccountForm({ ...accountForm, description: e.target.value })} rows={3} className="w-full border rounded px-2 py-2" />
+                      </div>
+                      {mismatch && (
+                        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                          Hint: Code suggests {derived.type} ({derived.category}).
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4 border-t flex items-center justify-end gap-2">
+                      <button onClick={() => setShowAccountForm(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
+                      <button onClick={handleCreateAccount} disabled={creatingAccount} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                        <Save className="w-4 h-4" /> {creatingAccount ? 'Creating...' : 'Create Account'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Reports Tab */}
+          {activeTab === 'reports' && (
+            <OHADAReportsPage />
+          )}
+
+          {/* Periods Tab */}
+          {activeTab === 'periods' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Accounting Period</h3>
+              <div className="flex items-center gap-3">
+                <Calendar className="w-4 h-4 text-gray-500" />
+                <select
+                  value={selectedPeriod}
+                  onChange={e => setSelectedPeriod(e.target.value)}
+                  className="px-3 py-2 border rounded-lg"
+                >
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const date = new Date();
+                    date.setMonth(date.getMonth() - i);
+                    const period = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                    return (
+                      <option key={period} value={period}>
+                        {date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
+                      </option>
+                    );
+                  })}
+                </select>
+                <button onClick={fetchData} className="inline-flex items-center gap-1 px-3 py-2 border rounded hover:bg-gray-50">
+                  <RefreshCw className="w-4 h-4" /> Refresh
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default OHADAAccountingPage;
