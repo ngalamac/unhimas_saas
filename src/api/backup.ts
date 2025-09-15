@@ -82,7 +82,7 @@ export async function uploadBackupFile(file: File): Promise<{ data: { backupId: 
   formData.append('backup', file);
   
   const token = fetchClient.getAuthToken();
-  const response = await fetch(`${window.location.origin}${BASE}/upload`, {
+  const response = await fetch(`https://unhimas-saas-wp25.onrender.com${BASE}/upload`, {
     method: 'POST',
     body: formData,
     headers: token ? { Authorization: `Bearer ${token}` } : {}
@@ -128,7 +128,7 @@ export async function validateBackupFile(file: File): Promise<{ data: { valid: b
   formData.append('backup', file);
   
   const token = fetchClient.getAuthToken();
-  const response = await fetch(`${window.location.origin}${BASE}/validate`, {
+  const response = await fetch(`https://unhimas-saas-wp25.onrender.com${BASE}/validate`, {
     method: 'POST',
     body: formData,
     headers: token ? { Authorization: `Bearer ${token}` } : {}

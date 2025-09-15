@@ -1,3 +1,5 @@
+// Central API base for all frontend requests
+const API_BASE = 'https://unhimas-saas-wp25.onrender.com';
 export const getAuthToken = () => {
     try { return localStorage.getItem('token'); } catch (e) { return null; }
 };
@@ -9,12 +11,12 @@ const defaultHeaders = (extra?: Record<string, string>) => {
     return h;
 };
 
-export const getBase = () => {
-    // IMPORTANT: use direct import.meta.env so Vite replaces at build time
-    const explicit = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_BACKEND_URL;
-    if (explicit) return String(explicit).replace(/\/$/, '');
-    if (import.meta.env.DEV) return 'http://localhost:5000';
-    // Production fallback (same-origin)
+const getBase = () => {
+    // Prefer the explicit hardcoded API base
+    if (API_BASE) return API_BASE.replace(/\/$/, '');
+    // Dev fallback
+    if ((import.meta as any)?.env?.DEV) return 'http://localhost:5000';
+    // Same-origin last resort
     return '';
 };
 
@@ -36,9 +38,8 @@ async function fetchWithLoading(url: string, options: RequestInit) {
 
 export async function handleFetchError(res: Response) {
     if (res.status === 401) {
-    try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch (e) { }
-    // Use pathname redirect to work with BrowserRouter (no hash routing)
-    try { window.location.assign('/login'); } catch (e) { }
+        try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch (e) { }
+        try { window.location.hash = '#/login'; } catch (e) { }
     }
     try {
         const err = await res.clone().json();

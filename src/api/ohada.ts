@@ -221,7 +221,7 @@ export async function importOHADAJournalEntries(file: File): Promise<{ data: { i
   formData.append('file', file);
 
   const token = fetchClient.getAuthToken();
-  const response = await fetch(`${window.location.origin}${BASE}/journal/import`, {
+  const response = await fetch(`https://unhimas-saas-wp25.onrender.com${BASE}/journal/import`, {
     method: 'POST',
     body: formData,
     headers: token ? { Authorization: `Bearer ${token}` } : {}

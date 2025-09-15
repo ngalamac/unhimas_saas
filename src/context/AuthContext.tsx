@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { getBase } from '../lib/fetchClient';
 
 interface User {
   id: string;
@@ -69,8 +68,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string, role?: string): Promise<boolean> => {
     try {
-  const base = getBase();
-  const api = `${base}/api/auth/login`;
+  const base = (import.meta as any)?.env?.VITE_API_BASE_URL || (import.meta as any)?.env?.VITE_BACKEND_URL || '';
+  const api = base ? `${base.replace(/\/$/, '')}/api/auth/login` : '/api/auth/login';
   const res = await fetch(api, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
