@@ -15,5 +15,21 @@ services:
     region: oregon
     autoDeploy: true
 
+  - type: static_site
+    name: unhimas-frontend
+    plan: free
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: "./dist"
+    routes:
+      - type: rewrite
+        source: "/*"
+        destination: "/index.html"
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web_service
+          name: unhimas-backend
+          property: url
+
 
 # Render will build the Dockerfile located at `backend/Dockerfile` for the backend service.
