@@ -25,10 +25,11 @@ import path from 'path';
 
 const app = express();
 
-// CORS configuration: allow configured frontend domain plus localhost during development
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || process.env.APP_BASE_URL || '';
+// CORS configuration: allow configured frontend domain(s) plus localhost during development
+// FRONTEND_ORIGIN may be a comma-separated list: e.g. "https://app.example.com,https://www.app.example.com"
+const FRONTEND_ORIGIN_RAW = process.env.FRONTEND_ORIGIN || process.env.APP_BASE_URL || '';
 const allowedOrigins = [
-  ...[FRONTEND_ORIGIN].filter(Boolean),
+  ...FRONTEND_ORIGIN_RAW.split(',').map(s => s.trim()).filter(Boolean),
   'http://localhost:5173',
   'http://localhost:3000'
 ];
