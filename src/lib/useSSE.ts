@@ -1,5 +1,14 @@
 import { useEffect, useRef } from 'react';
-const API_BASE = 'https://unhimas-saas-wp25.onrender.com';
+const isDebug = () => {
+  try { return Boolean((window as any).__API_DEBUG__); } catch { return false; }
+};
+const getBase = () => {
+  try {
+    const env: any = (import.meta as any)?.env || {};
+    const api = (env?.VITE_API_BASE_URL || env?.VITE_BACKEND_URL || '').toString().replace(/\/$/, '');
+    return api || (env?.DEV ? 'http://localhost:5000' : '');
+  } catch { return ''; }
+};
 
 type HandlerMap = Record<string, (data: any) => void>;
 
@@ -9,8 +18,10 @@ export default function useSSE(url: string, handlers: HandlerMap) {
   useEffect(() => {
     if (!url || typeof window === 'undefined') return;
     try {
-  const full = /^https?:\/\//i.test(url) ? url : `${API_BASE.replace(/\/$/, '')}${url}`;
-  const es = new EventSource(full);
+      const base = getBase();
+      const full = /^https?:\/\//i.test(url) ? url : `${base}${url}`;
+      if (isDebug()) console.info('[SSE] connecting', full || url);
+      const es = new EventSource(full);
       esRef.current = es;
       es.onmessage = (ev) => {
         // default message event type
@@ -28,6 +39,7 @@ export default function useSSE(url: string, handlers: HandlerMap) {
       });
       es.onerror = () => {
         // try to reconnect is handled by browser; we ignore errors here
+        if (isDebug()) console.warn('[SSE] error (browser will retry)');
       };
       return () => { try { es.close(); } catch (e) {} };
     } catch (e) {
