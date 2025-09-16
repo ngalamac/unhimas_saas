@@ -37,7 +37,8 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000"
 ];
-
+console.log("🔧 FRONTEND_ORIGIN env:", process.env.FRONTEND_ORIGIN || '(empty)');
+console.log("🔧 APP_BASE_URL env:", process.env.APP_BASE_URL || '(empty)');
 console.log("🔧 Allowed Origins:", allowedOrigins);
 
 app.use(cors({
@@ -124,6 +125,8 @@ app.get('/api/health', (_req, res) => {
     mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
 });
+// Lightweight probe handler to help distinguish CORS from pure network issues
+app.head('/api/health', (_req, res) => res.status(204).end());
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);

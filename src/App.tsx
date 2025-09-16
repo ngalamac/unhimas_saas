@@ -47,6 +47,11 @@ function App() {
       console.info('[Diag] VITE_BACKEND_URL =', envAny?.VITE_BACKEND_URL || null);
       console.info('[Diag] MODE/DEV =', envAny?.MODE, envAny?.DEV);
       console.info('[Diag] window.origin =', window.location.origin);
+      // Show chosen base resolution similar to fetchClient logic
+      const resolvedBase = (envAny?.VITE_API_BASE_URL || envAny?.VITE_BACKEND_URL || (envAny?.DEV ? 'http://localhost:5000' : ''))
+        ?.toString()
+        .replace(/\/$/, '');
+      console.info('[Diag] resolved API base =', resolvedBase || '(same-origin)');
     } catch {}
 
     // Trigger a single health check so Network tab shows one request
@@ -54,6 +59,17 @@ function App() {
       .get('/api/health')
       .then((res) => console.info('[Diag] GET /api/health -> status', res.status))
       .catch((err) => console.warn('[Diag] GET /api/health -> error', err?.message || err));
+
+    // Optional fast probe to distinguish DNS/network/CORS quickly (no-cors HEAD)
+    try {
+      const envAny = (import.meta as any)?.env || {};
+      const base = (envAny?.VITE_API_BASE_URL || envAny?.VITE_BACKEND_URL || '')?.toString().replace(/\/$/, '');
+      if (base) {
+        fetch(base + '/api/health', { method: 'HEAD', mode: 'no-cors' })
+          .then(() => console.info('[Diag] HEAD(no-cors) /api/health -> ok (opaque)'))
+          .catch((e) => console.warn('[Diag] HEAD(no-cors) /api/health -> network error', e?.message || e));
+      }
+    } catch {}
   }, []);
 
   return (
