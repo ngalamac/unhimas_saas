@@ -1,4 +1,4 @@
-import fetchClient, { handleFetchError } from '../lib/fetchClient';
+import fetchClient, { handleFetchError, apiBase } from '../lib/fetchClient';
 import { BackupJob, RestoreJob, BackupSettings, SystemHealth } from '../types/backup';
 
 const BASE = '/api/backup';
@@ -82,7 +82,8 @@ export async function uploadBackupFile(file: File): Promise<{ data: { backupId: 
   formData.append('backup', file);
   
   const token = fetchClient.getAuthToken();
-  const response = await fetch(`https://unhimas-saas-wp25.onrender.com${BASE}/upload`, {
+  const base = apiBase().replace(/\/$/, '');
+  const response = await fetch(`${base}${BASE}/upload`, {
     method: 'POST',
     body: formData,
     headers: token ? { Authorization: `Bearer ${token}` } : {}
@@ -128,7 +129,8 @@ export async function validateBackupFile(file: File): Promise<{ data: { valid: b
   formData.append('backup', file);
   
   const token = fetchClient.getAuthToken();
-  const response = await fetch(`https://unhimas-saas-wp25.onrender.com${BASE}/validate`, {
+  const base = apiBase().replace(/\/$/, '');
+  const response = await fetch(`${base}${BASE}/validate`, {
     method: 'POST',
     body: formData,
     headers: token ? { Authorization: `Bearer ${token}` } : {}

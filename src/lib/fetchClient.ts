@@ -32,6 +32,9 @@ const getBase = () => {
     return base;
 };
 
+// Exported helper so API modules (e.g., multipart uploads) can construct absolute URLs
+export const apiBase = () => getBase();
+
 async function fetchWithLoading(url: string, options: RequestInit) {
   const bridge = (window as any).__UI_BRIDGE__;
   let timer: any = null;
@@ -130,4 +133,4 @@ export async function del(path: string, options: any = {}) {
     });
 }
 
-export default { getAuthToken, postJson, post: postJson, get, put, delete: del, handleFetchError };
+export default { getAuthToken, postJson, post: postJson, get, put, delete: del, handleFetchError, apiBase };
