@@ -15,6 +15,7 @@ const SMTP_PORT = Number(process.env.SMTP_PORT);
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:5173';
+const ADMIN_BOOTSTRAP_TOKEN = process.env.ADMIN_BOOTSTRAP_TOKEN;
 
 const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
@@ -180,3 +181,37 @@ router.post('/reset-password', async (req, res) => {
 });
 
 export default router;
+
+// One-time secure bootstrap to create or reset Super Admin password
+// Requires header: x-bootstrap-token matching ADMIN_BOOTSTRAP_TOKEN
+// Body: { email, password }
+router.post('/bootstrap-superadmin', async (req, res) => {
+  try {
+    const headerToken = req.header('x-bootstrap-token') || req.header('X-Bootstrap-Token');
+    const bodyToken = (req.body && (req.body.token as string)) || undefined;
+    const token = headerToken || bodyToken;
+    if (!ADMIN_BOOTSTRAP_TOKEN || !token || token !== ADMIN_BOOTSTRAP_TOKEN) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = new User({ name: 'Super Admin', email, password: hashed, type: 'SuperAdmin', permissions: {} });
+      await user.save();
+      return res.json({ message: 'Super Admin created' });
+    }
+
+    user.password = hashed;
+    user.type = 'SuperAdmin';
+    await user.save();
+    return res.json({ message: 'Super Admin password reset' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Bootstrap failed' });
+  }
+});
