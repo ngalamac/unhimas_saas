@@ -142,8 +142,14 @@ import User from './models/User';
 import bcrypt from 'bcryptjs';
 
 async function seedSuperAdmin() {
-  const email = 'superadminunhimas@gmail.com';
-  const password = 'ca@5G2024';
+  const email = process.env.SUPER_ADMIN_EMAIL;
+  const password = process.env.SUPER_ADMIN_PASSWORD;
+
+  if (!email || !password) {
+    console.log('✅ Super admin credentials not found in environment, skipping seed.');
+    return;
+  }
+
   const existing = await User.findOne({ email });
   if (!existing) {
     const hashed = await bcrypt.hash(password, 10);

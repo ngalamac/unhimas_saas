@@ -8,9 +8,20 @@ services:
     plan: free
     envVars:
       - key: MONGO_URI
-        value: "${MONGO_URI}"
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
       - key: NODE_ENV
         value: "production"
+      - key: FRONTEND_ORIGIN
+        fromService:
+          type: static_site
+          name: unhimas-frontend
+          property: url
     healthCheckPath: "/api/health"
     region: oregon
     autoDeploy: true
