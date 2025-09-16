@@ -19,15 +19,16 @@ services:
         value: "production"
       - key: FRONTEND_ORIGIN
         fromService:
-          type: static_site
+          type: web
           name: unhimas-frontend
           property: url
     healthCheckPath: "/api/health"
     region: oregon
     autoDeploy: true
 
-  - type: static_site
+  - type: web
     name: unhimas-frontend
+    runtime: static
     plan: free
     buildCommand: "npm install && npm run build"
     staticPublishPath: "./dist"
