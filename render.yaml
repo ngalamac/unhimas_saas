@@ -17,9 +17,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_ORIGIN
-        value: "https://unhimas-frontend.onrender.com"
+        value: "https://unhimas-frontend-spxg.onrender.com"
       - key: APP_BASE_URL
-        value: "https://unhimas-frontend.onrender.com"
+        value: "https://unhimas-frontend-spxg.onrender.com"
 
   - type: web
     name: unhimas-frontend
@@ -28,9 +28,9 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_BASE_URL
-        value: "https://unhimas-backend.onrender.com"
+        value: "https://unhimas-backend-spxg.onrender.com"
       - key: VITE_BACKEND_URL
-        value: "https://unhimas-backend.onrender.com"
+        value: "https://unhimas-backend-spxg.onrender.com"
     routes:
       - type: rewrite
         source: "/*"
