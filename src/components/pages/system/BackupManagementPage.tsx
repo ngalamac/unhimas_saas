@@ -14,14 +14,11 @@ import {
   AlertTriangle,
   FileText,
   HardDrive,
-  Calendar,
   Zap,
-  Eye,
   RefreshCw
 } from 'lucide-react';
-import { useAuth } from '../../../context/AuthContext';
 import { useUI } from '../../../context/UIContext';
-import { formatXAF } from '../../../utils/currency';
+// import { formatXAF } from '../../../utils/currency';
 import {
   getBackupJobs,
   createBackup,
@@ -35,13 +32,13 @@ import {
   getBackupSettings,
   updateBackupSettings,
   getSystemHealth,
-  getBackupSchedule
+  // getBackupSchedule
 } from '../../../api/backup';
 import { BackupJob, RestoreJob, BackupSettings, SystemHealth } from '../../../types/backup';
 import useSSE from '../../../lib/useSSE';
 
 const BackupManagementPage: React.FC = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const { showToast } = useUI();
   
   const [backupJobs, setBackupJobs] = useState<BackupJob[]>([]);
@@ -77,7 +74,7 @@ const BackupManagementPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   
   // Settings state
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  // Settings modal state was unused; we navigate to the Settings tab instead
   const [settingsForm, setSettingsForm] = useState<Partial<BackupSettings>>({});
 
   useEffect(() => {
@@ -255,7 +252,6 @@ const BackupManagementPage: React.FC = () => {
   const handleUpdateSettings = async () => {
     try {
       await updateBackupSettings(settingsForm);
-      setShowSettingsModal(false);
       showToast('Backup settings updated successfully', 'success');
       fetchSettings();
     } catch (error: any) {
@@ -354,7 +350,7 @@ const BackupManagementPage: React.FC = () => {
             <span>Create Backup</span>
           </button>
           <button
-            onClick={() => setShowSettingsModal(true)}
+            onClick={() => setActiveTab('settings')}
             className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center space-x-2"
           >
             <Settings className="w-4 h-4" />

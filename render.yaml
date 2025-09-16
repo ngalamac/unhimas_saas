@@ -7,6 +7,7 @@ services:
     runtime: docker
     rootDir: "backend"
     plan: free
+    autoDeploy: true
     envVars:
       - key: MONGO_URI
         sync: false # provided in Render dashboard
@@ -18,20 +19,39 @@ services:
         sync: false
       - key: NODE_ENV
         value: "production"
+      # FRONTEND_ORIGIN and APP_BASE_URL will be populated from the frontend service URL
       - key: FRONTEND_ORIGIN
-        value: "https://${unhimas-frontend_HOST}"
+        fromService:
+          type: web
+          name: unhimas-frontend
+          property: url
+      - key: APP_BASE_URL
+        fromService:
+          type: web
+          name: unhimas-frontend
+          property: url
     healthCheckPath: "/api/health"
     region: oregon
-    autoDeployTrigger: commit
 
   - type: web
     name: unhimas-frontend
     runtime: static
     buildCommand: "npm install && npm run build"
     staticPublishPath: "./dist"
+    autoDeploy: true
     envVars:
+      # Inject the backend URL at build time for the frontend to call the API
       - key: VITE_API_BASE_URL
-        value: "https://unhimas-saas-wp25.onrender.com"
+        fromService:
+          type: web
+          name: unhimas-backend
+          property: url
+      # Back-compat: some code paths read VITE_BACKEND_URL
+      - key: VITE_BACKEND_URL
+        fromService:
+          type: web
+          name: unhimas-backend
+          property: url
     routes:
       - type: rewrite
         source: "/*"
