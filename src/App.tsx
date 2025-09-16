@@ -43,7 +43,7 @@ function App() {
     const debug = (() => { try { return Boolean((window as any).__API_DEBUG__); } catch { return false; } })();
     if (!debug) return;
 
-    try {
+  try {
       const envAny = (import.meta as any)?.env || {};
       console.info('[Diag] VITE_API_BASE_URL =', envAny?.VITE_API_BASE_URL || null);
       console.info('[Diag] VITE_BACKEND_URL =', envAny?.VITE_BACKEND_URL || null);
@@ -69,6 +69,9 @@ function App() {
           .catch((e) => console.warn('[Diag] HEAD(no-cors) /api/health -> network error', e?.message || e));
       }
     } catch {}
+
+  // Comprehensive connectivity diagnostics (single shot)
+  fetchClient.diagnoseConnectivity?.();
   }, []);
 
   return (

@@ -38,6 +38,49 @@ const getBase = () => {
 // Exported helper so API modules (e.g., multipart uploads) can construct absolute URLs
 export const apiBase = () => getBase();
 
+// Deep connectivity diagnostics (only logs when __API_DEBUG__ is true)
+export async function diagnoseConnectivity() {
+  if (!isDebug()) return;
+  const envAny = (import.meta as any)?.env || {};
+  const runtimeApi = (() => { try { return (window as any).__API_BASE__ as string; } catch { return ''; } })() || '';
+  const viteApi = (envAny?.VITE_API_BASE_URL || '') as string;
+  const viteBackend = (envAny?.VITE_BACKEND_URL || '') as string;
+  const base = apiBase().replace(/\/$/, '');
+
+  const report: any = {
+    windowOrigin: window.location.origin,
+    runtimeApi: runtimeApi || null,
+    viteApi: viteApi || null,
+    viteBackend: viteBackend || null,
+    mode: envAny?.MODE || null,
+    dev: !!envAny?.DEV,
+    chosenBase: base || '(same-origin)'
+  };
+
+  // Helper to fetch and capture result without throwing
+  const tryFetch = async (url: string, init?: RequestInit) => {
+    try {
+      const res = await fetch(url, init);
+      const ct = res.headers?.get?.('content-type') || null;
+      return { ok: res.ok, status: res.status, contentType: ct };
+    } catch (e: any) {
+      return { ok: false, status: 0, error: (e?.message || String(e)) };
+    }
+  };
+
+  report.tests = {} as any;
+  // 1) Base + /api/health (intended target)
+  if (base) {
+    report.tests.base_get = await tryFetch(base + '/api/health');
+    // HEAD no-cors to detect DNS/network without CORS noise
+    report.tests.base_head_nocors = await tryFetch(base + '/api/health', { method: 'HEAD', mode: 'no-cors' as any });
+  }
+  // 2) Same-origin /api/health (detect static rewrite false positive)
+  report.tests.same_origin_get = await tryFetch('/api/health');
+
+  console.info('[DiagFull] connectivity', report);
+}
+
 async function fetchWithLoading(url: string, options: RequestInit) {
   const bridge = (window as any).__UI_BRIDGE__;
   let timer: any = null;
@@ -136,4 +179,4 @@ export async function del(path: string, options: any = {}) {
     });
 }
 
-export default { getAuthToken, postJson, post: postJson, get, put, delete: del, handleFetchError, apiBase };
+export default { getAuthToken, postJson, post: postJson, get, put, delete: del, handleFetchError, apiBase, diagnoseConnectivity };
