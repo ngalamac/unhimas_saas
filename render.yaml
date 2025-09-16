@@ -1,16 +1,27 @@
 # Render manifest for unhimas_saas
 # Defines a static site for the frontend and a web service for the backend (Docker)
 services:
-  - type: web_service
+  - type: web
     name: unhimas-backend
     env: docker
     root: "backend"
     plan: free
     envVars:
       - key: MONGO_URI
-        value: "${MONGO_URI}"
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
       - key: NODE_ENV
         value: "production"
+      - key: FRONTEND_ORIGIN
+        fromService:
+          type: static_site
+          name: unhimas-frontend
+          property: url
     healthCheckPath: "/api/health"
     region: oregon
     autoDeploy: true
@@ -27,7 +38,7 @@ services:
     envVars:
       - key: VITE_API_BASE_URL
         fromService:
-          type: web_service
+          type: web
           name: unhimas-backend
           property: url
 
