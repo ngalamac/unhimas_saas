@@ -27,9 +27,9 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_BASE_URL
-        value: "https://unhimas-saas-wp25.onrender.com"
+        value: "https://unhimas-backend.onrender.com"
       - key: VITE_BACKEND_URL
-        value: "https://unhimas-saas-wp25.onrender.com"
+        value: "https://unhimas-backend.onrender.com"
     routes:
       - type: rewrite
         source: "/*"
