@@ -4,6 +4,7 @@ services:
     runtime: docker
     plan: free
     rootDir: backend
+    healthCheckPath: /api/health
     envVars:
       - key: MONGO_URI
         sync: false
