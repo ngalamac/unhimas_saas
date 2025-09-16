@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connectivity Diagnostics</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; }
+      h1 { font-size: 20px; margin: 0 0 16px; }
+      .hint { color: #666; font-size: 12px; margin-bottom: 12px; }
+      table { border-collapse: collapse; width: 100%; max-width: 980px; }
+      th, td { border: 1px solid #ddd; padding: 8px; font-size: 13px; vertical-align: top; }
+      th { background: #f8f8f8; text-align: left; }
+      code { background: #f3f3f3; padding: 2px 4px; border-radius: 3px; }
+      .ok { color: #0a7f2e; font-weight: 600; }
+      .fail { color: #b00020; font-weight: 600; }
+      .warn { color: #a66b00; font-weight: 600; }
+      .small { font-size: 12px; color: #333; white-space: pre-wrap; word-break: break-word; }
+      .row { margin: 12px 0; }
+      input[type=text] { width: 100%; padding: 6px 8px; font-size: 13px; }
+      button { padding: 6px 10px; font-size: 13px; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <h1>Connectivity Diagnostics</h1>
+    <div class="hint">This page tests browser → backend connectivity and CORS from the current origin.</div>
+
+    <div class="row"><b>Frontend origin</b>: <code id="origin"></code></div>
+    <div class="row"><b>Runtime window.__API_BASE__</b>: <code id="runtimeApi"></code></div>
+    <div class="row"><b>config.json API_BASE</b>: <code id="configApi"></code></div>
+
+    <div class="row">
+      <label for="manualApi"><b>Manual API base override</b> (optional):</label>
+      <input id="manualApi" type="text" placeholder="https://unhimas-backend-spxg.onrender.com" />
+      <button id="run">Run tests</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>API Base</th>
+          <th>GET /api/health</th>
+          <th>Preflight (login POST)</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody id="results"></tbody>
+    </table>
+
+    <script>
+      (function() {
+        const originEl = document.getElementById('origin');
+        const runtimeApiEl = document.getElementById('runtimeApi');
+        const configApiEl = document.getElementById('configApi');
+        const resultsEl = document.getElementById('results');
+        const runBtn = document.getElementById('run');
+        const manualApi = document.getElementById('manualApi');
+
+        originEl.textContent = window.location.origin;
+        runtimeApiEl.textContent = (window && window.__API_BASE__) || '(empty)';
+
+        let configApi = null;
+        function safeJson(text) { try { return JSON.parse(text); } catch { return text; } }
+
+        function tr(html) { const row = document.createElement('tr'); row.innerHTML = html; return row; }
+        function cell(text) { return '<td>' + text + '</td>'; }
+
+        async function tryFetch(url, opts) {
+          const started = Date.now();
+          try {
+            const res = await fetch(url, opts);
+            const elapsed = Date.now() - started;
+            const text = await res.text();
+            return { ok: res.ok, status: res.status, headers: Object.fromEntries(res.headers.entries()), body: safeJson(text), ms: elapsed };
+          } catch (e) {
+            const elapsed = Date.now() - started;
+            return { error: e && (e.message || String(e)), ms: elapsed };
+          }
+        }
+
+        function summarizeResult(r) {
+          if (!r) return '<span class="fail">no result</span>';
+          if (r.error) return '<span class="fail">ERR</span> <span class="small">' + r.error + '</span>';
+          const badge = r.ok ? '<span class="ok">OK</span>' : '<span class="fail">' + r.status + '</span>';
+          const aco = r.headers && r.headers['access-control-allow-origin'];
+          const cors = aco ? 'ACAO=' + aco : 'no ACAO';
+          return badge + ' <span class="small">' + cors + ' • ' + r.ms + 'ms</span>';
+        }
+
+        function detailsBlock(label, data) {
+          return '<div class="small"><b>' + label + ':</b> ' + (typeof data === 'string' ? data : JSON.stringify(data, null, 2)) + '</div>';
+        }
+
+        async function runTests() {
+          resultsEl.innerHTML = '';
+          const candidates = [];
+          const runtimeApi = (window && window.__API_BASE__) || '';
+          if (runtimeApi) candidates.push(runtimeApi);
+          if (configApi) candidates.push(configApi);
+          const manual = (manualApi && manualApi.value || '').trim();
+          if (manual) candidates.push(manual);
+          // Always include known backend as a fallback candidate
+          candidates.push('https://unhimas-backend-spxg.onrender.com');
+
+          const uniq = Array.from(new Set(candidates.map(v => (v || '').replace(/\/$/, '')))).filter(Boolean);
+
+          for (const base of uniq) {
+            const healthUrl = base + '/api/health';
+            const preflightUrl = base + '/api/auth/login';
+            const getRes = await tryFetch(healthUrl, { method: 'GET', mode: 'cors', credentials: 'include' });
+            // Force a preflight by doing a POST with JSON content-type
+            const preflightRes = await tryFetch(preflightUrl, { method: 'POST', mode: 'cors', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+
+            const detail = [
+              detailsBlock('GET ' + healthUrl, getRes),
+              detailsBlock('POST ' + preflightUrl + ' (preflight expected)', preflightRes)
+            ].join('');
+
+            const row = tr(
+              cell('<code>' + base + '</code>') +
+              cell(summarizeResult(getRes)) +
+              cell(summarizeResult(preflightRes)) +
+              cell(detail)
+            );
+            resultsEl.appendChild(row);
+          }
+        }
+
+        // Load config.json then run
+        fetch('/config.json', { cache: 'no-store' })
+          .then(r => r.ok ? r.text() : Promise.reject(new Error('config ' + r.status)))
+          .then(txt => { const j = safeJson(txt); configApi = j && j.API_BASE || null; configApiEl.textContent = configApi || '(empty)'; })
+          .catch(() => { configApi = null; configApiEl.textContent = '(empty)'; })
+          .finally(() => runTests());
+
+        runBtn.addEventListener('click', runTests);
+      })();
+    </script>
+  </body>
+  </html>
+
