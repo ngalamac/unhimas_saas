@@ -1,7 +1,7 @@
 # Render manifest for unhimas_saas
 # Defines a static site for the frontend and a web service for the backend (Docker)
 services:
-  - type: web_service
+  - type: web
     name: unhimas-backend
     env: docker
     root: "backend"
@@ -38,7 +38,7 @@ services:
     envVars:
       - key: VITE_API_BASE_URL
         fromService:
-          type: web_service
+          type: web
           name: unhimas-backend
           property: url
 
