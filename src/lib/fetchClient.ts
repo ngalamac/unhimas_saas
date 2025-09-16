@@ -17,13 +17,16 @@ const defaultHeaders = (extra?: Record<string, string>) => {
 
 const getBase = () => {
     const envAny = (import.meta as any)?.env || {};
-    const envApi = (envAny?.VITE_API_BASE_URL || envAny?.VITE_BACKEND_URL || '') as string;
-    const apiUrl = (envApi || '').replace(/\/$/, '');
-    const base = apiUrl || (envAny?.DEV ? 'http://localhost:5000' : '');
+  // Highest precedence: runtime override set in index.html
+  const runtimeApi = (() => { try { return (window as any).__API_BASE__ as string; } catch { return ''; } })() || '';
+  const envApi = (envAny?.VITE_API_BASE_URL || envAny?.VITE_BACKEND_URL || '') as string;
+  const apiUrl = (runtimeApi || envApi || '').replace(/\/$/, '');
+  const base = apiUrl || (envAny?.DEV ? 'http://localhost:5000' : '');
     if (isDebug()) {
         // One-time-ish log per call site
         console.info('[fetchClient] base resolve', {
-            apiUrlFromEnv: envApi || null,
+      apiUrlFromRuntime: runtimeApi || null,
+      apiUrlFromEnv: envApi || null,
             dev: envAny?.DEV || false,
             mode: envAny?.MODE || null,
             chosenBase: base || '(same-origin)'
