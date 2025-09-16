@@ -63,30 +63,36 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // MongoDB connection
 // ---------------------
 const MONGO_URI = process.env.MONGO_URI;
-if (!MONGO_URI) {
-  console.error('❌ MONGO_URI not set. Refusing to start.');
-  process.exit(1);
-}
 
 mongoose.connection.on('connected', () => console.log('✅ MongoDB connected.'));
 mongoose.connection.on('error', (err) => console.error('❌ MongoDB connection error:', err));
 mongoose.connection.on('disconnected', () => console.warn('⚠️ MongoDB disconnected.'));
 
-async function startServer() {
-  try {
-    console.log('Connecting to MongoDB...');
-    await mongoose.connect(MONGO_URI as string, { serverSelectionTimeoutMS: 30000 });
-    console.log('MongoDB connected. Starting server...');
-
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, async () => {
-      console.log(`Backend server running on port ${PORT}`);
-      await seedSuperAdmin();
-    });
-  } catch (err) {
-    console.error('Failed to connect to MongoDB. Server not started.', err);
-    process.exit(1);
+// Try to connect to MongoDB in the background with retries.
+function connectWithRetry() {
+  if (!MONGO_URI) {
+    console.error('❌ MONGO_URI not set. Skipping MongoDB connection.');
+    return;
   }
+
+  let attempt = 1;
+  const attemptConnect = async () => {
+    try {
+      console.log(`Connecting to MongoDB (attempt ${attempt})...`);
+      await mongoose.connect(MONGO_URI as string, { serverSelectionTimeoutMS: 10000 });
+      console.log('✅ MongoDB connected.');
+      // Seed once connected
+      seedSuperAdmin().catch((e) => console.error('Seed super admin failed:', e));
+    } catch (err: any) {
+      const message = err?.message || err;
+      console.error(`❌ MongoDB connection failed (attempt ${attempt}):`, message);
+      const delayMs = Math.min(30000, 2000 * attempt);
+      attempt += 1;
+      setTimeout(attemptConnect, delayMs);
+    }
+  };
+
+  attemptConnect();
 }
 
 // ---------------------
@@ -174,6 +180,11 @@ app.use((err: any, _req: any, res: any, _next: any) => {
 });
 
 // ---------------------
-// Start server
+// Start server (before DB connect to avoid cold-start health check failures)
 // ---------------------
-startServer();
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Backend server running on port ${PORT}`);
+});
+
+connectWithRetry();
