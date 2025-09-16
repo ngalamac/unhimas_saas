@@ -68,20 +68,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string, role?: string): Promise<boolean> => {
     try {
-  const base = (import.meta as any)?.env?.VITE_API_BASE_URL || (import.meta as any)?.env?.VITE_BACKEND_URL || '';
-  const api = base ? `${base.replace(/\/$/, '')}/api/auth/login` : '/api/auth/login';
+      const envAny = (import.meta as any)?.env || {};
+      const runtimeApi = (() => { try { return (window as any).__API_BASE__ as string; } catch { return ''; } })() || '';
+      const base = (runtimeApi || envAny?.VITE_API_BASE_URL || envAny?.VITE_BACKEND_URL || '').toString();
+      const api = base ? `${base.replace(/\/$/, '')}/api/auth/login` : '/api/auth/login';
   const res = await fetch(api, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: username, password }),
+        body: JSON.stringify({ email: (username || '').trim(), password: (password || '').trim() }),
       });
   const body = await res.json();
   // Backend returns { token, user } (no data wrapper). Support both shapes.
   const token = body?.data?.token || body?.token;
   const userData = body?.data?.user || body?.user;
-  if (res.ok && token && userData) {
+      if (res.ok && token && userData) {
         // Optionally check role match
-        if (role && userData.type !== role) {
+        if (role && (String(userData.type || '').toLowerCase() !== String(role || '').toLowerCase())) {
           return false;
         }
         // Only include features with at least one action set to true
