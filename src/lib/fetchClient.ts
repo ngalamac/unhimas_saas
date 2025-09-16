@@ -1,5 +1,4 @@
 // Central API base for all frontend requests
-const API_BASE = 'https://unhimas-saas-wp25.onrender.com';
 export const getAuthToken = () => {
     try { return localStorage.getItem('token'); } catch (e) { return null; }
 };
@@ -12,8 +11,8 @@ const defaultHeaders = (extra?: Record<string, string>) => {
 };
 
 const getBase = () => {
-    // Prefer the explicit hardcoded API base
-    if (API_BASE) return API_BASE.replace(/\/$/, '');
+    const apiUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+    if (apiUrl) return apiUrl;
     // Dev fallback
     if ((import.meta as any)?.env?.DEV) return 'http://localhost:5000';
     // Same-origin last resort
