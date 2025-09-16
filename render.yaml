@@ -1,5 +1,6 @@
 # Render manifest for unhimas_saas
-# Defines a static site for the frontend and a web service for the backend (Docker)
+# Defines a Docker web service for the backend and a static site for the frontend
+
 services:
   - type: web
     name: unhimas-backend
@@ -8,7 +9,7 @@ services:
     plan: free
     envVars:
       - key: MONGO_URI
-        sync: false
+        sync: false # provided in Render dashboard
       - key: JWT_SECRET
         sync: false
       - key: SUPER_ADMIN_EMAIL
@@ -18,7 +19,7 @@ services:
       - key: NODE_ENV
         value: "production"
       - key: FRONTEND_ORIGIN
-        value: "https://unhimas-frontend.onrender.com"
+        value: "https://${unhimas-frontend_HOST}" # ✅ will expand to live frontend URL
     healthCheckPath: "/api/health"
     region: oregon
     autoDeployTrigger: commit
@@ -29,6 +30,9 @@ services:
     plan: free
     buildCommand: "npm install && npm run build"
     staticPublishPath: "./dist"
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: "https://${unhimas-backend_HOST}" # ✅ baked at build time
     routes:
       - type: rewrite
         source: "/*"
@@ -38,4 +42,3 @@ services:
         value: "https://unhimas-saas-wp25.onrender.com"
 
 
-# Render will build the Dockerfile located at `backend/Dockerfile` for the backend service.
