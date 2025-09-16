@@ -19,7 +19,7 @@ services:
       - key: NODE_ENV
         value: "production"
       - key: FRONTEND_ORIGIN
-        value: "https://${unhimas-frontend_HOST}" # ✅ will expand to live frontend URL
+        value: "https://${unhimas-frontend_HOST}"
     healthCheckPath: "/api/health"
     region: oregon
     autoDeployTrigger: commit
@@ -27,18 +27,12 @@ services:
   - type: web
     name: unhimas-frontend
     runtime: static
-    plan: free
     buildCommand: "npm install && npm run build"
     staticPublishPath: "./dist"
     envVars:
       - key: VITE_API_BASE_URL
-        value: "https://${unhimas-backend_HOST}" # ✅ baked at build time
+        value: "https://unhimas-saas-wp25.onrender.com"
     routes:
       - type: rewrite
         source: "/*"
         destination: "/index.html"
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: "https://unhimas-saas-wp25.onrender.com"
-
-
