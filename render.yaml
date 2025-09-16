@@ -18,7 +18,7 @@ services:
       - key: NODE_ENV
         value: "production"
       - key: FRONTEND_ORIGIN
-        value: "https://${unhimas-frontend_HOST}"
+        value: "https://unhimas-frontend.onrender.com"
     healthCheckPath: "/api/health"
     region: oregon
     autoDeployTrigger: commit
@@ -35,7 +35,7 @@ services:
         destination: "/index.html"
     envVars:
       - key: VITE_API_BASE_URL
-        value: "https://${unhimas-backend_HOST}"
+        value: "https://unhimas-saas-wp25.onrender.com"
 
 
 # Render will build the Dockerfile located at `backend/Dockerfile` for the backend service.
