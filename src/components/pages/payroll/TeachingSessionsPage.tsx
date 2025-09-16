@@ -23,6 +23,7 @@ import {
 import { getCourses } from '../../../api/courses';
 import { TeachingSession, StaffMember } from '../../../types/payroll';
 import { Course } from '../../../types/school';
+import fetchClient from '../../../lib/fetchClient';
 
 const TeachingSessionsPage: React.FC = () => {
   const { user } = useAuth();
@@ -32,7 +33,9 @@ const TeachingSessionsPage: React.FC = () => {
   const [sessions, setSessions] = useState<TeachingSession[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Split loading states: sessions list vs reference data (staff/courses)
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [refLoading, setRefLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filters, setFilters] = useState({
     lecturer: '',
@@ -50,25 +53,38 @@ const TeachingSessionsPage: React.FC = () => {
     notes: ''
   });
 
+  // Load sessions when filters or branch change
   useEffect(() => {
     fetchData();
-    fetchStaffAndCourses();
   }, [filters, currentBranch]);
+
+  // Load staff and courses when branch changes (or on mount)
+  useEffect(() => {
+    fetchStaffAndCourses();
+  }, [currentBranch]);
+
+  // Ensure fresh staff/courses when opening the create-session modal
+  useEffect(() => {
+    if (showCreateModal) {
+      fetchStaffAndCourses();
+    }
+  }, [showCreateModal]);
 
   const fetchData = async () => {
     try {
-      setLoading(true);
+      setSessionsLoading(true);
       const response = await getTeachingSessions(filters);
       setSessions(Array.isArray(response?.data) ? response.data : []);
     } catch (error: any) {
       showToast(error.message || 'Failed to load teaching sessions', 'error');
     } finally {
-      setLoading(false);
+      setSessionsLoading(false);
     }
   };
 
   const fetchStaffAndCourses = async () => {
     try {
+      setRefLoading(true);
       const [staffRes, coursesRes] = await Promise.all([
         getStaff(),
         getCourses()
@@ -76,9 +92,26 @@ const TeachingSessionsPage: React.FC = () => {
       // Filter only lecturers
       const lecturers = Array.isArray(staffRes?.data) ? staffRes.data.filter(s => s.type === 'Lecturer' && s.isActive) : [];
       setStaff(lecturers);
-      setCourses(Array.isArray(coursesRes?.data) ? coursesRes.data : []);
+      let courseList: any = Array.isArray((coursesRes as any)?.data) ? (coursesRes as any).data : (Array.isArray(coursesRes as any) ? coursesRes : []);
+      // Fallback: if no courses and branch is set, try branch-scoped endpoint if backend supports it
+      if ((!courseList || courseList.length === 0) && currentBranch) {
+        try {
+          const branchId = (currentBranch as any)._id || (currentBranch as any).id;
+          if (branchId) {
+            const res2 = await fetchClient.get(`/api/courses?branch=${encodeURIComponent(branchId)}`);
+            if (res2.ok) {
+              const data2 = await res2.json();
+              courseList = Array.isArray((data2 as any)?.data) ? (data2 as any).data : (Array.isArray(data2) ? data2 : []);
+            }
+          }
+        } catch {}
+      }
+      setCourses(Array.isArray(courseList) ? courseList : []);
     } catch (error: any) {
       console.error('Failed to load staff and courses:', error);
+      showToast(error?.message || 'Failed to load lecturers or courses', 'error');
+    } finally {
+      setRefLoading(false);
     }
   };
 
@@ -383,7 +416,7 @@ const TeachingSessionsPage: React.FC = () => {
           </table>
         </div>
         
-        {sessions.length === 0 && !loading && (
+  {sessions.length === 0 && !sessionsLoading && (
           <div className="p-8 text-center">
             <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
             <h3 className="text-sm font-medium text-gray-900 mb-1">No teaching sessions found</h3>
@@ -430,13 +463,16 @@ const TeachingSessionsPage: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
                   >
-                    <option value="">Select Course</option>
+                    <option value="">{refLoading ? 'Loading courses...' : 'Select Course'}</option>
                     {(Array.isArray(courses) ? courses : []).map((course) => (
                       <option key={course._id || course.id} value={course._id || course.id}>
                         {course.code} - {course.title || course.name}
                       </option>
                     ))}
                   </select>
+                  {(!refLoading && (!courses || courses.length === 0)) && (
+                    <p className="text-xs text-gray-500 mt-1">No courses found. Create courses in Academic &gt; Courses, then return.</p>
+                  )}
                 </div>
               </div>
               

@@ -4,11 +4,7 @@ import {
   Calculator, 
   TrendingUp, 
   Download, 
-  Eye, 
-  Calendar,
   FileText,
-  PieChart,
-  Filter,
   RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
@@ -24,7 +20,7 @@ import {
 import { OHADATrialBalance, OHADABalanceSheet, OHADAIncomeStatement } from '../../../types/ohada';
 
 const OHADAReportsPage: React.FC = () => {
-  const { user } = useAuth();
+  useAuth(); // initialize auth context if needed (no local vars to avoid unused warnings)
   const { currentBranch } = useBranch();
   const { showToast } = useUI();
 
@@ -151,7 +147,7 @@ const OHADAReportsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {data.accounts.map((account, index) => (
+              {(data?.accounts || []).map((account, index) => (
                 <tr key={index} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                     {account.code}
@@ -160,22 +156,22 @@ const OHADAReportsPage: React.FC = () => {
                     {account.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    {formatXAF(account.openingDebit)}
+                    {formatXAF(account.openingDebit || 0)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    {formatXAF(account.openingCredit)}
+                    {formatXAF(account.openingCredit || 0)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    {formatXAF(account.periodDebit)}
+                    {formatXAF(account.periodDebit || 0)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    {formatXAF(account.periodCredit)}
+                    {formatXAF(account.periodCredit || 0)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
-                    {formatXAF(account.closingDebit)}
+                    {formatXAF(account.closingDebit || 0)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
-                    {formatXAF(account.closingCredit)}
+                    {formatXAF(account.closingCredit || 0)}
                   </td>
                 </tr>
               ))}
@@ -186,22 +182,22 @@ const OHADAReportsPage: React.FC = () => {
                   TOTALS
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
-                  {formatXAF(data.totals.openingDebit)}
+                  {formatXAF(data?.totals?.openingDebit || 0)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
-                  {formatXAF(data.totals.openingCredit)}
+                  {formatXAF(data?.totals?.openingCredit || 0)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
-                  {formatXAF(data.totals.periodDebit)}
+                  {formatXAF(data?.totals?.periodDebit || 0)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
-                  {formatXAF(data.totals.periodCredit)}
+                  {formatXAF(data?.totals?.periodCredit || 0)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
-                  {formatXAF(data.totals.closingDebit)}
+                  {formatXAF(data?.totals?.closingDebit || 0)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
-                  {formatXAF(data.totals.closingCredit)}
+                  {formatXAF(data?.totals?.closingCredit || 0)}
                 </td>
               </tr>
             </tfoot>
@@ -220,11 +216,11 @@ const OHADAReportsPage: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900">ASSETS</h3>
           </div>
           <div className="p-4 space-y-4">
-            {/* Non-Current Assets */}
+      {/* Non-Current Assets */}
             <div>
               <h4 className="font-medium text-gray-900 mb-2">Non-Current Assets</h4>
               <div className="space-y-1">
-                {data.assets.nonCurrentAssets.map((asset, index) => (
+        {(data?.assets?.nonCurrentAssets || []).map((asset, index) => (
                   <div key={index} className="flex justify-between text-sm">
                     <span className="text-gray-600">{asset.code} - {asset.name}</span>
                     <span className="font-medium">{formatXAF(asset.amount)}</span>
@@ -233,11 +229,11 @@ const OHADAReportsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Current Assets */}
+      {/* Current Assets */}
             <div>
               <h4 className="font-medium text-gray-900 mb-2">Current Assets</h4>
               <div className="space-y-1">
-                {data.assets.currentAssets.map((asset, index) => (
+        {(data?.assets?.currentAssets || []).map((asset, index) => (
                   <div key={index} className="flex justify-between text-sm">
                     <span className="text-gray-600">{asset.code} - {asset.name}</span>
                     <span className="font-medium">{formatXAF(asset.amount)}</span>
@@ -249,7 +245,7 @@ const OHADAReportsPage: React.FC = () => {
             <div className="border-t pt-2">
               <div className="flex justify-between font-bold text-lg">
                 <span>TOTAL ASSETS</span>
-                <span>{formatXAF(data.assets.totalAssets)}</span>
+                <span>{formatXAF(data?.assets?.totalAssets || 0)}</span>
               </div>
             </div>
           </div>
@@ -261,11 +257,11 @@ const OHADAReportsPage: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900">LIABILITIES & EQUITY</h3>
           </div>
           <div className="p-4 space-y-4">
-            {/* Equity */}
+      {/* Equity */}
             <div>
               <h4 className="font-medium text-gray-900 mb-2">Equity</h4>
               <div className="space-y-1">
-                {data.liabilitiesAndEquity.equity.map((item, index) => (
+        {(data?.liabilitiesAndEquity?.equity || []).map((item, index) => (
                   <div key={index} className="flex justify-between text-sm">
                     <span className="text-gray-600">{item.code} - {item.name}</span>
                     <span className="font-medium">{formatXAF(item.amount)}</span>
@@ -274,11 +270,11 @@ const OHADAReportsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Non-Current Liabilities */}
+      {/* Non-Current Liabilities */}
             <div>
               <h4 className="font-medium text-gray-900 mb-2">Non-Current Liabilities</h4>
               <div className="space-y-1">
-                {data.liabilitiesAndEquity.nonCurrentLiabilities.map((liability, index) => (
+        {(data?.liabilitiesAndEquity?.nonCurrentLiabilities || []).map((liability, index) => (
                   <div key={index} className="flex justify-between text-sm">
                     <span className="text-gray-600">{liability.code} - {liability.name}</span>
                     <span className="font-medium">{formatXAF(liability.amount)}</span>
@@ -287,11 +283,11 @@ const OHADAReportsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Current Liabilities */}
+      {/* Current Liabilities */}
             <div>
               <h4 className="font-medium text-gray-900 mb-2">Current Liabilities</h4>
               <div className="space-y-1">
-                {data.liabilitiesAndEquity.currentLiabilities.map((liability, index) => (
+        {(data?.liabilitiesAndEquity?.currentLiabilities || []).map((liability, index) => (
                   <div key={index} className="flex justify-between text-sm">
                     <span className="text-gray-600">{liability.code} - {liability.name}</span>
                     <span className="font-medium">{formatXAF(liability.amount)}</span>
@@ -303,7 +299,7 @@ const OHADAReportsPage: React.FC = () => {
             <div className="border-t pt-2">
               <div className="flex justify-between font-bold text-lg">
                 <span>TOTAL LIABILITIES & EQUITY</span>
-                <span>{formatXAF(data.liabilitiesAndEquity.totalLiabilitiesAndEquity)}</span>
+                <span>{formatXAF(data?.liabilitiesAndEquity?.totalLiabilitiesAndEquity || 0)}</span>
               </div>
             </div>
           </div>
@@ -312,28 +308,35 @@ const OHADAReportsPage: React.FC = () => {
     </div>
   );
 
-  const renderIncomeStatement = (data: OHADAIncomeStatement) => (
+  const renderIncomeStatement = (data: OHADAIncomeStatement) => {
+    const safeRevenue = data?.revenue || [];
+    const safeExpenses = data?.expenses || [];
+    const totalRevenue = typeof data?.totalRevenue === 'number' ? data.totalRevenue : safeRevenue.reduce((s, r) => s + (r?.amount || 0), 0);
+    const totalExpenses = typeof data?.totalExpenses === 'number' ? data.totalExpenses : safeExpenses.reduce((s, e) => s + (e?.amount || 0), 0);
+    const netProfit = typeof data?.netProfit === 'number' ? data.netProfit : (totalRevenue - totalExpenses);
+
+    return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg border">
         <div className="p-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Income Statement - {data.period}</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Income Statement - {data?.period || ''}</h3>
         </div>
         <div className="p-6 space-y-6">
           {/* Revenue */}
           <div>
             <h4 className="font-semibold text-gray-900 mb-3">REVENUE</h4>
             <div className="space-y-2">
-              {data.revenue.map((item, index) => (
+              {safeRevenue.map((item, index) => (
                 <div key={index} className="flex justify-between">
                   <span className="text-gray-600">{item.code} - {item.name}</span>
-                  <span className="font-medium">{formatXAF(item.amount)}</span>
+                  <span className="font-medium">{formatXAF(item.amount || 0)}</span>
                 </div>
               ))}
             </div>
             <div className="border-t mt-3 pt-2">
               <div className="flex justify-between font-semibold">
                 <span>Total Revenue</span>
-                <span>{formatXAF(data.totalRevenue)}</span>
+                <span>{formatXAF(totalRevenue)}</span>
               </div>
             </div>
           </div>
@@ -342,17 +345,17 @@ const OHADAReportsPage: React.FC = () => {
           <div>
             <h4 className="font-semibold text-gray-900 mb-3">EXPENSES</h4>
             <div className="space-y-2">
-              {data.expenses.map((item, index) => (
+              {safeExpenses.map((item, index) => (
                 <div key={index} className="flex justify-between">
                   <span className="text-gray-600">{item.code} - {item.name}</span>
-                  <span className="font-medium">{formatXAF(item.amount)}</span>
+                  <span className="font-medium">{formatXAF(item.amount || 0)}</span>
                 </div>
               ))}
             </div>
             <div className="border-t mt-3 pt-2">
               <div className="flex justify-between font-semibold">
                 <span>Total Expenses</span>
-                <span>{formatXAF(data.totalExpenses)}</span>
+                <span>{formatXAF(totalExpenses)}</span>
               </div>
             </div>
           </div>
@@ -361,8 +364,8 @@ const OHADAReportsPage: React.FC = () => {
           <div className="border-t border-gray-300 pt-4">
             <div className="flex justify-between text-xl font-bold">
               <span>NET PROFIT</span>
-              <span className={data.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                {formatXAF(data.netProfit)}
+              <span className={netProfit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                {formatXAF(netProfit)}
               </span>
             </div>
           </div>
@@ -370,6 +373,7 @@ const OHADAReportsPage: React.FC = () => {
       </div>
     </div>
   );
+  };
 
   return (
     <div className="p-6 space-y-6">

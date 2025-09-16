@@ -1,11 +1,12 @@
 import React from 'react';
-import { Users, BookOpen, TrendingUp, Calendar, Award, UserCheck } from 'lucide-react';
+import { Users, BookOpen, TrendingUp, Award, UserCheck } from 'lucide-react';
+import { getCurrentBatchData, mockStudents, mockCourses, mockEmployees, mockGrades } from '../../data/mockData';
 
 export const HODDashboard: React.FC = () => {
   const currentBatch = getCurrentBatchData();
   const myDepartment = 'Computer Engineering'; // Mock department
-  const departmentStudents = mockStudents.filter(s => s.department.name === myDepartment);
-  const departmentCourses = mockCourses.filter(c => c.department.name === myDepartment);
+  const departmentStudents = mockStudents.filter(s => (typeof s.department === 'string' ? '' : s.department?.name) === myDepartment);
+  const departmentCourses = mockCourses.filter(c => (typeof c.department === 'string' ? '' : c.department?.name) === myDepartment);
   const departmentLecturers = mockEmployees.filter(e => e.department?.name === myDepartment && e.role === 'Lecturer');
   const departmentGrades = mockGrades.filter(g => 
     departmentCourses.some(c => c.id === g.courseId)
@@ -165,7 +166,7 @@ export const HODDashboard: React.FC = () => {
                 <div>Code: {course.code}</div>
                 <div>Level: {course.level}</div>
                 <div>Semester: {course.semester}</div>
-                <div>Lecturer: {course.lecturer ? `${course.lecturer.firstName} ${course.lecturer.lastName}` : 'Not assigned'}</div>
+                <div>Lecturer: {course.lecturer ? (typeof course.lecturer === 'string' ? course.lecturer : `${course.lecturer.firstName} ${course.lecturer.lastName}`) : 'Not assigned'}</div>
               </div>
               <div className="mt-3 flex space-x-2">
                 <button className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">

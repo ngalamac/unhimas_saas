@@ -1,14 +1,25 @@
 import React from 'react';
-import { BookOpen, Users, Calendar, TrendingUp, Clock, CheckCircle, DollarSign, Plus } from 'lucide-react';
+import { BookOpen, Users, TrendingUp, Clock, CheckCircle, DollarSign, Plus } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { formatXAF } from '../../utils/currency';
+import { getCurrentBatchData, mockCourses, mockStudents, mockAttendance, mockGrades } from '../../data/mockData';
 
 export const LecturerDashboard: React.FC = () => {
   const { setCurrentPage, setBreadcrumb } = useNavigation();
   const currentBatch = getCurrentBatchData();
-  const myCourses = mockCourses.filter(c => c.lecturer?.id === '2'); // Mock lecturer ID
+  const myCourses = mockCourses.filter(c => {
+    const lect: any = c.lecturer as any;
+    const lectId = typeof lect === 'string' ? lect : lect?._id || lect?.id;
+    return String(lectId || '') === '2';
+  }); // Mock lecturer ID
   const myStudents = mockStudents.filter(s => 
-    myCourses.some(c => c.department.id === s.department.id)
+    myCourses.some(c => {
+      const cd: any = c.department as any;
+      const sd: any = s.department as any;
+      const cdId = typeof cd === 'string' ? cd : cd?._id || cd?.id;
+      const sdId = typeof sd === 'string' ? sd : sd?._id || sd?.id;
+      return cdId && sdId && String(cdId) === String(sdId);
+    })
   );
   const todayAttendance = mockAttendance.filter(a => 
     a.date === new Date().toISOString().split('T')[0]
@@ -225,7 +236,13 @@ export const LecturerDashboard: React.FC = () => {
                 <div>Code: {course.code}</div>
                 <div>Level: {course.level}</div>
                 <div>Semester: {course.semester}</div>
-                <div>Students: {myStudents.filter(s => s.department.id === course.department.id).length}</div>
+                <div>Students: {myStudents.filter(s => {
+                  const sd: any = s.department as any;
+                  const cd: any = course.department as any;
+                  const sdId = typeof sd === 'string' ? sd : sd?._id || sd?.id;
+                  const cdId = typeof cd === 'string' ? cd : cd?._id || cd?.id;
+                  return sdId && cdId && String(sdId) === String(cdId);
+                }).length}</div>
               </div>
               <div className="mt-3 flex space-x-2">
                 <button className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">

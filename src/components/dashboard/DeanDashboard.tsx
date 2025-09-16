@@ -1,5 +1,6 @@
 import React from 'react';
 import { GraduationCap, Users, BookOpen, TrendingUp, Award, Calendar } from 'lucide-react';
+import { getCurrentBatchData, mockPrograms, mockStudents, mockCourses, mockGrades } from '../../data/mockData';
 
 export const DeanDashboard: React.FC = () => {
   const currentBatch = getCurrentBatchData();
@@ -155,9 +156,14 @@ export const DeanDashboard: React.FC = () => {
               </div>
               <div className="space-y-1 text-sm text-gray-600">
                 <div>Duration: {program.duration} years</div>
-                <div>Courses: {program.courses.length}</div>
-                <div>Students: {mockStudents.filter(s => s.program.id === program.id).length}</div>
-                <div>HOD: {program.hod ? `${program.hod.firstName} ${program.hod.lastName}` : 'Not assigned'}</div>
+                <div>Courses: {(program as any)?.courses?.length ?? 0}</div>
+                <div>Students: {mockStudents.filter(s => {
+                  const sp: any = s.program as any;
+                  const spId = typeof sp === 'string' ? sp : (sp?._id || sp?.id);
+                  const pid = (program as any)?._id || (program as any)?.id;
+                  return spId && pid && String(spId) === String(pid);
+                }).length}</div>
+                <div>HOD: {program.hod ? (typeof (program as any).hod === 'string' ? (program as any).hod : `${(program as any).hod.firstName} ${(program as any).hod.lastName}`) : 'Not assigned'}</div>
               </div>
               <div className="mt-3 flex space-x-2">
                 <button className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">
