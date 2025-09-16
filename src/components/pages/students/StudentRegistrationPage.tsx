@@ -101,8 +101,19 @@ export const StudentRegistrationPage: React.FC = () => {
     } catch (e) {
       // ignore parse errors
     }
-    getPrograms().then(res => setPrograms(res.data)).catch(() => {});
-    getDepartments().then(res => setDepartments(res.data)).catch(() => {});
+    // Normalize API responses that might be either { data: [...] } or a raw array
+    getPrograms()
+      .then((resp: any) => {
+        const list = Array.isArray(resp?.data) ? resp.data : (Array.isArray(resp) ? resp : []);
+        setPrograms(list as any);
+      })
+      .catch(() => {});
+    getDepartments()
+      .then((resp: any) => {
+        const list = Array.isArray(resp?.data) ? resp.data : (Array.isArray(resp) ? resp : []);
+        setDepartments(list as any);
+      })
+      .catch(() => {});
     getBranches().then(res => setBranches(res.data)).catch(() => {});
     getTuitionPlans().then(res => setTuitionPlans(Array.isArray(res) ? res : (res.data || []))).catch(() => {});
     getPaymentPlans().then(res => setPaymentPlans(res.data || [])).catch(() => {});
@@ -645,7 +656,7 @@ export const StudentRegistrationPage: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               >
-                <option value="">Select Program</option>
+                <option value="">{programs.length ? 'Select Program' : 'Loading programs...'}</option>
                 {(programs || []).map(program => (
                   <option key={program._id || program.id} value={(program._id || program.id) as string}>{program.name}</option>
                 ))}
@@ -661,7 +672,7 @@ export const StudentRegistrationPage: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               >
-                <option value="">Select Department</option>
+                <option value="">{departments.length ? 'Select Department' : 'Loading departments...'}</option>
                 {(departments || []).map(dept => (
                   <option key={dept._id || dept.id} value={(dept._id || dept.id) as string}>{dept.name}</option>
                 ))}

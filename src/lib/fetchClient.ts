@@ -1,3 +1,4 @@
+// Central API base for all frontend requests
 export const getAuthToken = () => {
     try { return localStorage.getItem('token'); } catch (e) { return null; }
 };
@@ -10,10 +11,11 @@ const defaultHeaders = (extra?: Record<string, string>) => {
 };
 
 const getBase = () => {
-    try {
-        const dev = (import.meta as any)?.env?.DEV;
-        if (dev) return 'http://localhost:5000';
-    } catch (e) { }
+    const apiUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+    if (apiUrl) return apiUrl;
+    // Dev fallback
+    if ((import.meta as any)?.env?.DEV) return 'http://localhost:5000';
+    // Same-origin last resort
     return '';
 };
 

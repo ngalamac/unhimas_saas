@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+const API_BASE = 'https://unhimas-saas-wp25.onrender.com';
 
 type HandlerMap = Record<string, (data: any) => void>;
 
@@ -8,7 +9,8 @@ export default function useSSE(url: string, handlers: HandlerMap) {
   useEffect(() => {
     if (!url || typeof window === 'undefined') return;
     try {
-      const es = new EventSource(url);
+  const full = /^https?:\/\//i.test(url) ? url : `${API_BASE.replace(/\/$/, '')}${url}`;
+  const es = new EventSource(full);
       esRef.current = es;
       es.onmessage = (ev) => {
         // default message event type
