@@ -39,28 +39,27 @@ function AppRoutes() {
 function App() {
   // Diagnostics: log env and ping health once to verify API base & connectivity
   useEffect(() => {
+    // Only run diagnostics when explicitly enabled at runtime
+    const debug = (() => { try { return Boolean((window as any).__API_DEBUG__); } catch { return false; } })();
+    if (!debug) return;
+
     try {
       const envAny = (import.meta as any)?.env || {};
-      // Visible in browser console for quick verification
-      // Note: Values are baked at build time
       console.info('[Diag] VITE_API_BASE_URL =', envAny?.VITE_API_BASE_URL || null);
       console.info('[Diag] VITE_BACKEND_URL =', envAny?.VITE_BACKEND_URL || null);
       console.info('[Diag] MODE/DEV =', envAny?.MODE, envAny?.DEV);
       console.info('[Diag] window.origin =', window.location.origin);
-      // Show chosen base resolution similar to fetchClient logic
       const resolvedBase = (envAny?.VITE_API_BASE_URL || envAny?.VITE_BACKEND_URL || (envAny?.DEV ? 'http://localhost:5000' : ''))
         ?.toString()
         .replace(/\/$/, '');
       console.info('[Diag] resolved API base =', resolvedBase || '(same-origin)');
     } catch {}
 
-    // Trigger a single health check so Network tab shows one request
     fetchClient
       .get('/api/health')
       .then((res) => console.info('[Diag] GET /api/health -> status', res.status))
       .catch((err) => console.warn('[Diag] GET /api/health -> error', err?.message || err));
 
-    // Optional fast probe to distinguish DNS/network/CORS quickly (no-cors HEAD)
     try {
       const envAny = (import.meta as any)?.env || {};
       const base = (envAny?.VITE_API_BASE_URL || envAny?.VITE_BACKEND_URL || '')?.toString().replace(/\/$/, '');
