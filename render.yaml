@@ -3,8 +3,8 @@
 services:
   - type: web
     name: unhimas-backend
-    env: docker
-    root: "backend"
+    runtime: docker
+    rootDir: "backend"
     plan: free
     envVars:
       - key: MONGO_URI
@@ -24,7 +24,7 @@ services:
           property: url
     healthCheckPath: "/api/health"
     region: oregon
-    autoDeploy: true
+    autoDeployTrigger: commit
 
   - type: web
     name: unhimas-frontend
