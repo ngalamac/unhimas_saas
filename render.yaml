@@ -1,16 +1,12 @@
-# Render manifest for unhimas_saas
-# Defines a Docker web service for the backend and a static site for the frontend
-
 services:
   - type: web
     name: unhimas-backend
     runtime: docker
-    rootDir: "backend"
     plan: free
-    autoDeploy: true
+    rootDir: backend
     envVars:
       - key: MONGO_URI
-        sync: false # provided in Render dashboard
+        sync: false
       - key: JWT_SECRET
         sync: false
       - key: SUPER_ADMIN_EMAIL
@@ -18,40 +14,22 @@ services:
       - key: SUPER_ADMIN_PASSWORD
         sync: false
       - key: NODE_ENV
-        value: "production"
-      # FRONTEND_ORIGIN and APP_BASE_URL will be populated from the frontend service URL
+        value: production
       - key: FRONTEND_ORIGIN
-        fromService:
-          type: web
-          name: unhimas-frontend
-          property: url
+        value: "https://unhimas-frontend.onrender.com"
       - key: APP_BASE_URL
-        fromService:
-          type: web
-          name: unhimas-frontend
-          property: url
-    healthCheckPath: "/api/health"
-    region: oregon
+        value: "https://unhimas-frontend.onrender.com"
 
   - type: web
     name: unhimas-frontend
     runtime: static
     buildCommand: "npm install && npm run build"
-    staticPublishPath: "./dist"
-    autoDeploy: true
+    staticPublishPath: ./dist
     envVars:
-      # Inject the backend URL at build time for the frontend to call the API
       - key: VITE_API_BASE_URL
-        fromService:
-          type: web
-          name: unhimas-backend
-          property: url
-      # Back-compat: some code paths read VITE_BACKEND_URL
+        value: "https://unhimas-saas-wp25.onrender.com"
       - key: VITE_BACKEND_URL
-        fromService:
-          type: web
-          name: unhimas-backend
-          property: url
+        value: "https://unhimas-saas-wp25.onrender.com"
     routes:
       - type: rewrite
         source: "/*"
