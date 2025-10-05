@@ -4,6 +4,7 @@ import User from '../models/User';
 import BranchModel from '../models/BranchModel';
 import { authMiddleware, requireUserManagement, requirePermission, AuthRequest } from '../middleware/auth';
 import { deleteFileFromGridFS } from '../services/fileService';
+import { RoleType } from '../lib/rolePermissions';
 
 const router = express.Router();
 
@@ -76,6 +77,23 @@ router.get('/', authMiddleware, requireUserManagement(), async (req: AuthRequest
 });
 
 // Create new user
+// Helper to normalize role strings coming from UI
+function normalizeRole(input: string): RoleType | null {
+  const key = (input || '').trim().toLowerCase();
+  const map: Record<string, RoleType> = {
+    'superadmin': 'SuperAdmin',
+    'super admin': 'SuperAdmin',
+    'admin': 'Admin',
+    'lecturer': 'Lecturer',
+    'accountant': 'Accountant',
+    'dean of studies': 'Dean of Studies',
+    'dean': 'Dean of Studies',
+    'head of department': 'Head Of Department',
+    'hod': 'Head Of Department',
+  };
+  return (map as any)[key] || null;
+}
+
 router.post('/', authMiddleware, requireUserManagement(), async (req: AuthRequest, res) => {
   try {
     const { 
@@ -91,20 +109,32 @@ router.post('/', authMiddleware, requireUserManagement(), async (req: AuthReques
     } = req.body;
 
     if (!name || !email || !password || !type) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: { message: 'Missing required fields' } });
+    }
+
+    // Normalize email and role
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedRole = normalizeRole(String(type));
+    if (!normalizedRole) {
+      return res.status(400).json({ error: { message: 'Invalid user type. Allowed: SuperAdmin, Admin, Lecturer, Accountant, Dean of Studies, Head Of Department' } });
+    }
+
+    // Only SuperAdmin can create another SuperAdmin
+    if (!req.user?.isSuperAdmin && normalizedRole === 'SuperAdmin') {
+      return res.status(403).json({ error: { message: 'Only SuperAdmin can create SuperAdmin users' } });
     }
 
     // Check if email already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(400).json({ error: 'Email already exists' });
+      return res.status(400).json({ error: { message: 'Email already exists' } });
     }
 
     // Check if employeeId already exists (if provided)
     if (employeeId) {
       const existingEmployee = await User.findOne({ employeeId });
       if (existingEmployee) {
-        return res.status(400).json({ error: 'Employee ID already exists' });
+        return res.status(400).json({ error: { message: 'Employee ID already exists' } });
       }
     }
 
@@ -118,7 +148,7 @@ router.post('/', authMiddleware, requireUserManagement(), async (req: AuthReques
     if (branchId) {
       const branchExists = await BranchModel.findById(branchId);
       if (!branchExists) {
-        return res.status(400).json({ error: 'Invalid branch' });
+        return res.status(400).json({ error: { message: 'Invalid branch' } });
       }
     }
 
@@ -127,9 +157,9 @@ router.post('/', authMiddleware, requireUserManagement(), async (req: AuthReques
 
     const user = new User({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
-      type,
+      type: normalizedRole,
       permissions: permissions || {},
       branch: branchId,
       createdBy: req.user?.id,
@@ -146,8 +176,26 @@ router.post('/', authMiddleware, requireUserManagement(), async (req: AuthReques
       .populate('createdBy', 'name email');
 
     res.status(201).json({ data: populatedUser });
-  } catch (err) {
+  } catch (err: any) {
     console.error('POST /api/users error', err);
+    // Duplicate key error handling
+    if (err && (err.code === 11000 || err.code === '11000')) {
+      if (err.keyPattern?.email) {
+        return res.status(400).json({ error: { message: 'Email already exists' } });
+      }
+      if (err.keyPattern?.employeeId) {
+        return res.status(400).json({ error: { message: 'Employee ID already exists' } });
+      }
+      return res.status(400).json({ error: { message: 'Duplicate value for unique field' } });
+    }
+    if (err?.name === 'ValidationError') {
+      try {
+        const details = Object.values(err.errors || {}).map((e: any) => e?.message).filter(Boolean);
+        return res.status(400).json({ error: { message: 'Validation error', details } });
+      } catch {
+        return res.status(400).json({ error: { message: 'Validation error' } });
+      }
+    }
     res.status(500).json({ error: { message: 'Failed to create user' } });
   }
 });
