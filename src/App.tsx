@@ -21,11 +21,78 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <Navigate to="/dashboard" replace />;
 };
 
+// Helpers for role <-> path segment mapping
+const roleToSegment = (role?: string): string => {
+  switch (role) {
+    case 'SuperAdmin':
+      return 'superadmin';
+    case 'Admin':
+      return 'admin';
+    case 'Lecturer':
+      return 'lecturer';
+    case 'Accountant':
+      return 'accountant';
+    case 'Dean of Studies':
+      return 'dean';
+    case 'Head Of Department':
+      return 'hod';
+    default:
+      return 'superadmin';
+  }
+};
+
+const segmentToRole = (seg: string): string => {
+  switch (seg) {
+    case 'superadmin':
+      return 'SuperAdmin';
+    case 'admin':
+      return 'Admin';
+    case 'lecturer':
+      return 'Lecturer';
+    case 'accountant':
+      return 'Accountant';
+    case 'dean':
+      return 'Dean of Studies';
+    case 'hod':
+      return 'Head Of Department';
+    default:
+      return 'SuperAdmin';
+  }
+};
+
+// Redirect /dashboard to the correct nested path based on role
+const DashboardRouter: React.FC = () => {
+  const { user } = useAuth();
+  const seg = roleToSegment(user?.role);
+  return <Navigate to={`/dashboard/${seg}`} replace />;
+};
+
+// Gate that ensures the nested route matches the user's role; otherwise redirect
+const RoleGate: React.FC<{ expectedSegment: string; children: React.ReactNode }> = ({ expectedSegment, children }) => {
+  const { user, isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const expectedRole = segmentToRole(expectedSegment);
+  if ((user?.role || '') !== expectedRole) {
+    const seg = roleToSegment(user?.role);
+    return <Navigate to={`/dashboard/${seg}`} replace />;
+  }
+  return <>{children}</>;
+};
+
 function AppRoutes() {
   const router = createBrowserRouter([
     { path: '/login', element: <PublicRoute><LoginPage /></PublicRoute> },
     { path: '/password-reset', element: <PublicRoute><PasswordResetPage /></PublicRoute> },
-    { path: '/dashboard/*', element: <ProtectedRoute><SuperAdminDashboard /></ProtectedRoute> },
+    // Role-aware dashboard routing
+    { path: '/dashboard', element: <ProtectedRoute><DashboardRouter /></ProtectedRoute> },
+    { path: '/dashboard/superadmin/*', element: <ProtectedRoute><RoleGate expectedSegment="superadmin"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },
+    { path: '/dashboard/admin/*', element: <ProtectedRoute><RoleGate expectedSegment="admin"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },
+    { path: '/dashboard/accountant/*', element: <ProtectedRoute><RoleGate expectedSegment="accountant"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },
+    { path: '/dashboard/lecturer/*', element: <ProtectedRoute><RoleGate expectedSegment="lecturer"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },
+    { path: '/dashboard/dean/*', element: <ProtectedRoute><RoleGate expectedSegment="dean"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },
+    { path: '/dashboard/hod/*', element: <ProtectedRoute><RoleGate expectedSegment="hod"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },
+    // Fallbacks
+    { path: '/dashboard/*', element: <ProtectedRoute><DashboardRouter /></ProtectedRoute> },
     { path: '/', element: <Navigate to="/login" replace /> },
     { path: '*', element: <Navigate to="/login" replace /> }
   ], {
