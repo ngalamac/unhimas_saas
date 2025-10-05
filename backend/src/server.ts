@@ -58,7 +58,7 @@ console.log("🔧 FRONTEND_ORIGINS env:", process.env.FRONTEND_ORIGINS || '(empt
 console.log("🔧 APP_BASE_URL env:", process.env.APP_BASE_URL || '(empty)');
 console.log("🔧 Allowed Origins:", allowedOrigins);
 
-app.use(cors({
+const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     console.log("🔎 Incoming request origin:", origin);
     // allow requests with no origin (like mobile apps, curl)
@@ -68,7 +68,14 @@ app.use(cors({
     return callback(new Error('CORS not allowed from origin: ' + origin));
   },
   credentials: true,
-}));
+  methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With','X-Bootstrap-Token'],
+  exposedHeaders: ['Content-Disposition'],
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // ---------------------
 // Body parsing
