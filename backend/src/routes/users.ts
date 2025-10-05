@@ -139,7 +139,11 @@ router.post('/', authMiddleware, requireUserManagement(), async (req: AuthReques
     }
 
     // Determine branch assignment
-    let branchId = branch;
+    let branchId: any = branch;
+    // Treat empty string as undefined (avoid ObjectId cast error)
+    if (typeof branchId === 'string' && branchId.trim() === '') {
+      branchId = undefined;
+    }
     if (!req.user?.isSuperAdmin) {
       branchId = req.user?.branch; // Non-SuperAdmin users can only create users in their branch
     }
@@ -155,18 +159,20 @@ router.post('/', authMiddleware, requireUserManagement(), async (req: AuthReques
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = new User({
+    const userPayload: any = {
       name,
       email: normalizedEmail,
       password: hashedPassword,
       type: normalizedRole,
       permissions: permissions || {},
-      branch: branchId,
       createdBy: req.user?.id,
       employeeId,
       phoneNumber,
       department
-    });
+    };
+    if (branchId) userPayload.branch = branchId;
+
+    const user = new User(userPayload);
 
     await user.save();
 
