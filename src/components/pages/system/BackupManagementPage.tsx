@@ -15,7 +15,9 @@ import {
   FileText,
   HardDrive,
   Zap,
-  RefreshCw
+  RefreshCw,
+  DatabaseZap,
+  ShieldAlert
 } from 'lucide-react';
 import { useUI } from '../../../context/UIContext';
 // import { formatXAF } from '../../../utils/currency';
@@ -36,6 +38,7 @@ import {
 } from '../../../api/backup';
 import { BackupJob, RestoreJob, BackupSettings, SystemHealth } from '../../../types/backup';
 import useSSE from '../../../lib/useSSE';
+import { resetDatabase as apiResetDatabase, ResetMode as AdminResetMode } from '../../../api/admin';
 
 const BackupManagementPage: React.FC = () => {
   // const { user } = useAuth();
@@ -47,6 +50,14 @@ const BackupManagementPage: React.FC = () => {
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'backups' | 'restore' | 'settings' | 'health'>('backups');
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetMode, setResetMode] = useState<AdminResetMode>('soft');
+  const [resetIncludeGridfs, setResetIncludeGridfs] = useState(false);
+  const [resetPreserveEmails, setResetPreserveEmails] = useState('');
+  const [resetApply, setResetApply] = useState(false);
+  const [resetToken, setResetToken] = useState('');
+  const [resetPreview, setResetPreview] = useState<any | null>(null);
+  const [resetRunning, setResetRunning] = useState(false);
   
   // Backup creation state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -341,6 +352,14 @@ const BackupManagementPage: React.FC = () => {
           >
             <Upload className="w-4 h-4" />
             <span>Upload Backup</span>
+          </button>
+          <button
+            onClick={() => setShowResetModal(true)}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center space-x-2"
+            title="Reset Database (SuperAdmin)"
+          >
+            <DatabaseZap className="w-4 h-4" />
+            <span>Reset Database</span>
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
@@ -940,6 +959,128 @@ const BackupManagementPage: React.FC = () => {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Create Backup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Database Modal (SuperAdmin only route enforces access) */}
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+                <ShieldAlert className="w-5 h-5 text-red-600" />
+                <span>Reset Database</span>
+              </h3>
+              <button onClick={() => setShowResetModal(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-900">
+                This tool deletes data. Run a backup first. Use Soft mode to remove test data heuristically, or Hard to wipe collections. Provide preserve emails to keep admin accounts.
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Mode</label>
+                  <select
+                    value={resetMode}
+                    onChange={(e) => setResetMode(e.target.value as AdminResetMode)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  >
+                    <option value="soft">Soft (heuristic test data)</option>
+                    <option value="hard">Hard (wipe all)</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between mt-6 md:mt-0">
+                  <label className="text-sm font-medium text-gray-700">Include GridFS (uploads)</label>
+                  <input
+                    type="checkbox"
+                    checked={resetIncludeGridfs}
+                    onChange={(e) => setResetIncludeGridfs(e.target.checked)}
+                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Preserve Emails (comma-separated)</label>
+                <input
+                  type="text"
+                  value={resetPreserveEmails}
+                  onChange={(e) => setResetPreserveEmails(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  placeholder="admin@school.org,owner@school.org"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">Apply changes (uncheck for preview)</label>
+                  <input
+                    type="checkbox"
+                    checked={resetApply}
+                    onChange={(e) => setResetApply(e.target.checked)}
+                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Token</label>
+                  <input
+                    type="password"
+                    value={resetToken}
+                    onChange={(e) => setResetToken(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                    placeholder="Required if backend enforces token"
+                  />
+                </div>
+              </div>
+
+              {resetPreview && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-64 overflow-auto">
+                  <pre className="text-xs text-gray-800 whitespace-pre-wrap">{JSON.stringify(resetPreview, null, 2)}</pre>
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
+              <button
+                onClick={() => setShowResetModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    setResetRunning(true);
+                    const preserve = resetPreserveEmails
+                      .split(/[,;\s]+/)
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    const { data } = await apiResetDatabase({
+                      mode: resetMode,
+                      includeGridfs: resetIncludeGridfs,
+                      preserveEmails: preserve,
+                      apply: resetApply,
+                      confirmToken: resetToken || undefined,
+                    });
+                    setResetPreview(data);
+                    if (resetApply) {
+                      showToast('Database reset completed', 'success');
+                    } else {
+                      showToast('Preview generated. Review summary.', 'success');
+                    }
+                  } catch (e: any) {
+                    showToast(e?.message || 'Reset failed', 'error');
+                  } finally {
+                    setResetRunning(false);
+                  }
+                }}
+                disabled={resetRunning}
+                className={`px-4 py-2 ${resetApply ? 'bg-red-600 hover:bg-red-700' : 'bg-yellow-600 hover:bg-yellow-700'} text-white rounded-lg`}
+              >
+                {resetRunning ? 'Working...' : resetApply ? 'Apply Reset' : 'Preview Reset'}
               </button>
             </div>
           </div>

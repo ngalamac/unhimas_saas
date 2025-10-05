@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
+import { resetDatabase } from '../src/services/resetService';
 
 type ResetMode = 'soft' | 'hard';
 
@@ -166,130 +167,21 @@ async function run() {
   }
 
   await ensureConnected();
-  const db = mongoose.connection.db;
-  if (!db) {
-    console.error('No database connection available.');
-    process.exit(2);
-  }
-
-  const collections = (await db.listCollections().toArray()).map(c => c.name);
   const whitelistEmails = getWhitelistEmails(args);
+  const result = await resetDatabase({
+    mode: args.mode,
+    dryRun: !args.apply,
+    includeGridfs: args.includeGridfs,
+    preserveEmails: whitelistEmails,
+  });
 
-  const summary: Record<string, { matched?: number; deleted?: number; action: string }> = {};
-
-  if (args.mode === 'soft') {
-    for (const name of collections) {
-      if (isSystemCollection(name)) continue;
-      if (isGridFsCollection(name)) continue; // gridfs untouched in soft mode
-
-      let filter: any = buildSoftFilterForCollection(name);
-
-      // Preserve SuperAdmins by email in users collection
-      if (name === 'users' && whitelistEmails.length > 0) {
-        filter = { $and: [filter, { email: { $nin: whitelistEmails } }] };
-      }
-
-      let matched = 0;
-      try {
-        matched = await db.collection(name).countDocuments(filter);
-      } catch (e) {
-        // If filter invalid for this collection, skip quietly
-        continue;
-      }
-
-      if (matched === 0) continue;
-
-      summary[name] = { matched, action: args.apply ? 'deleteMany(filter)' : 'preview' };
-
-      if (args.apply) {
-        const res = await db.collection(name).deleteMany(filter as any);
-        summary[name].deleted = res.deletedCount || 0;
-        console.log(`Deleted ${summary[name].deleted} docs from ${name}`);
-      } else {
-        console.log(`[DRY-RUN] Would delete ${matched} docs from ${name}`);
-      }
-    }
-  } else if (args.mode === 'hard') {
-    // Determine collections to clear
-    const toClear = collections.filter(name => {
-      if (isSystemCollection(name)) return false;
-      if (!args.includeGridfs && isGridFsCollection(name)) return false;
-      return true;
-    });
-
-    // Users: preserve whitelisted emails
-    if (toClear.includes('users')) {
-      const preserveEmails = whitelistEmails;
-      let preservedIds: any[] = [];
-      if (preserveEmails.length > 0) {
-        const keep = await db
-          .collection('users')
-          .find({ email: { $in: preserveEmails } })
-          .project({ _id: 1, email: 1 })
-          .toArray();
-        preservedIds = keep.map(d => d._id);
-        console.log(`Will preserve ${preservedIds.length} user(s):`, keep.map(k => k.email).join(', ') || '(none)');
-      } else {
-        console.warn('No preserve emails specified; ALL users will be removed. Use --preserve= or SUPER_ADMIN_EMAIL to keep accounts.');
-      }
-
-      if (args.apply) {
-        const res = await db.collection('users').deleteMany(preservedIds.length ? { _id: { $nin: preservedIds } } : {});
-        summary['users'] = { matched: res.deletedCount || 0, deleted: res.deletedCount || 0, action: 'deleteMany(all except preserved)' };
-        console.log(`Deleted ${res.deletedCount || 0} docs from users`);
-      } else {
-        const countAll = await db.collection('users').countDocuments(preservedIds.length ? { _id: { $nin: preservedIds } } : {});
-        summary['users'] = { matched: countAll, action: 'preview (all except preserved)' };
-        console.log(`[DRY-RUN] Would delete ${countAll} docs from users`);
-      }
-    }
-
-    for (const name of toClear) {
-      if (name === 'users') continue; // already handled
-      if (!args.includeGridfs && isGridFsCollection(name)) continue;
-
-      if (args.apply) {
-        try {
-          const res = await db.collection(name).deleteMany({});
-          summary[name] = { matched: res.deletedCount || 0, deleted: res.deletedCount || 0, action: 'deleteMany(all)' };
-          console.log(`Deleted ${res.deletedCount || 0} docs from ${name}`);
-        } catch (e) {
-          console.warn(`Skip ${name}: ${String(e)}`);
-        }
-      } else {
-        const count = await db.collection(name).countDocuments({});
-        summary[name] = { matched: count, action: 'preview (all)' };
-        console.log(`[DRY-RUN] Would delete ${count} docs from ${name}`);
-      }
-    }
-  }
-
-  // Optional: drop GridFS bucket when requested on hard mode
-  if (args.mode === 'hard' && args.includeGridfs) {
-    for (const gridName of ['uploads.files', 'uploads.chunks']) {
-      const exists = (await db.listCollections({ name: gridName }).toArray()).length > 0;
-      if (!exists) continue;
-      if (args.apply) {
-        try {
-          await db.dropCollection(gridName);
-          console.log(`Dropped collection ${gridName}`);
-        } catch (e) {
-          console.warn(`Failed to drop ${gridName}: ${String(e)}`);
-        }
-      } else {
-        console.log(`[DRY-RUN] Would drop collection ${gridName}`);
-      }
-    }
-  }
-
-  // Print summary
   console.log('\nSummary:');
-  const names = Object.keys(summary);
+  const names = Object.keys(result.summary);
   if (names.length === 0) {
     console.log('No matching documents found for the selected mode/filters.');
   } else {
     for (const n of names) {
-      const s = summary[n];
+      const s = result.summary[n];
       console.log(`- ${n}: ${s.action}  matched=${s.matched ?? 0}${s.deleted !== undefined ? ` deleted=${s.deleted}` : ''}`);
     }
   }
