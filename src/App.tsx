@@ -28,6 +28,8 @@ const roleToSegment = (role?: string): string => {
       return 'superadmin';
     case 'Admin':
       return 'admin';
+    case 'Registrar':
+      return 'registrar';
     case 'Lecturer':
       return 'lecturer';
     case 'Accountant':
@@ -47,6 +49,8 @@ const segmentToRole = (seg: string): string => {
       return 'SuperAdmin';
     case 'admin':
       return 'Admin';
+    case 'registrar':
+      return 'Registrar';
     case 'lecturer':
       return 'Lecturer';
     case 'accountant':
@@ -87,6 +91,7 @@ function AppRoutes() {
     { path: '/dashboard', element: <ProtectedRoute><DashboardRouter /></ProtectedRoute> },
     { path: '/dashboard/superadmin/*', element: <ProtectedRoute><RoleGate expectedSegment="superadmin"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },
     { path: '/dashboard/admin/*', element: <ProtectedRoute><RoleGate expectedSegment="admin"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },
+    { path: '/dashboard/registrar/*', element: <ProtectedRoute><RoleGate expectedSegment="registrar"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },
     { path: '/dashboard/accountant/*', element: <ProtectedRoute><RoleGate expectedSegment="accountant"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },
     { path: '/dashboard/lecturer/*', element: <ProtectedRoute><RoleGate expectedSegment="lecturer"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },
     { path: '/dashboard/dean/*', element: <ProtectedRoute><RoleGate expectedSegment="dean"><SuperAdminDashboard /></RoleGate></ProtectedRoute> },

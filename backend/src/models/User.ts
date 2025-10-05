@@ -5,7 +5,7 @@ export interface IUser extends Document {
   name: string;
   email: string;
   password: string;
-  type: 'SuperAdmin' | 'Admin' | 'Lecturer' | 'Accountant' | 'Dean of Studies' | 'Head Of Department';
+  type: 'SuperAdmin' | 'Admin' | 'Registrar' | 'Lecturer' | 'Accountant' | 'Dean of Studies' | 'Head Of Department';
   permissions: Record<string, Record<string, boolean>>;
   branch?: mongoose.Types.ObjectId; // Branch assignment for non-SuperAdmin users
   createdBy?: mongoose.Types.ObjectId; // Who created this user (for hierarchy tracking)
@@ -26,7 +26,7 @@ const UserSchema: Schema = new Schema({
   type: { 
     type: String, 
     required: true,
-    enum: ['SuperAdmin', 'Admin', 'Lecturer', 'Accountant', 'Dean of Studies', 'Head Of Department']
+    enum: ['SuperAdmin', 'Admin', 'Registrar', 'Lecturer', 'Accountant', 'Dean of Studies', 'Head Of Department']
   },
   permissions: { type: Object, default: {} },
   branch: { type: Schema.Types.ObjectId, ref: 'Branch', required: false },

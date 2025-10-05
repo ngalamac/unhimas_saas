@@ -84,6 +84,7 @@ function normalizeRole(input: string): RoleType | null {
     'superadmin': 'SuperAdmin',
     'super admin': 'SuperAdmin',
     'admin': 'Admin',
+    'registrar': 'Registrar',
     'lecturer': 'Lecturer',
     'accountant': 'Accountant',
     'dean of studies': 'Dean of Studies',
