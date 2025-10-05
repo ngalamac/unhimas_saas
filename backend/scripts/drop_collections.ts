@@ -4,7 +4,12 @@ import path from 'path';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://unhimas4:n673927826@cluster0.xeab0d2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+// SECURITY: do not hardcode credentials; require MONGO_URI from env
+const MONGO_URI = process.env.MONGO_URI;
+if (!MONGO_URI) {
+  console.error('ERROR: MONGO_URI not set. Aborting.');
+  process.exit(2);
+}
 
 async function run() {
   try {
