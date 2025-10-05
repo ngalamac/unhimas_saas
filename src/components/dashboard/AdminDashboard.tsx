@@ -70,7 +70,7 @@ export const AdminDashboard: React.FC = () => {
   // Account Management State
   const [resetLoading, setResetLoading] = React.useState(false);
   const [resetMsg, setResetMsg] = React.useState('');
-  const adminEmail = 'superadminunhimas@gmail.com'; // Replace with dynamic value if available
+  const adminEmail = 'youremail'; // Replace with dynamic value if available
 
   const formatCurrency = (amount: number) => formatXAF(amount);
 
