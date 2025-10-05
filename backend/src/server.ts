@@ -33,16 +33,32 @@ const app = express();
 // ---------------------
 // CORS configuration
 // ---------------------
-const allowedOrigins = [
-  process.env.FRONTEND_ORIGIN || "https://unhimas-frontend.onrender.com",
-  "http://localhost:5173",
-  "http://localhost:3000"
+function parseOrigins(value?: string): string[] {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+const envOrigins = [
+  ...parseOrigins(process.env.FRONTEND_ORIGIN),
+  ...parseOrigins(process.env.APP_BASE_URL),
+  ...parseOrigins(process.env.FRONTEND_ORIGINS), // optional multi-origin var
 ];
+
+const allowedOrigins = [
+  ...(envOrigins.length > 0 ? envOrigins : ["https://unhimas-frontend.onrender.com"]),
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
 console.log("🔧 FRONTEND_ORIGIN env:", process.env.FRONTEND_ORIGIN || '(empty)');
+console.log("🔧 FRONTEND_ORIGINS env:", process.env.FRONTEND_ORIGINS || '(empty)');
 console.log("🔧 APP_BASE_URL env:", process.env.APP_BASE_URL || '(empty)');
 console.log("🔧 Allowed Origins:", allowedOrigins);
 
-app.use(cors({
+const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     console.log("🔎 Incoming request origin:", origin);
     // allow requests with no origin (like mobile apps, curl)
@@ -52,7 +68,14 @@ app.use(cors({
     return callback(new Error('CORS not allowed from origin: ' + origin));
   },
   credentials: true,
-}));
+  methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With','X-Bootstrap-Token'],
+  exposedHeaders: ['Content-Disposition'],
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // ---------------------
 // Body parsing
