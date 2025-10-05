@@ -6,6 +6,7 @@ import { LecturerDashboard } from './LecturerDashboard';
 import { AccountantDashboard } from './AccountantDashboard';
 import { DeanDashboard } from './DeanDashboard';
 import { HODDashboard } from './HODDashboard';
+import RegistrarDashboard from './RegistrarDashboard';
 
 export const RoleDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -17,6 +18,8 @@ export const RoleDashboard: React.FC = () => {
       return <SuperAdminDashboard />;
     case 'Admin':
       return <AdminDashboard />;
+    case 'Registrar':
+      return <RegistrarDashboard />;
     case 'Lecturer':
       return <LecturerDashboard />;
     case 'Accountant':
