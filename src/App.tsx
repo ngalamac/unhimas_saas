@@ -15,8 +15,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 // Public Route Component (redirect if already authenticated)
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  return !isAuthenticated ? <>{children}</> : <Navigate to="/dashboard" replace />;
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <>{children}</>;
+  // Ensure the dashboard landing honors role; RoleDashboard handles selection internally
+  return <Navigate to="/dashboard" replace />;
 };
 
 function AppRoutes() {
