@@ -51,7 +51,38 @@ export const LoginForm: React.FC<LoginFormProps> = ({ selectedRole }) => {
     try {
       const success = await login(username, password, selectedRole);
       if (success) {
-        navigate('/dashboard');
+        try {
+          const raw = localStorage.getItem('user');
+          const parsed = raw ? JSON.parse(raw) : null;
+          const role = (parsed?.role as string) || '';
+          // Force landing on role dashboard on fresh login
+          localStorage.setItem('currentPage', 'dashboard');
+          let breadcrumb: string[] = ['Dashboard'];
+          switch (role) {
+            case 'SuperAdmin':
+              breadcrumb = ['Super Admin', 'Dashboard'];
+              break;
+            case 'Admin':
+              breadcrumb = ['Admin', 'Dashboard'];
+              break;
+            case 'Lecturer':
+              breadcrumb = ['Lecturer', 'Dashboard'];
+              break;
+            case 'Accountant':
+              breadcrumb = ['Accountant', 'Dashboard'];
+              break;
+            case 'Dean of Studies':
+              breadcrumb = ['Dean', 'Dashboard'];
+              break;
+            case 'Head Of Department':
+              breadcrumb = ['Head Of Department', 'Dashboard'];
+              break;
+            default:
+              breadcrumb = ['Dashboard'];
+          }
+          localStorage.setItem('breadcrumb', JSON.stringify(breadcrumb));
+        } catch {}
+        navigate('/dashboard', { replace: true });
       } else {
         setError('Invalid credentials. Please try again.');
       }
