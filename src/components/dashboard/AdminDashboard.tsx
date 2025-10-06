@@ -4,6 +4,7 @@ import { formatXAF } from '../../utils/currency';
 import { useBranch } from '../../context/BranchContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '../../context/NavigationContext';
+import { isFinanceRole } from '../../utils/rolePermissions';
 import fetchClient from '../../lib/fetchClient';
 
 export const AdminDashboard: React.FC = () => {
@@ -18,6 +19,7 @@ export const AdminDashboard: React.FC = () => {
     activeBranches: 0
   });
   const [loading, setLoading] = useState(true);
+  const isFinance = isFinanceRole(((user as any)?.role || (user as any)?.type) as string);
 
   // Fetch real data from API
   useEffect(() => {
@@ -173,6 +175,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
+        {isFinance && (
         <div className="card p-6">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -184,8 +187,9 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-xs text-green-600">↗ +8% this month</p>
             </div>
           </div>
-        </div>
+        </div>)
 
+        {isFinance && (
         <div className="card p-6">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -197,7 +201,7 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-xs text-orange-600">Requires attention</p>
             </div>
           </div>
-        </div>
+        </div>)
       </div>
 
       {/* Quick Actions */}

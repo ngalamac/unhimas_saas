@@ -364,3 +364,9 @@ export const formatPermissions = (permissions: Record<string, Record<string, boo
   
   return `${totalActions} actions across ${totalFeatures} features`;
 };
+
+// Role guard helpers
+export const isFinanceRole = (role?: string): boolean => {
+  const r = role || '';
+  return r === 'SuperAdmin' || r === 'Admin' || r === 'Accountant';
+};

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
+import { isFinanceRole } from '../../utils/rolePermissions';
 import { useBranch } from '../../context/BranchContext';
 
 interface SidebarItem {
@@ -293,12 +294,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
   const userPermissions = React.useMemo(() => getUserPermissions(), [user]);
   const isSuperAdmin = (user as any)?.role === 'SuperAdmin' || (user as any)?.type === 'SuperAdmin' || (user as any)?.isSuperAdmin === true;
+  const isFinance = isFinanceRole(((user as any)?.role || (user as any)?.type) as string);
+
+  // Finance-related submenu ids to hide for non-finance roles
+  const financeSubIds = new Set([
+    'accounting-overview', 'transactions', 'categories', 'payment-plans', 'tuition-plans', 'reports',
+    'ohada-accounting', 'ohada-reports', 'budget-analysis', 'financial-insights', 'financial-reports',
+    'integrated-accounting-hub', 'financial-coordinator', 'accounting-master-control', 'payment-history',
+    'fee-structure', 'tuition-management', 'tuition-status', 'payroll', 'payroll-details'
+  ]);
 
   const filteredSidebarItems = sidebarItems
     .filter(item => isSuperAdmin ? true : hasAnyPermission(item.id))
+    // Hide entire Accounting section for non-finance roles
+    .filter(item => isFinance || item.id !== 'accounting')
     .map(item => {
       if (!item.hasSubmenu || !item.submenuItems) return item;
       const filteredSubs = item.submenuItems.filter(sub => {
+        // Hide finance-related submenu entries for non-finance roles
+        if (!isFinance && financeSubIds.has(sub.id)) {
+          return false;
+        }
         // Derive feature from sub id heuristically (prefix before '-') or fall back to parent id
         const base = sub.id.split('-')[0];
         // Attempt typical plural forms mapping

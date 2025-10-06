@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
+import { isFinanceRole } from '../../utils/rolePermissions';
 
 export const NavigationShortcuts: React.FC = () => {
   const { setCurrentPage, setBreadcrumb } = useNavigation();
@@ -29,7 +30,7 @@ export const NavigationShortcuts: React.FC = () => {
             break;
           case 't':
             event.preventDefault();
-            if (user?.permissions?.includes('accounting:create') || user?.role === 'SuperAdmin') {
+            if (isFinanceRole((user as any)?.role || (user as any)?.type)) {
               setCurrentPage('transactions');
               setBreadcrumb(['Accounting', 'Transactions']);
             }
@@ -48,8 +49,10 @@ export const NavigationShortcuts: React.FC = () => {
             break;
           case 'r':
             event.preventDefault();
-            setCurrentPage('reports');
-            setBreadcrumb(['Accounting', 'Reports']);
+            if (isFinanceRole((user as any)?.role || (user as any)?.type)) {
+              setCurrentPage('reports');
+              setBreadcrumb(['Accounting', 'Reports']);
+            }
             break;
         }
       }
