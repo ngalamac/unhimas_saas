@@ -31,10 +31,21 @@ export const BranchProvider: React.FC<Props> = ({ children }) => {
       const res = await fetchClient.get('/api/branches');
       const data = await res.json();
       if (!Array.isArray(data)) return;
-      setManagedBranches(data); // Show all branches
-      // try to restore last selected branch
-      const saved = localStorage.getItem('managedCurrentBranchId');
-      const find = data.find((b: any) => (b._id || b.id) === saved) || data[0] || null;
+      // Restrict branch switching to SuperAdmin only
+      const isSuper = (user as any)?.type === 'SuperAdmin' || (user as any)?.role === 'SuperAdmin' || (user as any)?.isSuperAdmin === true;
+      const rawBranches = data;
+      const filtered = isSuper
+        ? rawBranches
+        : rawBranches.filter((b: any) => String((b._id || b.id || '')) === String(((user as any)?.branch || '')));
+      setManagedBranches(filtered);
+      // try to restore last selected branch (SuperAdmin only). For others, force their assigned branch
+      let find: any = null;
+      if (isSuper) {
+        const saved = localStorage.getItem('managedCurrentBranchId');
+        find = filtered.find((b: any) => (b._id || b.id) === saved) || filtered[0] || null;
+      } else {
+        find = filtered[0] || null;
+      }
       setCurrentBranch(find);
       if (find) localStorage.setItem('managedCurrentBranchId', (find as any)._id || (find as any).id);
     } catch (err) {

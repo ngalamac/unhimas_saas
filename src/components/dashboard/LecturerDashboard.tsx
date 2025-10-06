@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BookOpen, Users, Calendar, TrendingUp, Clock, CheckCircle, DollarSign, Plus } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
 import fetchClient from '../../lib/fetchClient';
+import { useBranch } from '../../context/BranchContext';
+import SemesterGpa from '../grades/SemesterGpa';
 import { formatXAF } from '../../utils/currency';
 
 export const LecturerDashboard: React.FC = () => {
@@ -11,6 +13,9 @@ export const LecturerDashboard: React.FC = () => {
   const [myCourses, setMyCourses] = useState<any[]>([]);
   const [myStudentsCount, setMyStudentsCount] = useState<number>(0);
   const [summary, setSummary] = useState<{ totalHours: number; pendingHours: number; hourlyRate: number; estimatedSalary: number; approvedSessions: number; pendingSessions: number }>({ totalHours: 0, pendingHours: 0, hourlyRate: 0, estimatedSalary: 0, approvedSessions: 0, pendingSessions: 0 });
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [courseGrades, setCourseGrades] = useState<Record<string, { avg: number; count: number }>>({});
+  const { currentBranch } = useBranch();
 
   useEffect(() => {
     const load = async () => {
@@ -33,20 +38,41 @@ export const LecturerDashboard: React.FC = () => {
             });
           }
         }
-        // Fetch my courses
+        // Fetch my courses (optionally filter by branch via downstream joins in grades)
         const coursesRes = await fetchClient.get('/api/courses');
         const courses = coursesRes.ok ? await coursesRes.json() : [];
         setMyCourses(Array.isArray(courses) ? courses : (courses.data || []));
         // Approximate students by counting students in the same programs as my courses
         try {
-          const studentsStats = await fetchClient.get('/api/students/stats/overview');
+          const qs = new URLSearchParams();
+          if (currentBranch) qs.set('branch', (currentBranch as any)._id || (currentBranch as any).id);
+          const studentsStats = await fetchClient.get(`/api/students/stats/overview?${qs.toString()}`);
           const ssBody = studentsStats.ok ? await studentsStats.json() : {};
           setMyStudentsCount(ssBody?.data?.total || ssBody?.total || 0);
+        } catch {}
+
+        // Basic per-course grade summaries (avg gradePoints) respecting branch isolation on server
+        try {
+          const map: Record<string, { avg: number; count: number }> = {};
+          await Promise.all((Array.isArray(courses) ? courses : (courses.data || [])).slice(0,6).map(async (c: any) => {
+            const params = new URLSearchParams();
+            params.set('course', (c._id || c.id));
+            const res = await fetchClient.get(`/api/grades?${params.toString()}`);
+            if (!res.ok) return;
+            const body = await res.json();
+            const list = Array.isArray(body?.data) ? body.data : (Array.isArray(body) ? body : []);
+            const grades = list as any[];
+            const gp = grades.map((g: any) => Number(g.gradePoints || 0));
+            const count = gp.length;
+            const avg = count > 0 ? gp.reduce((a,b)=>a+b,0) / count : 0;
+            map[(c._id || c.id)] = { avg: Number(avg.toFixed(2)), count };
+          }));
+          setCourseGrades(map);
         } catch {}
       } catch (e) {}
     };
     load();
-  }, [user?.employeeId]);
+  }, [user?.employeeId, currentBranch]);
 
   return (
     <>
@@ -239,7 +265,7 @@ export const LecturerDashboard: React.FC = () => {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">My Courses</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {myCourses.map((course) => (
-            <div key={course.id} className="border rounded-lg p-4">
+            <div key={course._id || course.id} className="border rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium text-gray-900">{course.name}</h4>
                 <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
@@ -250,7 +276,7 @@ export const LecturerDashboard: React.FC = () => {
                 <div>Code: {course.code}</div>
                 <div>Level: {course.level}</div>
                 <div>Semester: {course.semester}</div>
-                <div>Students: {myStudents.filter(s => s.department.id === course.department.id).length}</div>
+                <div>Avg GPA: {(courseGrades[(course._id || course.id)]?.avg ?? 0).toFixed(2)} ({courseGrades[(course._id || course.id)]?.count ?? 0})</div>
               </div>
               <div className="mt-3 flex space-x-2">
                 <button className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">
@@ -262,6 +288,15 @@ export const LecturerDashboard: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Quick GPA check for a selected student (optional) */}
+      <div className="bg-white rounded-lg shadow-sm border p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Student Semester GPA</h3>
+        <div className="flex items-center gap-3">
+          <input value={selectedStudentId} onChange={(e)=>setSelectedStudentId(e.target.value)} className="px-3 py-2 border rounded w-64" placeholder="Enter Student ID" />
+          {selectedStudentId ? <SemesterGpa studentId={selectedStudentId} /> : <span className="text-sm text-gray-500">Enter a student ID to view</span>}
         </div>
       </div>
     </>

@@ -11,6 +11,7 @@ import { useUI } from '../../../context/UIContext';
 import { getStudentGpa, downloadTranscript } from '../../../api/grades';
 import { GpaData } from '../../../types/grades';
 import fetchClient from '../../../lib/fetchClient';
+import SemesterGpa from '../../grades/SemesterGpa';
 
 export const AllStudentsPage: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);

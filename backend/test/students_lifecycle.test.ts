@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { getApp, createSuperAdmin, login, createBranch } from './testUtils';
+import Specialty from '../src/models/Specialty';
 
 async function setupProgramAndDept(token: string) {
   const prog = await request(getApp()).post('/api/programs').set('Authorization', `Bearer ${token}`).send({ name: 'Lifecycle Program', type: 'Undergraduate' });
@@ -15,6 +16,7 @@ describe('Student lifecycle', () => {
     const token = await login('super2@test.com', 'Password123!');
     const branch = await createBranch('Lifecycle Branch');
     const { programId, departmentId } = await setupProgramAndDept(token);
+    const spec = await new Specialty({ name: 'Lifecycle Specialty', program: programId, department: departmentId }).save();
     const payload = {
       firstName: 'Alice',
       lastName: 'Wonder',
@@ -29,7 +31,8 @@ describe('Student lifecycle', () => {
       academicYear: '2024/2025',
       branch: branch._id || branch.id,
       level: '100',
-      session: 'Morning'
+      session: 'Morning',
+      specialty: spec._id.toString()
     };
   const createRes = await request(getApp()).post('/api/students').set('Authorization', `Bearer ${token}`).send(payload);
     expect(createRes.status).toBe(201);

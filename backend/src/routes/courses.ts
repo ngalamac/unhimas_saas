@@ -21,8 +21,16 @@ router.get('/', authMiddleware, requirePermission(['programs:read','departments:
 });
 
 router.post('/', authMiddleware, requirePermission(['programs:create','departments:read']), async (req: AuthRequest, res) => {
-  const { title, code, credit, department, semester, caWeight, examWeight, program: bodyProgram, specialty: bodySpecialty } = req.body;
-  if (!title || !code || !department) return res.status(400).json({ message: 'title, code and department are required' });
+  const { title, code, credit, department, semester, caWeight, examWeight, program: bodyProgram, specialty: bodySpecialty } = req.body || {};
+  const errors: string[] = [];
+  if (!title || typeof title !== 'string' || title.trim().length < 2) errors.push('title is required (min 2 chars)');
+  if (!code || typeof code !== 'string' || code.trim().length < 2) errors.push('code is required (min 2 chars)');
+  if (!department || typeof department !== 'string') errors.push('department is required');
+  if (credit !== undefined && (isNaN(Number(credit)) || Number(credit) <= 0)) errors.push('credit must be a positive number');
+  if (semester !== undefined && (isNaN(Number(semester)) || Number(semester) < 1)) errors.push('semester must be a positive integer');
+  if (caWeight !== undefined && (isNaN(Number(caWeight)) || Number(caWeight) < 0 || Number(caWeight) > 1)) errors.push('caWeight must be in [0,1]');
+  if (examWeight !== undefined && (isNaN(Number(examWeight)) || Number(examWeight) < 0 || Number(examWeight) > 1)) errors.push('examWeight must be in [0,1]');
+  if (errors.length) return res.status(400).json({ error: { message: 'Validation error', details: errors } });
   try {
     const dept = await Department.findById(department).lean();
     if (!dept) return res.status(400).json({ message: 'department not found' });

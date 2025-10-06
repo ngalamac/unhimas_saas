@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { GraduationCap, Users, BookOpen, TrendingUp, Award, Calendar } from 'lucide-react';
 import fetchClient from '../../lib/fetchClient';
+import SemesterGpa from '../grades/SemesterGpa';
 
 export const DeanDashboard: React.FC = () => {
   const [totalPrograms, setTotalPrograms] = useState(0);

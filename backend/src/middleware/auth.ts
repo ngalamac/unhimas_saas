@@ -20,6 +20,26 @@ export interface AuthRequest extends Request {
 }
 
 export async function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  // Test environment bypass: allow tests to stub a user without JWT
+  if (process.env.NODE_ENV === 'test') {
+    const testBypass = (req.headers['x-test-user'] as string | undefined) || (req.headers['x-test-bypass'] as string | undefined);
+    if (testBypass) {
+      const testUser = (req.headers['x-test-user'] as string | undefined)?.toLowerCase();
+      const testBranch = (req.headers['x-test-branch'] as string | undefined);
+      const testUserId = (req.headers['x-test-user-id'] as string | undefined);
+      const isSuper = !testUser || testUser === 'superadmin';
+      req.user = {
+        id: testUserId || new mongoose.Types.ObjectId().toString(),
+        type: isSuper ? 'SuperAdmin' : 'Admin',
+        branch: testBranch || new mongoose.Types.ObjectId().toString(),
+        permissions: {},
+        isSuperAdmin: isSuper,
+        isBranchManager: !isSuper
+      };
+      return next();
+    }
+  }
+
   const header = req.headers.authorization || req.headers.Authorization as string | undefined;
   const debug = process.env.AUTH_DEBUG === 'true';
   

@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Users, BookOpen, TrendingUp, Calendar, Award, UserCheck } from 'lucide-react';
 import fetchClient from '../../lib/fetchClient';
 import { useBranch } from '../../context/BranchContext';
+import SemesterGpa from '../grades/SemesterGpa';
 
 export const HODDashboard: React.FC = () => {
   const { currentBranch } = useBranch();
   const [myDepartment, setMyDepartment] = useState<string>('');
-  const [departmentStudents, setDepartmentStudents] = useState<number>(0);
-  const [departmentCourses, setDepartmentCourses] = useState<number>(0);
-  const [departmentLecturers, setDepartmentLecturers] = useState<number>(0);
+  const [departmentStudents, setDepartmentStudents] = useState<any[]>([]);
+  const [departmentCourses, setDepartmentCourses] = useState<any[]>([]);
+  const [departmentLecturers, setDepartmentLecturers] = useState<any[]>([]);
   const [averageGPA, setAverageGPA] = useState<number>(0);
 
   useEffect(() => {
@@ -32,10 +33,13 @@ export const HODDashboard: React.FC = () => {
         const staffArr = Array.isArray(staffList) ? staffList : (staffList.data || []);
         const topDept = deptList[0];
         setMyDepartment(topDept?.name || '');
-        setDepartmentCourses(courseList.filter((c: any) => String(c.department?._id || c.department) === String(topDept?._id)).length);
-        setDepartmentStudents(studentsStats?.data?.total || studentsStats?.total || 0);
+        setDepartmentCourses(courseList.filter((c: any) => String(c.department?._id || c.department) === String(topDept?._id)));
+        // Fetch department students list (basic) for GPA widget and distribution
+        const studListRes = await fetchClient.get(`/api/students?department=${encodeURIComponent(topDept?._id || '')}${currentBranch ? `&branch=${encodeURIComponent((currentBranch as any)._id || (currentBranch as any).id)}` : ''}&limit=50`);
+        const studList = studListRes.ok ? await studListRes.json() : { data: [] };
+        setDepartmentStudents(Array.isArray(studList?.data) ? studList.data : []);
         // Lecturers in this department
-        setDepartmentLecturers(staffArr.filter((s: any) => s.type === 'Lecturer' && String(s.department || '').toLowerCase() === String(topDept?.name || '').toLowerCase()).length);
+        setDepartmentLecturers(staffArr.filter((s: any) => s.type === 'Lecturer' && String(s.department || '').toLowerCase() === String(topDept?.name || '').toLowerCase()));
       } catch {}
     };
     load();
@@ -135,19 +139,19 @@ export const HODDashboard: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span>Level 1</span>
-              <span className="font-medium">{departmentStudents.filter(s => s.level === 1).length}</span>
+              <span className="font-medium">{departmentStudents.filter((s: any) => s.level === 1).length}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span>Level 2</span>
-              <span className="font-medium">{departmentStudents.filter(s => s.level === 2).length}</span>
+              <span className="font-medium">{departmentStudents.filter((s: any) => s.level === 2).length}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span>Level 3</span>
-              <span className="font-medium">{departmentStudents.filter(s => s.level === 3).length}</span>
+              <span className="font-medium">{departmentStudents.filter((s: any) => s.level === 3).length}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span>Level 4</span>
-              <span className="font-medium">{departmentStudents.filter(s => s.level === 4).length}</span>
+              <span className="font-medium">{departmentStudents.filter((s: any) => s.level === 4).length}</span>
             </div>
           </div>
         </div>
@@ -178,8 +182,8 @@ export const HODDashboard: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Department Courses</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {departmentCourses.map((course) => (
-            <div key={course.id} className="border rounded-lg p-4">
+          {departmentCourses.map((course: any) => (
+            <div key={course._id || course.id} className="border rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium text-gray-900">{course.name}</h4>
                 <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
@@ -204,6 +208,14 @@ export const HODDashboard: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Sample Semester GPA widget for a top student in department */}
+      {departmentStudents.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border p-6 mt-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Semester GPA (sample)</h3>
+          <SemesterGpa studentId={String((departmentStudents[0] as any)._id || (departmentStudents[0] as any).id)} />
+        </div>
+      )}
     </>
   );
 };

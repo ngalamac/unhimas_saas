@@ -192,6 +192,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         { id: 'programs', label: 'Programs', icon: <GraduationCap className="w-3 h-3" /> }, 
         { id: 'departments', label: 'Departments', icon: <Building2 className="w-3 h-3" /> }, 
         { id: 'courses', label: 'Courses', icon: <BookOpen className="w-3 h-3" /> }, 
+        { id: 'specialties', label: 'Specialties', icon: <School className="w-3 h-3" /> },
         { id: 'grading-system', label: 'Grading System', icon: <FileText className="w-3 h-3" /> } 
       ] 
     },

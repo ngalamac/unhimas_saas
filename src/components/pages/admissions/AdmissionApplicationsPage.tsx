@@ -1,42 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserPlus, Eye, CheckCircle, XCircle, Clock, Mail, Phone } from 'lucide-react';
+import { useBranch } from '../../../context/BranchContext';
+import { useUI } from '../../../context/UIContext';
+import { listAdmissions, updateAdmissionStatus } from '../../../api/admissions';
 
 export const AdmissionApplicationsPage: React.FC = () => {
-  const [applications, setApplications] = useState([
-    {
-      id: '1',
-      applicantName: 'Jean Baptiste Nkomo',
-      email: 'jean.nkomo@email.com',
-      phone: '+237 677 123 456',
-      program: 'Bachelor in Computer Engineering',
-      applicationDate: '2024-12-10',
-      status: 'Pending',
-      documents: ['Transcript', 'ID Copy', 'Photo'],
-      feesPaid: true
-    },
-    {
-      id: '2',
-      applicantName: 'Marie Claire Fotso',
-      email: 'marie.fotso@email.com',
-      phone: '+237 677 234 567',
-      program: 'HND in Business Administration',
-      applicationDate: '2024-12-08',
-      status: 'Approved',
-      documents: ['Transcript', 'ID Copy', 'Photo', 'Birth Certificate'],
-      feesPaid: true
-    },
-    {
-      id: '3',
-      applicantName: 'Paul Mbarga',
-      email: 'paul.mbarga@email.com',
-      phone: '+237 677 345 678',
-      program: 'Masters in HR Management',
-      applicationDate: '2024-12-05',
-      status: 'Rejected',
-      documents: ['Transcript', 'ID Copy'],
-      feesPaid: false
+  const { currentBranch } = useBranch();
+  const { showToast } = useUI();
+  const [applications, setApplications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
+
+  const fetchApplications = async () => {
+    try {
+      setLoading(true);
+      const res = await listAdmissions({ branch: (currentBranch as any)?._id, status: statusFilter || undefined, search: search || undefined, page: 1, limit: 50 });
+      const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+      setApplications(list);
+      setError(null);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load admissions');
+      showToast('Failed to load admissions', 'error');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  useEffect(() => { fetchApplications(); }, [currentBranch, statusFilter]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -60,12 +52,14 @@ export const AdmissionApplicationsPage: React.FC = () => {
     }
   };
 
-  const handleStatusChange = (applicationId: string, newStatus: string) => {
-    setApplications(prev => 
-      prev.map(app => 
-        app.id === applicationId ? { ...app, status: newStatus } : app
-      )
-    );
+  const handleStatusChange = async (applicationId: string, newStatus: 'Approved' | 'Rejected' | 'Pending') => {
+    try {
+      await updateAdmissionStatus(applicationId, newStatus);
+      setApplications(prev => prev.map(app => (String(app._id) === String(applicationId) ? { ...app, status: newStatus } : app)));
+      showToast(`Application ${newStatus.toLowerCase()}`, 'success');
+    } catch (e: any) {
+      showToast(e?.message || 'Failed to update status', 'error');
+    }
   };
 
   return (
@@ -74,6 +68,32 @@ export const AdmissionApplicationsPage: React.FC = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Admission Applications</h1>
         <p className="text-gray-600">Review and manage student admission applications</p>
+      </div>
+
+      {/* Filters + Stats */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="select"
+        >
+          <option value="">All statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Approved">Approved</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search applicant/email/phone"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') fetchApplications(); }}
+            className="input pr-10"
+          />
+          <button onClick={fetchApplications} className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 text-sm bg-blue-600 text-white rounded">Go</button>
+        </div>
+        <button onClick={() => { setStatusFilter(''); setSearch(''); fetchApplications(); }} className="btn">Reset</button>
       </div>
 
       {/* Stats */}
@@ -169,17 +189,17 @@ export const AdmissionApplicationsPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{application.program}</div>
+                    <div className="text-sm text-gray-900">{(application.program && application.program.name) ? application.program.name : application.program}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(application.applicationDate).toLocaleDateString()}
+                    {new Date(application.applicationDate || application.createdAt || Date.now()).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {application.documents.length} documents
+                      {(application.documents || []).length} documents
                     </div>
                     <div className="text-xs text-gray-500">
-                      {application.documents.join(', ')}
+                      {(application.documents || []).join(', ')}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -205,13 +225,13 @@ export const AdmissionApplicationsPage: React.FC = () => {
                       {application.status === 'Pending' && (
                         <>
                           <button
-                            onClick={() => handleStatusChange(application.id, 'Approved')}
+                            onClick={() => handleStatusChange(application._id || application.id, 'Approved')}
                             className="text-green-600 hover:text-green-900"
                           >
                             <CheckCircle className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleStatusChange(application.id, 'Rejected')}
+                            onClick={() => handleStatusChange(application._id || application.id, 'Rejected')}
                             className="text-red-600 hover:text-red-900"
                           >
                             <XCircle className="w-4 h-4" />

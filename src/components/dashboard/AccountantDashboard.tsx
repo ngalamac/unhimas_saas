@@ -16,6 +16,7 @@ export const AccountantDashboard: React.FC = () => {
     const [period, setPeriod] = useState<'day' | 'month' | 'year'>('month');
     const [department, setDepartment] = useState<string>('');
     const [exporting, setExporting] = useState<null | 'csv' | 'xlsx' | 'pdf'>(null);
+    const [trendBuckets, setTrendBuckets] = useState<Array<{ label: string; income: number; expense: number; net: number }>>([]);
     const { currentBranch } = useBranch();
 
     useEffect(() => {
@@ -43,6 +44,14 @@ export const AccountantDashboard: React.FC = () => {
                 
                 setUnpaidStudents(studentsRes.data || []);
 
+                // trends
+                qs.set('period', period);
+                const trendRes = await fetchClient.get(`/api/transactions/summary/trends?${qs.toString()}`);
+                if (trendRes.ok) {
+                    const tb = await trendRes.json();
+                    setTrendBuckets(tb?.data?.buckets || []);
+                }
+
             } catch (error) {
                 console.error("Failed to fetch accountant dashboard data", error);
             } finally {
@@ -51,6 +60,30 @@ export const AccountantDashboard: React.FC = () => {
         }
         fetchData();
     }, [period, department]);
+
+    const incomePolyline = useMemo(() => {
+      if (!trendBuckets.length) return '';
+      const maxVal = Math.max(...trendBuckets.map(b => Math.max(b.income, b.expense, Math.abs(b.net))), 1);
+      const chartWidth = 380; const chartHeight = 80; const left = 30; const bottom = 110;
+      const step = chartWidth / (trendBuckets.length - 1 || 1);
+      return trendBuckets.map((b, i) => {
+        const x = left + i * step;
+        const y = bottom - (b.income / maxVal) * chartHeight;
+        return `${x} ${y}`;
+      }).join(' ');
+    }, [trendBuckets]);
+
+    const expensePolyline = useMemo(() => {
+      if (!trendBuckets.length) return '';
+      const maxVal = Math.max(...trendBuckets.map(b => Math.max(b.income, b.expense, Math.abs(b.net))), 1);
+      const chartWidth = 380; const chartHeight = 80; const left = 30; const bottom = 110;
+      const step = chartWidth / (trendBuckets.length - 1 || 1);
+      return trendBuckets.map((b, i) => {
+        const x = left + i * step;
+        const y = bottom - (b.expense / maxVal) * chartHeight;
+        return `${x} ${y}`;
+      }).join(' ');
+    }, [trendBuckets]);
 
     if (loading) {
         return <div>Loading...</div>;
@@ -86,6 +119,23 @@ export const AccountantDashboard: React.FC = () => {
                             <p className="text-2xl font-bold text-gray-900">{formatXAF(summary?.totalIncome || 0)}</p>
                         </div>
                     </div>
+                    {/* Sparkline */}
+                    <div className="mt-4">
+                      <svg className="w-full h-28" viewBox="0 0 420 120">
+                        <defs>
+                          <pattern id="grid-a" width="40" height="20" patternUnits="userSpaceOnUse">
+                            <path d="M 40 0 L 0 0 0 20" fill="none" stroke="#f3f4f6" strokeWidth="1" />
+                          </pattern>
+                        </defs>
+                        <rect width="100%" height="100%" fill="url(#grid-a)" />
+                        {trendBuckets.length > 1 && (
+                          <polyline fill="none" stroke="#16a34a" strokeWidth="3" points={incomePolyline} />
+                        )}
+                        {trendBuckets.map((b, i) => (
+                          <text key={b.label + i} x={40 + i * (380 / (trendBuckets.length - 1 || 1))} y={115} textAnchor="middle" className="fill-gray-400 text-[10px]">{b.label}</text>
+                        ))}
+                      </svg>
+                    </div>
                 </div>
 
                 <div className="bg-white p-6 rounded-lg shadow-sm border">
@@ -97,6 +147,18 @@ export const AccountantDashboard: React.FC = () => {
                             <p className="text-sm text-gray-600">Total Expense</p>
                             <p className="text-2xl font-bold text-gray-900">{formatXAF(summary?.totalExpense || 0)}</p>
                         </div>
+                    </div>
+                    {/* Sparkline */}
+                    <div className="mt-4">
+                      <svg className="w-full h-28" viewBox="0 0 420 120">
+                        <rect width="100%" height="100%" fill="url(#grid-a)" />
+                        {trendBuckets.length > 1 && (
+                          <polyline fill="none" stroke="#dc2626" strokeWidth="3" points={expensePolyline} />
+                        )}
+                        {trendBuckets.map((b, i) => (
+                          <text key={b.label + i} x={40 + i * (380 / (trendBuckets.length - 1 || 1))} y={115} textAnchor="middle" className="fill-gray-400 text-[10px]">{b.label}</text>
+                        ))}
+                      </svg>
                     </div>
                 </div>
 
@@ -188,8 +250,36 @@ export const AccountantDashboard: React.FC = () => {
                             const a = document.createElement('a'); a.href = url; a.download = 'finance_trends.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
                           } finally { setExporting(null); }
                         }} className={`px-3 py-1 rounded border text-sm ${exporting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100'}`}>CSV</button>
-                        <button disabled className="px-3 py-1 rounded border text-sm opacity-50 cursor-not-allowed" title="XLSX export coming soon">Excel</button>
-                        <button disabled className="px-3 py-1 rounded border text-sm opacity-50 cursor-not-allowed" title="PDF export coming soon">PDF</button>
+                        <button disabled={exporting!==null} onClick={async ()=>{
+                          try {
+                            setExporting('csv');
+                            const qs = new URLSearchParams();
+                            if (department) qs.set('department', department);
+                            if (currentBranch) qs.set('branch', (currentBranch as any)._id || (currentBranch as any).id);
+                            qs.set('format', 'csv');
+                            qs.set('lang', 'fr');
+                            const res = await fetchClient.get(`/api/transactions/export?${qs.toString()}`);
+                            if (!res.ok) { alert('Export failed'); setExporting(null); return; }
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a'); a.href = url; a.download = 'ecritures_fr.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                          } finally { setExporting(null); }
+                        }} className={`px-3 py-1 rounded border text-sm ${exporting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100'}`} title="Export FR CSV">FR CSV</button>
+                        <button disabled={exporting!==null} onClick={async ()=>{
+                          try {
+                            setExporting('xlsx');
+                            const qs = new URLSearchParams();
+                            if (department) qs.set('department', department);
+                            if (currentBranch) qs.set('branch', (currentBranch as any)._id || (currentBranch as any).id);
+                            qs.set('format', 'xlsx');
+                            qs.set('lang', 'en');
+                            const res = await fetchClient.get(`/api/transactions/export?${qs.toString()}`);
+                            if (!res.ok) { alert('Export failed'); setExporting(null); return; }
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a'); a.href = url; a.download = 'journal_entries_en.xlsx'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                          } finally { setExporting(null); }
+                        }} className={`px-3 py-1 rounded border text-sm ${exporting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100'}`} title="Export EN XLSX">EN Excel</button>
                       </div>
                     </div>
                     <div className="space-y-3">
