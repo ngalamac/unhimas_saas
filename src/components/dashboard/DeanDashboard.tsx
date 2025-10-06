@@ -1,12 +1,47 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { GraduationCap, Users, BookOpen, TrendingUp, Award, Calendar } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import fetchClient from '../../lib/fetchClient';
+import fetchClient from '../../lib/fetchClient';
 
 export const DeanDashboard: React.FC = () => {
-  const currentBatch = getCurrentBatchData();
-  const totalPrograms = mockPrograms.filter(p => p.isActive).length;
-  const totalStudents = mockStudents.length;
-  const totalCourses = mockCourses.filter(c => c.isActive).length;
-  const averageGPA = mockGrades.reduce((sum, g) => sum + g.gpa, 0) / mockGrades.length;
+  const [totalPrograms, setTotalPrograms] = useState(0);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [totalCourses, setTotalCourses] = useState(0);
+  const [averageGPA, setAverageGPA] = useState(0);
+  const [performance, setPerformance] = useState<Array<{ name: string; avgGpa: number; passRate: number }>>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [progRes, studRes, coursesRes] = await Promise.all([
+          fetchClient.get('/api/programs'),
+          fetchClient.get('/api/students/stats/overview'),
+          fetchClient.get('/api/courses'),
+        ]);
+        const progs = progRes.ok ? await progRes.json() : [];
+        const studs = studRes.ok ? await studRes.json() : {};
+        const courses = coursesRes.ok ? await coursesRes.json() : [];
+        setTotalPrograms((Array.isArray(progs) ? progs : (progs.data || [])).filter((p: any) => p.isActive !== false).length);
+        setTotalStudents(studs?.data?.total || studs?.total || 0);
+        setTotalCourses((Array.isArray(courses) ? courses : (courses.data || [])).length);
+      } catch {}
+    };
+    load();
+  }, []);
+
+  useEffect(() => {
+    const loadPerformance = async () => {
+      try {
+        const res = await fetchClient.get('/api/grades/reports/program-performance');
+        if (res.ok) {
+          const body = await res.json();
+          setPerformance(Array.isArray(body?.data) ? body.data.slice(0, 6) : []);
+        }
+      } catch {}
+    };
+    loadPerformance();
+  }, []);
 
   return (
     <>
@@ -15,7 +50,7 @@ export const DeanDashboard: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dean of Studies Dashboard</h1>
           <p className="text-gray-600">Academic oversight and program management</p>
-          <p className="text-sm text-blue-600">Current Batch: {currentBatch?.name}</p>
+          <p className="text-sm text-blue-600">Academic oversight and program management</p>
         </div>
         <div className="text-right">
           <div className="text-sm text-gray-600">{new Date().toLocaleDateString()}</div>
@@ -78,7 +113,7 @@ export const DeanDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions and Program Mix */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
@@ -99,21 +134,51 @@ export const DeanDashboard: React.FC = () => {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Performance</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span>HND Programs</span>
-              <span className="font-medium text-green-600">85%</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Bachelor Programs</span>
-              <span className="font-medium text-blue-600">78%</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Masters Programs</span>
-              <span className="font-medium text-purple-600">92%</span>
-            </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Mix</h3>
+          <div className="space-y-2">
+            {totalPrograms > 0 ? (
+              <>
+                <div className="flex items-center space-x-3">
+                  <span className="w-24 text-sm text-gray-600">Programs</span>
+                  <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-600" style={{ width: '100%' }} />
+                  </div>
+                  <span className="w-12 text-right text-sm text-gray-600">{totalPrograms}</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <span className="w-24 text-sm text-gray-600">Courses</span>
+                  <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-600" style={{ width: '100%' }} />
+                  </div>
+                  <span className="w-12 text-right text-sm text-gray-600">{totalCourses}</span>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-gray-500">No data</div>
+            )}
           </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Performance</h3>
+          {performance.length ? (
+            <div className="space-y-3">
+              {performance.map((p) => (
+                <div key={p.name} className="grid grid-cols-5 gap-3 items-center text-sm">
+                  <div className="col-span-2 font-medium text-gray-900 truncate">{p.name}</div>
+                  <div className="col-span-1 text-gray-600">GPA {p.avgGpa.toFixed(2)}</div>
+                  <div className="col-span-2">
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-600" style={{ width: `${Math.max(0, Math.min(100, p.passRate))}%` }} />
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">Pass {p.passRate}%</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">No performance data yet</div>
+          )}
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border">
@@ -137,7 +202,7 @@ export const DeanDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Program Overview */}
+      {/* Program Overview (placeholder; to be wired later) */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Overview</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

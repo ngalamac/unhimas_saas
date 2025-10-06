@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Grade, { gradingScale } from '../models/Grade';
 import Course from '../models/Course';
 import authMiddleware, { AuthRequest, requirePermission, requireBranchAccess } from '../middleware/auth';
@@ -169,3 +170,42 @@ router.delete('/:id', authMiddleware, requirePermission('academics:delete'), asy
 });
 
 export default router;
+ 
+// Program performance summary: average GPA and pass rate per program
+// GET /api/grades/reports/program-performance
+router.get('/reports/program-performance', authMiddleware, requirePermission(['grades','grades:read','programs:read']), async (_req: AuthRequest, res) => {
+  try {
+    // Aggregate grades by course -> program, compute average gradePoints and pass rate (C or better)
+    const pipeline: any[] = [
+      { $lookup: { from: 'courses', localField: 'course', foreignField: '_id', as: 'courseInfo' } },
+      { $unwind: '$courseInfo' },
+      { $lookup: { from: 'programs', localField: 'courseInfo.program', foreignField: '_id', as: 'programInfo' } },
+      { $unwind: '$programInfo' },
+      {
+        $group: {
+          _id: '$programInfo._id',
+          programName: { $first: '$programInfo.name' },
+          programType: { $first: '$programInfo.type' },
+          count: { $sum: 1 },
+          avgGpa: { $avg: '$gradePoints' },
+          passCount: { $sum: { $cond: [ { $gte: ['$gradePoints', 2.0] }, 1, 0 ] } }
+        }
+      },
+      { $sort: { avgGpa: -1 } },
+      { $limit: 50 }
+    ];
+    const results = await Grade.aggregate(pipeline);
+    const mapped = results.map((r: any) => ({
+      programId: r._id,
+      name: r.programName,
+      type: r.programType,
+      count: r.count,
+      avgGpa: Number((r.avgGpa || 0).toFixed(2)),
+      passRate: r.count > 0 ? Number(((r.passCount / r.count) * 100).toFixed(1)) : 0
+    }));
+    res.json({ data: mapped });
+  } catch (err: any) {
+    console.error('GET /api/grades/reports/program-performance error', err);
+    res.status(500).json({ error: { message: 'Failed to compute program performance', details: err?.message } });
+  }
+});

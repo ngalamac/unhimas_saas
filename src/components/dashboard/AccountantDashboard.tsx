@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { DollarSign, CreditCard, TrendingUp, AlertCircle, FileText, Users } from 'lucide-react';
+import { DollarSign, CreditCard, TrendingUp, AlertCircle, FileText, Users, Mail, MessageSquare } from 'lucide-react';
 import { formatXAF } from '../../utils/currency';
 import { getJournalEntries } from '../../api/transactions';
 import { getStudents } from '../../api/students';
@@ -111,7 +111,7 @@ export const AccountantDashboard: React.FC = () => {
 
             {/* Quick Actions & Recent Transactions */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                     <div className="space-y-3">
                         <button className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
@@ -126,6 +126,26 @@ export const AccountantDashboard: React.FC = () => {
                             <TrendingUp className="w-4 h-4" />
                             <span>Financial Report</span>
                         </button>
+                    <button className="w-full bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 flex items-center space-x-2"
+                      onClick={async () => {
+                        try {
+                          const overdue = unpaidStudents.slice(0, 25); // limit batch
+                          await Promise.all(overdue.map(async (s) => {
+                            await fetchClient.post('/api/communication/email', {
+                              to: s.email,
+                              subject: 'Tuition Payment Reminder',
+                              text: `Dear ${s.firstName},\n\nOur records show an outstanding tuition balance of ${formatXAF(s.balanceDue)}. Please make payment at your earliest convenience.\n\nThank you.`,
+                            });
+                          }));
+                          alert('Payment reminders queued for selected students');
+                        } catch (e) {
+                          alert('Failed to send reminders');
+                        }
+                      }}
+                    >
+                      <Mail className="w-4 h-4" />
+                      <span>Send Payment Reminders</span>
+                    </button>
                     </div>
                 </div>
 
@@ -186,7 +206,16 @@ export const AccountantDashboard: React.FC = () => {
                                         </span>
                                     </td>
                                     <td className="px-4 py-2">
-                                        <button className="text-blue-600 hover:text-blue-900 text-sm">
+                                        <button className="text-blue-600 hover:text-blue-900 text-sm" onClick={async () => {
+                                          try {
+                                            await fetchClient.post('/api/communication/email', {
+                                              to: student.email,
+                                              subject: 'Tuition Payment Reminder',
+                                              text: `Dear ${student.firstName},\n\nOur records show an outstanding tuition balance of ${formatXAF(student.balanceDue)}. Please make payment at your earliest convenience.\n\nThank you.`,
+                                            });
+                                            alert('Reminder queued');
+                                          } catch (e) { alert('Failed to send'); }
+                                        }}>
                                             Send Reminder
                                         </button>
                                     </td>

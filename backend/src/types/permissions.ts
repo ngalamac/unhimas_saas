@@ -7,6 +7,7 @@ export type Feature =
   | 'students'
   | 'programs'
   | 'departments'
+  | 'staff'
   | 'paymentPlans'
   | 'tuition'
   | 'uploads'
