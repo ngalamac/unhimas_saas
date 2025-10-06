@@ -348,7 +348,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
               {!collapsed && (
                 <div>
                   <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Navigation</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Quick Access</div>
                 </div>
               )}
             </div>
@@ -387,74 +386,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         </div>
         )}
 
-        {/* Quick Access Section */}
-        {(favoritePages.length > 0 || recentPages.length > 0) && !collapsed && (
+        {/* Favorites (Recent removed as requested) */}
+        {favoritePages.length > 0 && !collapsed && (
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            {/* Favorites */}
-            {favoritePages.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center">
-                  <Star className="w-3 h-3 mr-1" />
-                  Favorites
-                </h3>
-                <div className="space-y-1">
-                  {favoritePages.slice(0, 3).map((pageId) => {
-                    const item = filteredSidebarItems.find(i => i.id === pageId) || 
-                                filteredSidebarItems.find(i => i.submenuItems?.some(s => s.id === pageId));
-                    const subItem = item?.submenuItems?.find(s => s.id === pageId);
-                    const label = subItem?.label || item?.label || pageId;
-                    
-                    return (
-                      <button
-                        key={pageId}
-                        onClick={() => handleNavigation(pageId, [label])}
-                        className={`w-full flex items-center space-x-2 px-2 py-1.5 text-xs rounded transition-colors ${
-                          currentPage === pageId
-                            ? 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 font-medium'
-                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        <Star className="w-3 h-3 text-yellow-500" />
-                        <span className="truncate">{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            <div className="mb-0">
+              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center">
+                <Star className="w-3 h-3 mr-1" />
+                Favorites
+              </h3>
+              <div className="space-y-1">
+                {favoritePages.slice(0, 3).map((pageId) => {
+                  const item = filteredSidebarItems.find(i => i.id === pageId) ||
+                              filteredSidebarItems.find(i => i.submenuItems?.some(s => s.id === pageId));
+                  const subItem = item?.submenuItems?.find(s => s.id === pageId);
+                  const label = subItem?.label || item?.label || pageId;
 
-            {/* Recent Pages */}
-            {recentPages.length > 0 && (
-              <div>
-                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center">
-                  <Clock className="w-3 h-3 mr-1" />
-                  Recent
-                </h3>
-                <div className="space-y-1">
-                  {recentPages.slice(0, 3).map((pageId) => {
-                    const item = filteredSidebarItems.find(i => i.id === pageId) || 
-                                filteredSidebarItems.find(i => i.submenuItems?.some(s => s.id === pageId));
-                    const subItem = item?.submenuItems?.find(s => s.id === pageId);
-                    const label = subItem?.label || item?.label || pageId;
-                    
-                    return (
-                      <button
-                        key={pageId}
-                        onClick={() => handleNavigation(pageId, [label])}
-                        className={`w-full flex items-center space-x-2 px-2 py-1.5 text-xs rounded transition-colors ${
-                          currentPage === pageId
-                            ? 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 font-medium'
-                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        <Clock className="w-3 h-3 text-gray-400" />
-                        <span className="truncate">{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                  return (
+                    <button
+                      key={pageId}
+                      onClick={() => handleNavigation(pageId, [label])}
+                      className={`w-full flex items-center space-x-2 px-2 py-1.5 text-xs rounded transition-colors ${
+                        currentPage === pageId
+                          ? 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 font-medium'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      <Star className="w-3 h-3 text-yellow-500" />
+                      <span className="truncate">{label}</span>
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </div>
         )}
 
