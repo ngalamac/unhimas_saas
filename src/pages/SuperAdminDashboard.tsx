@@ -10,9 +10,6 @@ import { useAuth } from '../context/AuthContext';
 
 const DashboardContent: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    try { return localStorage.getItem('sidebarCollapsed') === 'true'; } catch { return false; }
-  });
   const { currentPage, breadcrumb } = useNavigation();
   const { user } = useAuth();
 
@@ -64,7 +61,7 @@ const DashboardContent: React.FC = () => {
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col overflow-hidden lg:ml-0 ${collapsed ? 'lg:ml-16' : 'lg:ml-72'}`}>
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
         

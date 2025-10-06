@@ -69,21 +69,21 @@ const RegistrarDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="card p-6">
           <div className="text-sm text-gray-600">Total Students</div>
           <div className="mt-2 text-3xl font-semibold text-gray-900">{stats ? stats.total : '—'}</div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="card p-6">
           <div className="text-sm text-gray-600">Today Registrations</div>
           <div className="mt-2 text-3xl font-semibold text-gray-900">{stats ? stats.today : '—'}</div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="card p-6">
           <div className="text-sm text-gray-600">Pending Tuition</div>
           <div className="mt-2 text-3xl font-semibold text-gray-900">{stats ? stats.tuition?.pending || 0 : '—'}</div>
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
+      <div className="card p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
         <div className="flex flex-wrap gap-3">
           <a href="#/dashboard/student-registration" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Register Student</a>
@@ -92,7 +92,7 @@ const RegistrarDashboard: React.FC = () => {
       </div>
 
       {/* Tuition status distribution */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
+      <div className="card p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-3">Tuition Status Distribution</h3>
         {stats ? (
           <div>
@@ -144,7 +144,7 @@ const RegistrarDashboard: React.FC = () => {
       </div>
 
       {/* Enrollment trend sparkline */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border">
+      <div className="card p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Admissions Trend (6 months)</h3>
         <svg className="w-full h-40" viewBox="0 0 400 160">
           <defs>
