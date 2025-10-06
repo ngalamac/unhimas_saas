@@ -183,8 +183,12 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
-              <p className="text-xs text-green-600">↗ +8% this month</p>
+              {stats.totalRevenue > 0 && (
+                <>
+                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
+                  <p className="text-xs text-green-600">↗ +8% this month</p>
+                </>
+              )}
             </div>
           </div>
         </div>)}
