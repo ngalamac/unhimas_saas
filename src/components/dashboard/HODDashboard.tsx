@@ -3,8 +3,10 @@ import { Users, BookOpen, TrendingUp, Calendar, Award, UserCheck } from 'lucide-
 import fetchClient from '../../lib/fetchClient';
 import { useBranch } from '../../context/BranchContext';
 import SemesterGpa from '../grades/SemesterGpa';
+import { useNavigation } from '../../context/NavigationContext';
 
 export const HODDashboard: React.FC = () => {
+  const { setCurrentPage, setBreadcrumb } = useNavigation();
   const { currentBranch } = useBranch();
   const [myDepartment, setMyDepartment] = useState<string>('');
   const [departmentStudents, setDepartmentStudents] = useState<any[]>([]);
@@ -119,15 +121,24 @@ export const HODDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="space-y-3">
-            <button className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button
+              onClick={() => { setCurrentPage('courses'); setBreadcrumb(['Academics', 'Courses']); }}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
               <BookOpen className="w-4 h-4" />
               <span>Manage Courses</span>
             </button>
-            <button className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
+            <button
+              onClick={() => { setCurrentPage('all-students'); setBreadcrumb(['Students', 'All Students']); }}
+              className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+            >
               <Users className="w-4 h-4" />
               <span>View Students</span>
             </button>
-            <button className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2">
+            <button
+              onClick={() => { setCurrentPage('attendance-reports'); setBreadcrumb(['Analytics', 'Attendance Reports']); }}
+              className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
+            >
               <TrendingUp className="w-4 h-4" />
               <span>Department Report</span>
             </button>
@@ -197,10 +208,16 @@ export const HODDashboard: React.FC = () => {
                 <div>Lecturer: {course.lecturer ? `${course.lecturer.firstName} ${course.lecturer.lastName}` : 'Not assigned'}</div>
               </div>
               <div className="mt-3 flex space-x-2">
-                <button className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">
+                <button
+                  onClick={() => { setCurrentPage('courses'); setBreadcrumb(['Academics', 'Courses']); }}
+                  className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"
+                >
                   View Details
                 </button>
-                <button className="flex-1 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">
+                <button
+                  onClick={() => { setCurrentPage('staff-management'); setBreadcrumb(['Human Resources', 'Staff Directory']); }}
+                  className="flex-1 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700"
+                >
                   Assign Lecturer
                 </button>
               </div>

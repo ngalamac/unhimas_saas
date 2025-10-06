@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { GraduationCap, Users, BookOpen, TrendingUp, Award, Calendar } from 'lucide-react';
 import fetchClient from '../../lib/fetchClient';
 import SemesterGpa from '../grades/SemesterGpa';
+import { useNavigation } from '../../context/NavigationContext';
 
 export const DeanDashboard: React.FC = () => {
+  const { setCurrentPage, setBreadcrumb } = useNavigation();
   const [totalPrograms, setTotalPrograms] = useState(0);
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalCourses, setTotalCourses] = useState(0);
@@ -144,15 +146,24 @@ export const DeanDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="space-y-3">
-            <button className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button
+              onClick={() => { setCurrentPage('programs'); setBreadcrumb(['Academics', 'Programs']); }}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
               <GraduationCap className="w-4 h-4" />
               <span>Create Program</span>
             </button>
-            <button className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
+            <button
+              onClick={() => { setCurrentPage('courses'); setBreadcrumb(['Academics', 'Courses']); }}
+              className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+            >
               <BookOpen className="w-4 h-4" />
               <span>Add Course</span>
             </button>
-            <button className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2">
+            <button
+              onClick={() => { setCurrentPage('student-analytics'); setBreadcrumb(['Analytics', 'Student Analytics']); }}
+              className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
+            >
               <TrendingUp className="w-4 h-4" />
               <span>Academic Report</span>
             </button>
@@ -301,10 +312,16 @@ export const DeanDashboard: React.FC = () => {
                   <div>Status: {program.isActive === false ? 'Inactive' : 'Active'}</div>
                 </div>
                 <div className="mt-3 flex space-x-2">
-                  <button className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">
+                  <button
+                    onClick={() => { setCurrentPage('programs'); setBreadcrumb(['Academics', 'Programs']); }}
+                    className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"
+                  >
                     View Details
                   </button>
-                  <button className="flex-1 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">
+                  <button
+                    onClick={() => { setCurrentPage('programs'); setBreadcrumb(['Academics', 'Programs']); }}
+                    className="flex-1 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700"
+                  >
                     Edit Program
                   </button>
                 </div>

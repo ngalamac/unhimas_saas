@@ -162,15 +162,24 @@ export const LecturerDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="space-y-3">
-            <button className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button
+              onClick={() => { setCurrentPage('qr-attendance'); setBreadcrumb(['Operations', 'QR Attendance']); }}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
               <CheckCircle className="w-4 h-4" />
               <span>Take Attendance</span>
             </button>
-            <button className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
+            <button
+              onClick={() => { setCurrentPage('grades'); setBreadcrumb(['Academics', 'Grades']); }}
+              className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+            >
               <TrendingUp className="w-4 h-4" />
               <span>Record Grades</span>
             </button>
-            <button className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2">
+            <button
+              onClick={() => { setCurrentPage('all-students'); setBreadcrumb(['Students', 'All Students']); }}
+              className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
+            >
               <Users className="w-4 h-4" />
               <span>View Students</span>
             </button>
@@ -279,10 +288,16 @@ export const LecturerDashboard: React.FC = () => {
                 <div>Avg GPA: {(courseGrades[(course._id || course.id)]?.avg ?? 0).toFixed(2)} ({courseGrades[(course._id || course.id)]?.count ?? 0})</div>
               </div>
               <div className="mt-3 flex space-x-2">
-                <button className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">
+                <button
+                  onClick={() => { setCurrentPage('courses'); setBreadcrumb(['Academics', 'Courses']); }}
+                  className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"
+                >
                   View Details
                 </button>
-                <button className="flex-1 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">
+                <button
+                  onClick={() => { setCurrentPage('qr-attendance'); setBreadcrumb(['Operations', 'QR Attendance']); }}
+                  className="flex-1 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700"
+                >
                   Take Attendance
                 </button>
               </div>
