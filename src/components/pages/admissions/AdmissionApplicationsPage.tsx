@@ -11,11 +11,12 @@ export const AdmissionApplicationsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
 
   const fetchApplications = async () => {
     try {
       setLoading(true);
-      const res = await listAdmissions({ branch: (currentBranch as any)?._id, status: statusFilter || undefined, page: 1, limit: 50 });
+      const res = await listAdmissions({ branch: (currentBranch as any)?._id, status: statusFilter || undefined, search: search || undefined, page: 1, limit: 50 });
       const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
       setApplications(list);
       setError(null);
@@ -67,6 +68,32 @@ export const AdmissionApplicationsPage: React.FC = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Admission Applications</h1>
         <p className="text-gray-600">Review and manage student admission applications</p>
+      </div>
+
+      {/* Filters + Stats */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="select"
+        >
+          <option value="">All statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Approved">Approved</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search applicant/email/phone"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') fetchApplications(); }}
+            className="input pr-10"
+          />
+          <button onClick={fetchApplications} className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 text-sm bg-blue-600 text-white rounded">Go</button>
+        </div>
+        <button onClick={() => { setStatusFilter(''); setSearch(''); fetchApplications(); }} className="btn">Reset</button>
       </div>
 
       {/* Stats */}

@@ -1,23 +1,28 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import fetchClient from '../../lib/fetchClient';
 import { useUI } from '../../context/UIContext';
+import { useBranch } from '../../context/BranchContext';
+import { getAdmissionStats } from '../../api/admissions';
 
 const RegistrarDashboard: React.FC = () => {
   const { showToast } = useUI();
+  const { currentBranch } = useBranch();
   const [stats, setStats] = useState<{ total: number; today: number; tuition: { paid: number; partial: number; pending: number; overdue: number } } | null>(null);
   const [trend, setTrend] = useState<Array<{ label: string; newAdmissions: number; totalEnrolled: number }>>([]);
+  const [admissions, setAdmissions] = useState<{ total: number; pending: number; approved: number; rejected: number } | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetchClient.get('/api/students/stats/overview');
+        const branchParam = (currentBranch as any)?._id ? `?branch=${encodeURIComponent((currentBranch as any)._id)}` : '';
+        const res = await fetchClient.get(`/api/students/stats/overview${branchParam}`);
         if (res.ok) {
           const body = await res.json();
           const data = body.data || {};
           // Derive today count via trends endpoint (optional)
           let today = 0;
           try {
-            const t = await fetchClient.get('/api/students/stats/trends');
+            const t = await fetchClient.get(`/api/students/stats/trends${branchParam}`);
             if (t.ok) {
               const tb = await t.json();
               const months = (tb.data?.months || []);
@@ -32,7 +37,25 @@ const RegistrarDashboard: React.FC = () => {
       }
     };
     load();
-  }, []);
+  }, [currentBranch]);
+
+  useEffect(() => {
+    const loadAdmissions = async () => {
+      try {
+        const res = await getAdmissionStats({ branch: (currentBranch as any)?._id });
+        const d = res?.data || res;
+        setAdmissions({
+          total: Number(d?.total || 0),
+          pending: Number(d?.pending || 0),
+          approved: Number(d?.approved || 0),
+          rejected: Number(d?.rejected || 0),
+        });
+      } catch (e: any) {
+        // Soft-fail; keep dashboard usable
+      }
+    };
+    loadAdmissions();
+  }, [currentBranch]);
 
   const enrollmentPolyline = useMemo(() => {
     if (!trend.length) return '';
@@ -80,6 +103,26 @@ const RegistrarDashboard: React.FC = () => {
         <div className="card p-6">
           <div className="text-sm text-gray-600">Pending Tuition</div>
           <div className="mt-2 text-3xl font-semibold text-gray-900">{stats ? stats.tuition?.pending || 0 : '—'}</div>
+        </div>
+      </div>
+
+      {/* Admissions KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="card p-6">
+          <div className="text-sm text-gray-600">Admissions — Total</div>
+          <div className="mt-2 text-3xl font-semibold text-gray-900">{admissions ? admissions.total : '—'}</div>
+        </div>
+        <div className="card p-6">
+          <div className="text-sm text-gray-600">Admissions — Pending</div>
+          <div className="mt-2 text-3xl font-semibold text-gray-900">{admissions ? admissions.pending : '—'}</div>
+        </div>
+        <div className="card p-6">
+          <div className="text-sm text-gray-600">Admissions — Approved</div>
+          <div className="mt-2 text-3xl font-semibold text-gray-900">{admissions ? admissions.approved : '—'}</div>
+        </div>
+        <div className="card p-6">
+          <div className="text-sm text-gray-600">Admissions — Rejected</div>
+          <div className="mt-2 text-3xl font-semibold text-gray-900">{admissions ? admissions.rejected : '—'}</div>
         </div>
       </div>
 
