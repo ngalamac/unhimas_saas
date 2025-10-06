@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Users, BookOpen, TrendingUp, Calendar, Award, UserCheck } from 'lucide-react';
 import fetchClient from '../../lib/fetchClient';
+import { useBranch } from '../../context/BranchContext';
 
 export const HODDashboard: React.FC = () => {
+  const { currentBranch } = useBranch();
   const [myDepartment, setMyDepartment] = useState<string>('');
   const [departmentStudents, setDepartmentStudents] = useState<number>(0);
   const [departmentCourses, setDepartmentCourses] = useState<number>(0);
@@ -13,11 +15,13 @@ export const HODDashboard: React.FC = () => {
     const load = async () => {
       try {
         // In absence of profile-bound department, infer top department by course count
+        const qs = new URLSearchParams();
+        if (currentBranch) qs.set('branch', (currentBranch as any)._id || (currentBranch as any).id);
         const [deptsRes, coursesRes, studentsRes, staffRes] = await Promise.all([
-          fetchClient.get('/api/departments'),
-          fetchClient.get('/api/courses'),
-          fetchClient.get('/api/students/stats/overview'),
-          fetchClient.get('/api/staff')
+          fetchClient.get(`/api/departments`),
+          fetchClient.get(`/api/courses`),
+          fetchClient.get(`/api/students/stats/overview?${qs.toString()}`),
+          fetchClient.get(`/api/staff?${qs.toString()}`)
         ]);
         const departments = deptsRes.ok ? await deptsRes.json() : [];
         const courses = coursesRes.ok ? await coursesRes.json() : [];

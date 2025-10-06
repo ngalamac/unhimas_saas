@@ -6,6 +6,7 @@ import { getStudents } from '../../api/students';
 import { JournalEntry } from '../../types/accounting';
 import { Student } from '../../types/school';
 import fetchClient from '../../lib/fetchClient';
+import { useBranch } from '../../context/BranchContext';
 
 export const AccountantDashboard: React.FC = () => {
     const [summary, setSummary] = useState<{ totalIncome: number, totalExpense: number, net: number } | null>(null);
@@ -15,6 +16,7 @@ export const AccountantDashboard: React.FC = () => {
     const [period, setPeriod] = useState<'day' | 'month' | 'year'>('month');
     const [department, setDepartment] = useState<string>('');
     const [exporting, setExporting] = useState<null | 'csv' | 'xlsx' | 'pdf'>(null);
+    const { currentBranch } = useBranch();
 
     useEffect(() => {
         async function fetchData() {
@@ -22,9 +24,10 @@ export const AccountantDashboard: React.FC = () => {
                 setLoading(true);
                 const qs = new URLSearchParams();
                 if (department) qs.set('department', department);
+                if (currentBranch) qs.set('branch', (currentBranch as any)._id || (currentBranch as any).id);
                 const [summaryRes, transactionsRes, studentsRes] = await Promise.all([
                     fetchClient.get(`/api/transactions/summary?${qs.toString()}`),
-                    fetchClient.get('/api/transactions?limit=5'),
+                    fetchClient.get(`/api/transactions?limit=5${currentBranch ? `&branch=${encodeURIComponent((currentBranch as any)._id || (currentBranch as any).id)}` : ''}`),
                     getStudents(undefined, 1, 5, { status: 'Overdue' })
                 ]);
 
@@ -172,6 +175,7 @@ export const AccountantDashboard: React.FC = () => {
                             // simple export of summary bucket by period using trends
                             const qs = new URLSearchParams();
                             if (department) qs.set('department', department);
+                            if (currentBranch) qs.set('branch', (currentBranch as any)._id || (currentBranch as any).id);
                             qs.set('period', period);
                             const res = await fetchClient.get(`/api/transactions/summary/trends?${qs.toString()}`);
                             if (!res.ok) { alert('Export failed'); setExporting(null); return; }
