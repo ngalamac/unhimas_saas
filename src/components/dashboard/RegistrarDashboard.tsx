@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import fetchClient from '../../lib/fetchClient';
 import { useUI } from '../../context/UIContext';
 import { useBranch } from '../../context/BranchContext';
+import { useNavigation } from '../../context/NavigationContext';
 import { getAdmissionStats } from '../../api/admissions';
 
 const RegistrarDashboard: React.FC = () => {
   const { showToast } = useUI();
   const { currentBranch } = useBranch();
+  const { setCurrentPage, setBreadcrumb } = useNavigation();
   const [stats, setStats] = useState<{ total: number; today: number; tuition: { paid: number; partial: number; pending: number; overdue: number } } | null>(null);
   const [trend, setTrend] = useState<Array<{ label: string; newAdmissions: number; totalEnrolled: number }>>([]);
   const [admissions, setAdmissions] = useState<{ total: number; pending: number; approved: number; rejected: number } | null>(null);
@@ -129,8 +131,18 @@ const RegistrarDashboard: React.FC = () => {
       <div className="card p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
         <div className="flex flex-wrap gap-3">
-          <a href="#/dashboard/student-registration" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Register Student</a>
-          <a href="#/dashboard/departments" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Manage Departments</a>
+          <button
+            onClick={() => { setCurrentPage('student-registration'); setBreadcrumb(['Students', 'Register Student']); }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Register Student
+          </button>
+          <button
+            onClick={() => { setCurrentPage('departments'); setBreadcrumb(['Academics', 'Departments']); }}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            Manage Departments
+          </button>
         </div>
       </div>
 
