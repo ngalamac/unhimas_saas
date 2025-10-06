@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DollarSign, Plus, Edit, Trash2, Eye, Search, Filter, Copy, Calculator } from 'lucide-react';
 import { formatXAF } from '../../../utils/currency';
 import { FeeStructure } from '../../../types/school';
+import fetchClient from '../../../lib/fetchClient';
 
 export const FeeStructurePage: React.FC = () => {
-  const [feeStructures, setFeeStructures] = useState<FeeStructure[]>(mockFeeStructures);
+  const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
+  const [programs, setPrograms] = useState<Array<{ _id: string; name: string; type?: string }>>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProgram, setFilterProgram] = useState('');
   const [filterBatch, setFilterBatch] = useState('');
@@ -14,14 +16,25 @@ export const FeeStructurePage: React.FC = () => {
   const [feeToEdit, setFeeToEdit] = useState<FeeStructure | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const filteredFeeStructures = feeStructures.filter(fee => {
-    const program = mockPrograms.find(p => p.id === fee.programId);
-    const matchesSearch = program?.name.toLowerCase().includes(searchTerm.toLowerCase()) || false;
-    const matchesProgram = !filterProgram || fee.programId === filterProgram;
-    const matchesBatch = !filterBatch || fee.batch === filterBatch;
-    
-    return matchesSearch && matchesProgram && matchesBatch;
-  });
+  const filteredFeeStructures = useMemo(() => {
+    return feeStructures.filter((fee: any) => {
+      const prog = programs.find(p => String(p._id) === String(fee.programId));
+      const matchesSearch = prog?.name?.toLowerCase()?.includes(searchTerm.toLowerCase()) || false;
+      const matchesProgram = !filterProgram || String(fee.programId) === String(filterProgram);
+      const matchesBatch = !filterBatch || String(fee.batch) === String(filterBatch);
+      return matchesSearch && matchesProgram && matchesBatch;
+    });
+  }, [feeStructures, programs, searchTerm, filterProgram, filterBatch]);
+
+  useEffect(() => {
+    // Load programs for dropdown
+    fetchClient.get('/api/programs').then(async (res) => {
+      const body = res.ok ? await res.json() : [];
+      setPrograms(Array.isArray(body) ? body : (body.data || []));
+    }).catch(() => {});
+    // TODO: Replace with real fee structures endpoint when available
+    setFeeStructures([]);
+  }, []);
 
   const formatCurrency = (amount: number) => formatXAF(amount);
 
@@ -142,8 +155,8 @@ export const FeeStructurePage: React.FC = () => {
             className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Programs</option>
-            {mockPrograms.map(program => (
-              <option key={program.id} value={program.id}>{program.name}</option>
+            {programs.map(program => (
+              <option key={program._id} value={program._id}>{program.name}</option>
             ))}
           </select>
           <select
@@ -185,14 +198,14 @@ export const FeeStructurePage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredFeeStructures.map((fee) => {
-                const program = mockPrograms.find(p => p.id === fee.programId);
+              {filteredFeeStructures.map((fee: any) => {
+                const program = programs.find(p => String(p._id) === String(fee.programId));
                 return (
                   <tr key={fee.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{program?.name}</div>
-                        <div className="text-sm text-gray-500">{program?.type}</div>
+                        <div className="text-sm font-medium text-gray-900">{program?.name || '—'}</div>
+                        <div className="text-sm text-gray-500">{program?.type || ''}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
