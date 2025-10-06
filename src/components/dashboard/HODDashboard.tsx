@@ -13,22 +13,25 @@ export const HODDashboard: React.FC = () => {
     const load = async () => {
       try {
         // In absence of profile-bound department, infer top department by course count
-        const [deptsRes, coursesRes, studentsRes] = await Promise.all([
+        const [deptsRes, coursesRes, studentsRes, staffRes] = await Promise.all([
           fetchClient.get('/api/departments'),
           fetchClient.get('/api/courses'),
-          fetchClient.get('/api/students/stats/overview')
+          fetchClient.get('/api/students/stats/overview'),
+          fetchClient.get('/api/staff')
         ]);
         const departments = deptsRes.ok ? await deptsRes.json() : [];
         const courses = coursesRes.ok ? await coursesRes.json() : [];
         const studentsStats = studentsRes.ok ? await studentsRes.json() : {};
         const deptList = Array.isArray(departments) ? departments : (departments.data || []);
         const courseList = Array.isArray(courses) ? courses : (courses.data || []);
+        const staffList = staffRes.ok ? await staffRes.json() : { data: [] };
+        const staffArr = Array.isArray(staffList) ? staffList : (staffList.data || []);
         const topDept = deptList[0];
         setMyDepartment(topDept?.name || '');
         setDepartmentCourses(courseList.filter((c: any) => String(c.department?._id || c.department) === String(topDept?._id)).length);
         setDepartmentStudents(studentsStats?.data?.total || studentsStats?.total || 0);
-        // Lecturers count would normally come from staff endpoint; approximate 0 for now
-        setDepartmentLecturers(0);
+        // Lecturers in this department
+        setDepartmentLecturers(staffArr.filter((s: any) => s.type === 'Lecturer' && String(s.department || '').toLowerCase() === String(topDept?.name || '').toLowerCase()).length);
       } catch {}
     };
     load();
