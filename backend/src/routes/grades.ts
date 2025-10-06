@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import ExcelJS from 'exceljs';
 import Grade, { gradingScale } from '../models/Grade';
 import Course from '../models/Course';
+import Student from '../models/Student';
 import authMiddleware, { AuthRequest, requirePermission, requireBranchAccess } from '../middleware/auth';
 
 const router = express.Router();
@@ -14,6 +15,13 @@ router.post('/', authMiddleware, requirePermission('academics:create'), async (r
 
         if (!student || !course || !semester || !academicYear || caScore === undefined || examScore === undefined) {
             return res.status(400).json({ error: { message: 'Missing required fields' } });
+        }
+
+        // Branch isolation: ensure creator can only grade students from their branch (unless SuperAdmin)
+        const studentDoc = await Student.findById(student).select('branch');
+        if (!studentDoc) return res.status(400).json({ error: { message: 'Invalid student ID' } });
+        if (!req.user?.isSuperAdmin && req.user?.branch && String(studentDoc.branch) !== String(req.user.branch)) {
+            return res.status(403).json({ error: { message: 'Access denied: Branch mismatch' } });
         }
 
         const courseDoc = await Course.findById(course);
@@ -72,17 +80,37 @@ router.post('/', authMiddleware, requirePermission('academics:create'), async (r
 });
 
 // Get all grades
-router.get('/', authMiddleware, requirePermission('academics'), async (req, res) => {
+router.get('/', authMiddleware, requirePermission('academics'), async (req: AuthRequest, res) => {
     try {
-        const { student, course, academicYear, semester } = req.query;
-        const filter: any = {};
-        if (student) filter.student = student;
-        if (course) filter.course = course;
-        if (academicYear) filter.academicYear = academicYear;
-        if (semester) filter.semester = semester;
+        const { student, course, academicYear, semester } = req.query as any;
+        const isSuper = !!req.user?.isSuperAdmin;
+        if (isSuper) {
+          const filter: any = {};
+          if (student) filter.student = student;
+          if (course) filter.course = course;
+          if (academicYear) filter.academicYear = academicYear;
+          if (semester) filter.semester = semester;
+          const grades = await Grade.find(filter).populate('student course createdBy');
+          return res.json({ data: grades });
+        }
 
-        const grades = await Grade.find(filter).populate('student course createdBy');
-        res.json({ data: grades });
+        // Non-superadmin: restrict to user's branch by joining students
+        const pipeline: any[] = [];
+        const match: any = {};
+        if (student) match.student = new mongoose.Types.ObjectId(String(student));
+        if (course) match.course = new mongoose.Types.ObjectId(String(course));
+        if (academicYear) match.academicYear = String(academicYear);
+        if (semester) match.semester = Number(semester);
+        if (Object.keys(match).length) pipeline.push({ $match: match });
+        pipeline.push(
+          { $lookup: { from: 'students', localField: 'student', foreignField: '_id', as: 'studentInfo' } },
+          { $unwind: '$studentInfo' },
+          { $match: { 'studentInfo.branch': new mongoose.Types.ObjectId(String(req.user!.branch)) } },
+          { $lookup: { from: 'courses', localField: 'course', foreignField: '_id', as: 'course' } },
+          { $unwind: '$course' }
+        );
+        const results = await (Grade as any).aggregate(pipeline);
+        return res.json({ data: results });
     } catch (err: any) {
         console.error('GET /api/grades error', err);
         res.status(500).json({ error: { message: 'Failed to fetch grades', details: err.message } });
@@ -174,10 +202,14 @@ export default router;
  
 // Program performance summary: average GPA and pass rate per program
 // GET /api/grades/reports/program-performance
-router.get('/reports/program-performance', authMiddleware, requirePermission(['grades','grades:read','programs:read']), async (_req: AuthRequest, res) => {
+router.get('/reports/program-performance', authMiddleware, requirePermission(['grades','grades:read','programs:read']), async (req: AuthRequest, res) => {
   try {
     // Aggregate grades by course -> program, compute average gradePoints and pass rate (C or better)
     const pipeline: any[] = [
+      // branch isolation via student join
+      { $lookup: { from: 'students', localField: 'student', foreignField: '_id', as: 'studentInfo' } },
+      { $unwind: '$studentInfo' },
+      ...(req.user && !req.user.isSuperAdmin && req.user.branch ? [{ $match: { 'studentInfo.branch': new mongoose.Types.ObjectId(String(req.user.branch)) } }] : []),
       { $lookup: { from: 'courses', localField: 'course', foreignField: '_id', as: 'courseInfo' } },
       { $unwind: '$courseInfo' },
       { $lookup: { from: 'programs', localField: 'courseInfo.program', foreignField: '_id', as: 'programInfo' } },
@@ -225,6 +257,9 @@ router.get('/reports/program-performance/detailed', authMiddleware, requirePermi
 
     const pipeline: any[] = [
       { $match: match },
+      { $lookup: { from: 'students', localField: 'student', foreignField: '_id', as: 'studentInfo' } },
+      { $unwind: '$studentInfo' },
+      ...(req.user && !req.user.isSuperAdmin && req.user.branch ? [{ $match: { 'studentInfo.branch': new mongoose.Types.ObjectId(String(req.user.branch)) } }] : []),
       { $lookup: { from: 'courses', localField: 'course', foreignField: '_id', as: 'courseInfo' } },
       { $unwind: '$courseInfo' },
       { $lookup: { from: 'programs', localField: 'courseInfo.program', foreignField: '_id', as: 'programInfo' } },
@@ -288,6 +323,9 @@ router.get('/reports/program-performance/export', authMiddleware, requirePermiss
 
     const pipeline: any[] = [
       { $match: match },
+      { $lookup: { from: 'students', localField: 'student', foreignField: '_id', as: 'studentInfo' } },
+      { $unwind: '$studentInfo' },
+      ...(req.user && !req.user.isSuperAdmin && req.user.branch ? [{ $match: { 'studentInfo.branch': new mongoose.Types.ObjectId(String(req.user.branch)) } }] : []),
       { $lookup: { from: 'courses', localField: 'course', foreignField: '_id', as: 'courseInfo' } },
       { $unwind: '$courseInfo' },
       { $lookup: { from: 'programs', localField: 'courseInfo.program', foreignField: '_id', as: 'programInfo' } },
