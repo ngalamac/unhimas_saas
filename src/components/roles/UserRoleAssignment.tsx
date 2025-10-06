@@ -48,6 +48,13 @@ const roleDefinitions = {
     icon: <Building2 className="w-4 h-4" />,
     permissions: ['students:*', 'accounting:read,create,update,export', 'staff:read,update']
   },
+  'Registrar': {
+    name: 'Registrar',
+    description: 'Admissions and student records management',
+    color: 'bg-teal-100 text-teal-800 border-teal-200',
+    icon: <Users className="w-4 h-4" />,
+    permissions: ['students:*', 'admissions:*', 'departments:read', 'programs:read']
+  },
   'Lecturer': {
     name: 'Academic Lecturer',
     description: 'Teaching and academic management',
