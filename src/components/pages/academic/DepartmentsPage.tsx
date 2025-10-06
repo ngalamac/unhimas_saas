@@ -39,7 +39,7 @@ export const DepartmentsPage: React.FC = () => {
   // Save department (create or edit)
   const handleSaveDepartment = async () => {
     if (!formName.trim() || !formProgramId) {
-      alert('Name and program are required');
+      setModal({ open: true, title: 'Missing information', message: 'Name and program are required' });
       return;
     }
     try {
@@ -64,7 +64,7 @@ export const DepartmentsPage: React.FC = () => {
       }
       setModalMode(null);
     } catch (e) {
-      alert('Failed to save department');
+      setModal({ open: true, title: 'Save failed', message: 'Failed to save department' });
     }
   };
 
@@ -124,7 +124,7 @@ export const DepartmentsPage: React.FC = () => {
       // rollback
       setDepartments(original);
       try { (window as any).__UI_BRIDGE__?.showToast?.(e?.message || 'Failed to delete'); } catch (er) { }
-      alert('Failed to delete department');
+      setModal({ open: true, title: 'Delete failed', message: 'Failed to delete department' });
     }
   };
 

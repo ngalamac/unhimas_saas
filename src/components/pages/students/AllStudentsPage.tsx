@@ -949,7 +949,12 @@ export const AllStudentsPage: React.FC = () => {
                       a.click();
                       a.remove();
                   } catch (err) {
-                      alert('Failed to download transcript');
+                      // inline toast fallback (non-blocking)
+                      const el = document.createElement('div');
+                      el.className = 'fixed bottom-4 right-4 z-50 bg-gray-900 text-white px-4 py-2 rounded shadow-lg';
+                      el.textContent = 'Failed to download transcript';
+                      document.body.appendChild(el);
+                      setTimeout(()=>{ try { document.body.removeChild(el); } catch {} }, 2500);
                   }
               }} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center space-x-2">
                   <Download className="w-4 h-4" />
