@@ -18,6 +18,24 @@ interface RoleTemplate {
   role?: string;
 }
 
+// Available features/actions for template editing (align with Permission Matrix)
+const AVAILABLE_FEATURES: Array<{ feature: string; actions: string[]; title: string }> = [
+  { feature: 'students', actions: ['create','read','update','delete','export'], title: 'Students' },
+  { feature: 'admissions', actions: ['create','read','update','delete'], title: 'Admissions' },
+  { feature: 'accounting', actions: ['create','read','update','delete','approve','export'], title: 'Accounting' },
+  { feature: 'staff', actions: ['create','read','update','delete','export'], title: 'Staff' },
+  { feature: 'branches', actions: ['create','read','update','delete'], title: 'Branches' },
+  { feature: 'programs', actions: ['create','read','update','delete'], title: 'Programs' },
+  { feature: 'departments', actions: ['create','read','update','delete'], title: 'Departments' },
+  { feature: 'courses', actions: ['create','read','update','delete'], title: 'Courses' },
+  { feature: 'grades', actions: ['create','read','update','delete'], title: 'Grades' },
+  { feature: 'attendance', actions: ['create','read','update','delete'], title: 'Attendance' },
+  { feature: 'communication', actions: ['create','read','update','delete'], title: 'Communication' },
+  { feature: 'reports', actions: ['read','export'], title: 'Reports' },
+  { feature: 'users', actions: ['create','read','update','delete','manage'], title: 'Users' },
+  { feature: 'backup', actions: ['create','read','update','delete','export'], title: 'Backup' },
+];
+
 const defaultRoleTemplates: RoleTemplate[] = [
   {
     id: 'superadmin',
@@ -142,6 +160,8 @@ const RoleTemplates: React.FC = () => {
   const [applying, setApplying] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<RoleTemplate | null>(null);
   const [editDraft, setEditDraft] = useState<{ name: string; description: string }>({ name: '', description: '' });
+  const [editPerms, setEditPerms] = useState<Record<string, string[]>>({});
+  const [createPerms, setCreatePerms] = useState<Record<string, string[]>>({});
   const { showToast } = useUI();
   const { user: currentUser } = useAuth();
 
@@ -189,6 +209,34 @@ const RoleTemplates: React.FC = () => {
       actions.forEach(a => { map[feature.toLowerCase()][a.toLowerCase()] = true; });
     });
     return map;
+  };
+
+  const isChecked = (perms: Record<string, string[]>, feature: string, action: string) => {
+    return (perms[feature] || []).includes(action);
+  };
+
+  const toggleAction = (
+    setter: React.Dispatch<React.SetStateAction<Record<string, string[]>>>,
+    perms: Record<string, string[]>,
+    feature: string,
+    action: string
+  ) => {
+    setter(prev => {
+      const current = prev[feature] || [];
+      const next = current.includes(action)
+        ? current.filter(a => a !== action)
+        : [...current, action];
+      return { ...prev, [feature]: next };
+    });
+  };
+
+  const setAllForFeature = (
+    setter: React.Dispatch<React.SetStateAction<Record<string, string[]>>>,
+    feature: string,
+    actions: string[],
+    value: boolean
+  ) => {
+    setter(prev => ({ ...prev, [feature]: value ? [...actions] : [] }));
   };
 
   const mapBackendTemplateToUI = (rt: { role: string; permissions: Record<string, Record<string, boolean>>; isDefault: boolean; updatedAt?: string; }): RoleTemplate => {
@@ -288,7 +336,7 @@ const RoleTemplates: React.FC = () => {
       description: newTemplate.description,
       icon: <Shield className="w-5 h-5" />,
       color: 'bg-gray-100 text-gray-800 border-gray-200',
-      permissions: newTemplate.permissions,
+      permissions: createPerms,
       userCount: 0,
       isDefault: false
     };
@@ -296,6 +344,7 @@ const RoleTemplates: React.FC = () => {
     setTemplates(prev => [...prev, template]);
     setShowCreateModal(false);
     setNewTemplate({ name: '', description: '', permissions: {} });
+    setCreatePerms({});
     showToast('Role template created successfully', 'success');
   };
 
@@ -328,11 +377,12 @@ const RoleTemplates: React.FC = () => {
   const handleEditTemplate = (template: RoleTemplate) => {
     setEditingTemplate(template);
     setEditDraft({ name: template.name, description: template.description });
+    setEditPerms(template.permissions || {});
   };
 
   const handleSaveEdit = () => {
     if (!editingTemplate) return;
-    setTemplates(prev => prev.map(t => t.id === editingTemplate.id ? { ...t, name: editDraft.name, description: editDraft.description } : t));
+    setTemplates(prev => prev.map(t => t.id === editingTemplate.id ? { ...t, name: editDraft.name, description: editDraft.description, permissions: editPerms } : t));
     setEditingTemplate(null);
   };
 
@@ -480,6 +530,34 @@ const RoleTemplates: React.FC = () => {
                   placeholder="Describe the role and its responsibilities"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+                <div className="space-y-4 max-h-[50vh] overflow-auto border rounded-lg p-3">
+                  {AVAILABLE_FEATURES.map(({ feature, actions, title }) => (
+                    <div key={feature} className="border border-gray-200 rounded p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-medium text-gray-900 capitalize">{title}</div>
+                        <div className="space-x-2 text-xs">
+                          <button onClick={() => setAllForFeature(setCreatePerms, feature, actions, true)} className="px-2 py-1 border rounded">All</button>
+                          <button onClick={() => setAllForFeature(setCreatePerms, feature, actions, false)} className="px-2 py-1 border rounded">Clear</button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {actions.map(a => (
+                          <label key={a} className="inline-flex items-center space-x-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={isChecked(createPerms, feature, a)}
+                              onChange={() => toggleAction(setCreatePerms, createPerms, feature, a)}
+                            />
+                            <span className="capitalize">{a}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
               <button
@@ -608,6 +686,34 @@ const RoleTemplates: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                 <textarea value={editDraft.description} onChange={(e)=>setEditDraft(prev=>({...prev, description: e.target.value}))} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+                <div className="space-y-4 max-h-[50vh] overflow-auto border rounded-lg p-3">
+                  {AVAILABLE_FEATURES.map(({ feature, actions, title }) => (
+                    <div key={feature} className="border border-gray-200 rounded p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-medium text-gray-900 capitalize">{title}</div>
+                        <div className="space-x-2 text-xs">
+                          <button onClick={() => setAllForFeature(setEditPerms, feature, actions, true)} className="px-2 py-1 border rounded">All</button>
+                          <button onClick={() => setAllForFeature(setEditPerms, feature, actions, false)} className="px-2 py-1 border rounded">Clear</button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {actions.map(a => (
+                          <label key={a} className="inline-flex items-center space-x-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={isChecked(editPerms, feature, a)}
+                              onChange={() => toggleAction(setEditPerms, editPerms, feature, a)}
+                            />
+                            <span className="capitalize">{a}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
