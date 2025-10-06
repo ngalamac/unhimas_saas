@@ -66,6 +66,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { isDarkMode, toggleDarkMode } = useTheme();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Update time every minute
   useEffect(() => {
@@ -228,10 +229,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   };
 
   const handleLogout = () => {
-    if (confirm('Are you sure you want to logout?')) {
-      logout();
-      navigate('/login');
-    }
+    setShowLogoutConfirm(true);
   };
 
   const toggleFullscreen = () => {
@@ -636,5 +634,32 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
         />
       )}
     </header>
+    {/* Logout confirmation modal */}
+    {showLogoutConfirm && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[95%] max-w-sm">
+          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Sign out</h3>
+          </div>
+          <div className="px-5 py-4 text-sm text-gray-700 dark:text-gray-300">
+            Are you sure you want to logout of your account?
+          </div>
+          <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+            <button
+              onClick={() => setShowLogoutConfirm(false)}
+              className="px-4 py-2 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { setShowLogoutConfirm(false); logout(); navigate('/login'); }}
+              className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   );
 };
