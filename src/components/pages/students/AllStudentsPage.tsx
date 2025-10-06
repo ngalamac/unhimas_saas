@@ -18,6 +18,8 @@ export const AllStudentsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProgram, setFilterProgram] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState('');
+  const [filterSpecialty, setFilterSpecialty] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -36,7 +38,7 @@ export const AllStudentsPage: React.FC = () => {
    const [aggregates, setAggregates] = useState<{ paid:number; partial:number; unpaid:number } | null>(null);
   const [branchMap, setBranchMap] = useState<Record<string,string>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [tempFilters, setTempFilters] = useState<{ program?: string; status?: string; branch?: string; level?: string; session?: string; gender?: string }>({});
+  const [tempFilters, setTempFilters] = useState<{ program?: string; department?: string; specialty?: string; status?: string; branch?: string; level?: string; session?: string; gender?: string }>({});
 
   // Pagination state (declare before effects that use them)
   const [page, setPage] = useState(1);
@@ -606,7 +608,7 @@ export const AllStudentsPage: React.FC = () => {
             <option value="Partial">Partial</option>
             <option value="Unpaid">Unpaid</option>
           </select>
-          <button onClick={() => { setTempFilters({ program: filterProgram || '', status: filterStatus || '', branch: '', level: '', session: '', gender: '' }); setFiltersOpen(true); }} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 flex items-center space-x-2">
+          <button onClick={() => { setTempFilters({ program: filterProgram || '', department: filterDepartment || '', specialty: filterSpecialty || '', status: filterStatus || '', branch: '', level: '', session: '', gender: '' }); setFiltersOpen(true); }} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 flex items-center space-x-2">
             <Filter className="w-4 h-4" />
             <span>More Filters</span>
           </button>
@@ -689,6 +691,8 @@ export const AllStudentsPage: React.FC = () => {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Specialty</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Session</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
@@ -729,8 +733,13 @@ export const AllStudentsPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{typeof student.program === 'string' ? student.program : (student.program?.type || '')}</div>
-                    <div className="text-sm text-gray-500">{typeof student.department === 'string' ? student.department : (student.department?.name || '')}</div>
+                    <div className="text-sm text-gray-900">{typeof student.program === 'string' ? student.program : (student.program?.type || student.program?.name || '')}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{typeof student.department === 'string' ? student.department : (student.department?.name || '')}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{typeof (student as any).specialty === 'string' ? (student as any).specialty : (((student as any).specialty?.name) || '')}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     Level {student.level}
@@ -1212,9 +1221,18 @@ export const AllStudentsPage: React.FC = () => {
                 <label className="text-sm">Program</label>
                 <select value={tempFilters.program || ''} onChange={(e) => setTempFilters(f => ({ ...(f||{}), program: e.target.value }))} className="w-full px-3 py-2 border rounded">
                   <option value="">Any</option>
-                  <option value="HND">HND</option>
-                  <option value="Bachelor">Bachelor</option>
-                  <option value="Masters">Masters</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm">Department</label>
+                <select value={tempFilters.department || ''} onChange={(e) => setTempFilters(f => ({ ...(f||{}), department: e.target.value }))} className="w-full px-3 py-2 border rounded">
+                  <option value="">Any</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm">Specialty</label>
+                <select value={tempFilters.specialty || ''} onChange={(e) => setTempFilters(f => ({ ...(f||{}), specialty: e.target.value }))} className="w-full px-3 py-2 border rounded">
+                  <option value="">Any</option>
                 </select>
               </div>
               <div>
@@ -1265,7 +1283,7 @@ export const AllStudentsPage: React.FC = () => {
                 // close modal
                 setFiltersOpen(false);
               }} className="px-4 py-2 bg-blue-600 text-white rounded">Apply</button>
-              <button onClick={() => { setTempFilters({}); setFilterProgram(''); setFilterStatus(''); }} className="px-4 py-2 border rounded">Clear</button>
+              <button onClick={() => { setTempFilters({}); setFilterProgram(''); setFilterDepartment(''); setFilterSpecialty(''); setFilterStatus(''); }} className="px-4 py-2 border rounded">Clear</button>
             </div>
           </div>
         </div>
