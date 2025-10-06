@@ -49,9 +49,7 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
       return res.status(401).json({ message: 'User not found or inactive' });
     }
 
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save();
+    // Do not update lastLogin here; handled at login time
 
     // Set user context with enhanced information
     req.user = {
