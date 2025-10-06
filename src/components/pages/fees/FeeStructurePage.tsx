@@ -476,10 +476,9 @@ export const FeeStructurePage: React.FC = () => {
         </div>
       )}
     </div>
-
-    {/* lightweight toast */}
     {toast.open && (
       <div className="fixed bottom-4 right-4 z-50 bg-gray-900 text-white px-4 py-2 rounded shadow-lg">{toast.message}</div>
     )}
+  </>
   );
 };
