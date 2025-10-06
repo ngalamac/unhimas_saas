@@ -14,6 +14,7 @@ export const DeanDashboard: React.FC = () => {
   const [filterTo, setFilterTo] = useState<string>('');
   const [selectedProgram, setSelectedProgram] = useState<string>('');
   const [detailed, setDetailed] = useState<{ name: string; breakdown: Array<{ letter: string; count: number; pct: number }> } | null>(null);
+  const [exporting, setExporting] = useState<null | 'csv' | 'xlsx'>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -185,7 +186,61 @@ export const DeanDashboard: React.FC = () => {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Performance</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Program Performance</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  try {
+                    setExporting('csv');
+                    const params = new URLSearchParams();
+                    if (selectedProgram) params.append('program', selectedProgram);
+                    if (filterFrom) params.append('from', filterFrom);
+                    if (filterTo) params.append('to', filterTo);
+                    const res = await fetchClient.get(`/api/grades/reports/program-performance/export?format=csv&${params.toString()}`);
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'program-performance.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                  } catch {}
+                  finally { setExporting(null); }
+                }}
+                disabled={exporting !== null}
+                className={`px-3 py-1 rounded border text-sm ${exporting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100'}`}
+                title="Export CSV"
+              >{exporting === 'csv' ? 'Exporting…' : 'CSV'}</button>
+              <button
+                onClick={async () => {
+                  try {
+                    setExporting('xlsx');
+                    const params = new URLSearchParams();
+                    if (selectedProgram) params.append('program', selectedProgram);
+                    if (filterFrom) params.append('from', filterFrom);
+                    if (filterTo) params.append('to', filterTo);
+                    const res = await fetchClient.get(`/api/grades/reports/program-performance/export?format=xlsx&${params.toString()}`);
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'program-performance.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                  } catch {}
+                  finally { setExporting(null); }
+                }}
+                disabled={exporting !== null}
+                className={`px-3 py-1 rounded border text-sm ${exporting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100'}`}
+                title="Export Excel"
+              >{exporting === 'xlsx' ? 'Exporting…' : 'Excel'}</button>
+            </div>
+          </div>
           {performance.length ? (
             <div className="space-y-3">
               {performance.map((p) => (
@@ -284,7 +339,7 @@ export const DeanDashboard: React.FC = () => {
             <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
           </div>
           <div className="flex items-end">
-            <button onClick={() => { /* triggers useEffect via state already */ }} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Apply</button>
+            <button onClick={() => { /* state already bound triggers fetch */ }} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Apply</button>
           </div>
         </div>
         {/* Letter grade distribution */}
@@ -307,6 +362,17 @@ export const DeanDashboard: React.FC = () => {
           ) : (
             <div className="text-sm text-gray-500">Select a program and optionally a date range to view distribution.</div>
           )}
+        </div>
+        {/* Export */}
+        <div className="mt-6 flex gap-3">
+          <a
+            className="px-4 py-2 bg-gray-100 border rounded-lg text-sm hover:bg-gray-200"
+            href={`/api/grades/reports/program-performance/export?format=csv${selectedProgram ? `&program=${encodeURIComponent(selectedProgram)}` : ''}${filterFrom ? `&from=${encodeURIComponent(filterFrom)}` : ''}${filterTo ? `&to=${encodeURIComponent(filterTo)}` : ''}`}
+          >Export CSV</a>
+          <a
+            className="px-4 py-2 bg-gray-100 border rounded-lg text-sm hover:bg-gray-200"
+            href={`/api/grades/reports/program-performance/export?format=xlsx${selectedProgram ? `&program=${encodeURIComponent(selectedProgram)}` : ''}${filterFrom ? `&from=${encodeURIComponent(filterFrom)}` : ''}${filterTo ? `&to=${encodeURIComponent(filterTo)}` : ''}`}
+          >Export Excel</a>
         </div>
       </div>
     </>
