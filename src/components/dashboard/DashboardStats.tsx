@@ -89,11 +89,11 @@ export const DashboardStats: React.FC = () => {
 
     const redStats = [
         {
-            title: 'Fee Collections',
-            value: formatXAF(stats.totalRevenue),
-            subtitle: 'TOTAL REVENUE',
+            title: 'Active Branches',
+            value: stats.activeBranches.toString(),
+            subtitle: 'OPERATIONAL',
             color: 'bg-red-600',
-            icon: <CreditCard className="w-8 h-8 text-white" />
+            icon: <Building2 className="w-8 h-8 text-white" />
         },
         {
             title: 'Active Branches',

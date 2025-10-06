@@ -105,45 +105,10 @@ export const QuickStatsBar: React.FC = () => {
   return (
     <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 border-b border-gray-200 dark:border-gray-700 px-6 py-3 transition-colors">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-6">
-          {/* Students (hide when 0) */}
-          {stats && (stats.totalStudents ?? 0) > 0 && (
-            <div className="flex items-center space-x-2">
-              <Users className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Students:</span>
-              <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{stats.totalStudents}</span>
-            </div>
-          )}
-
-          {/* Revenue (finance roles only) */}
-          {isFinance && stats && (stats.totalRevenue ?? 0) > 0 && (
-            <div className="flex items-center space-x-2">
-              <DollarSign className="w-4 h-4 text-green-600" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Revenue:</span>
-              <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatXAF(stats.totalRevenue)}</span>
-            </div>
-          )}
-
-          {/* Pending Payments (finance roles only) */}
-          {isFinance && stats && stats.pendingPayments > 0 && (
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="w-4 h-4 text-yellow-600" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Pending:</span>
-              <span className="text-sm font-bold text-yellow-700 dark:text-yellow-400">{stats.pendingPayments}</span>
-            </div>
-          )}
-
-          {/* Branches (SuperAdmin only) */}
-          {(user as any)?.isSuperAdmin && (
-            <div className="flex items-center space-x-2">
-              <Building2 className="w-4 h-4 text-purple-600" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Branches:</span>
-              <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{stats?.activeBranches || 0}</span>
-            </div>
-          )}
-        </div>
+        <div className="flex items-center space-x-6" />
 
         {/* System Health */}
+        {/* System health only */}
         <div className="flex items-center space-x-2">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">System:</span>
           <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${
