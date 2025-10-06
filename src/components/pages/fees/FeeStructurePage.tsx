@@ -242,7 +242,7 @@ export const FeeStructurePage: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
                         <button 
-                          onClick={() => alert(`Viewing details for ${program?.name} Level ${fee.level}`)}
+                          onClick={() => setToast({ open: true, message: `Viewing details for ${program?.name || 'Program'} Level ${fee.level}` })}
                           className="text-blue-600 hover:text-blue-900" 
                           title="View Details"
                         >
