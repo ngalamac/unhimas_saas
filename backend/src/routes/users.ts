@@ -112,9 +112,14 @@ router.post('/', authMiddleware, requireUserManagement(), async (req: AuthReques
     if (!name || !email || !password || !type) {
       return res.status(400).json({ error: { message: 'Missing required fields' } });
     }
+    // Basic validation
+    if (typeof name !== 'string' || name.trim().length < 2) return res.status(400).json({ error: { message: 'Invalid name' } });
+    const emailStr = String(email).toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) return res.status(400).json({ error: { message: 'Invalid email' } });
+    if (String(password).length < 8) return res.status(400).json({ error: { message: 'Password too short' } });
 
     // Normalize email and role
-    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedEmail = emailStr;
     const normalizedRole = normalizeRole(String(type));
     if (!normalizedRole) {
       return res.status(400).json({ error: { message: 'Invalid user type. Allowed: SuperAdmin, Admin, Lecturer, Accountant, Dean of Studies, Head Of Department' } });

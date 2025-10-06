@@ -1,6 +1,8 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 
@@ -34,6 +36,9 @@ const app = express();
 // ---------------------
 // CORS configuration
 // ---------------------
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 function parseOrigins(value?: string): string[] {
   if (!value) return [];
   return value
@@ -77,6 +82,17 @@ const corsOptions: cors.CorsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+// ---------------------
+// Rate limiting
+// ---------------------
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/auth/', authLimiter);
 
 // ---------------------
 // Body parsing

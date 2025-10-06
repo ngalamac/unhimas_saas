@@ -33,19 +33,14 @@ router.post('/reset-password', async (req, res) => {
     const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) {
-      // Email not found
       return res.status(404).json({ error: 'This email is not found in our records.' });
     }
-    // Protected accounts
     if (user.type === 'SuperAdmin' || user.type === 'Admin') {
-      // Generic error, do not reveal if email exists or is protected
       return res.status(403).json({ error: "Can't process your request due to technical reasons." });
     }
-    // Generate JWT token (expires in 15 min)
     const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '15m' });
     const resetUrl = `${APP_BASE_URL}/password-reset?token=${token}`;
 
-    // Send email
     await transporter.sendMail({
       from: SMTP_USER,
       to: email,
@@ -145,6 +140,9 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+    const emailStr = String(email).toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) return res.status(400).json({ error: 'Invalid email' });
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
     // Support both hashed and (legacy/test) plaintext stored passwords.
@@ -157,6 +155,9 @@ router.post('/login', async (req, res) => {
       valid = user.password === password;
     }
     if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
+    // Update lastLogin on successful login
+    user.lastLogin = new Date();
+    await user.save();
     const token = jwt.sign({ id: user._id, type: user.type }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ token, user });
   } catch (err) {
@@ -165,20 +166,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Password reset request
-router.post('/reset-password', async (req, res) => {
-  try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: 'No account found for this email.' });
-    }
-    // TODO: Generate reset token, send email with link
-    // For now, simulate success
-    res.json({ message: 'Password reset link sent to your email.' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to process password reset.' });
-  }
-});
+// (Duplicate reset-password route removed)
 
 export default router;
 
