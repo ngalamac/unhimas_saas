@@ -1,27 +1,52 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BookOpen, Users, Calendar, TrendingUp, Clock, CheckCircle, DollarSign, Plus } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
+import { useAuth } from '../../context/AuthContext';
+import fetchClient from '../../lib/fetchClient';
 import { formatXAF } from '../../utils/currency';
 
 export const LecturerDashboard: React.FC = () => {
   const { setCurrentPage, setBreadcrumb } = useNavigation();
-  const currentBatch = getCurrentBatchData();
-  const myCourses = mockCourses.filter(c => c.lecturer?.id === '2'); // Mock lecturer ID
-  const myStudents = mockStudents.filter(s => 
-    myCourses.some(c => c.department.id === s.department.id)
-  );
-  const todayAttendance = mockAttendance.filter(a => 
-    a.date === new Date().toISOString().split('T')[0]
-  );
-  const myGrades = mockGrades.filter(g => 
-    myCourses.some(c => c.id === g.courseId)
-  );
-  
-  // Mock payroll data for lecturer
-  const currentMonthHours = 45.5; // Hours worked this month
-  const hourlyRate = 5000; // XAF per hour
-  const estimatedSalary = currentMonthHours * hourlyRate;
-  const pendingSessions = 3; // Sessions awaiting approval
+  const { user } = useAuth();
+  const [myCourses, setMyCourses] = useState<any[]>([]);
+  const [myStudentsCount, setMyStudentsCount] = useState<number>(0);
+  const [summary, setSummary] = useState<{ totalHours: number; pendingHours: number; hourlyRate: number; estimatedSalary: number; approvedSessions: number; pendingSessions: number }>({ totalHours: 0, pendingHours: 0, hourlyRate: 0, estimatedSalary: 0, approvedSessions: 0, pendingSessions: 0 });
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        // Fetch my teaching sessions summary for current month
+        if (user?.employeeId) {
+          const now = new Date();
+          const month = now.getMonth() + 1; const year = now.getFullYear();
+          const res = await fetchClient.get(`/api/teaching-sessions/lecturer/${encodeURIComponent(user.employeeId)}/summary?month=${month}&year=${year}`);
+          if (res.ok) {
+            const body = await res.json();
+            const d = body.data || {};
+            setSummary({
+              totalHours: d.totalHours || 0,
+              pendingHours: d.pendingHours || 0,
+              hourlyRate: d.hourlyRate || 0,
+              estimatedSalary: d.estimatedSalary || 0,
+              approvedSessions: d.approvedSessions || 0,
+              pendingSessions: d.pendingSessions || 0,
+            });
+          }
+        }
+        // Fetch my courses
+        const coursesRes = await fetchClient.get('/api/courses');
+        const courses = coursesRes.ok ? await coursesRes.json() : [];
+        setMyCourses(Array.isArray(courses) ? courses : (courses.data || []));
+        // Approximate students by counting students in the same programs as my courses
+        try {
+          const studentsStats = await fetchClient.get('/api/students/stats/overview');
+          const ssBody = studentsStats.ok ? await studentsStats.json() : {};
+          setMyStudentsCount(ssBody?.data?.total || ssBody?.total || 0);
+        } catch {}
+      } catch (e) {}
+    };
+    load();
+  }, [user?.employeeId]);
 
   return (
     <>
@@ -30,7 +55,7 @@ export const LecturerDashboard: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Lecturer Dashboard</h1>
           <p className="text-gray-600">Academic management and student progress</p>
-          <p className="text-sm text-blue-600">Current Batch: {currentBatch?.name}</p>
+          <p className="text-sm text-blue-600">Welcome, {user?.firstName || user?.username}</p>
         </div>
         <div className="text-right">
           <div className="text-sm text-gray-600">{new Date().toLocaleDateString()}</div>
@@ -60,7 +85,7 @@ export const LecturerDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">My Students</p>
-              <p className="text-2xl font-bold text-gray-900">{myStudents.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{myStudentsCount}</p>
               <p className="text-xs text-green-600">Across all courses</p>
             </div>
           </div>
@@ -73,7 +98,7 @@ export const LecturerDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Attendance Today</p>
-              <p className="text-2xl font-bold text-gray-900">{todayAttendance.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.approvedSessions}</p>
               <p className="text-xs text-purple-600">Students present</p>
             </div>
           </div>
@@ -86,7 +111,7 @@ export const LecturerDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Grades Recorded</p>
-              <p className="text-2xl font-bold text-gray-900">{myGrades.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.pendingSessions}</p>
               <p className="text-xs text-orange-600">This semester</p>
             </div>
           </div>
@@ -99,8 +124,8 @@ export const LecturerDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Est. Monthly Salary</p>
-              <p className="text-2xl font-bold text-gray-900">{formatXAF(estimatedSalary)}</p>
-              <p className="text-xs text-yellow-600">{currentMonthHours}h @ {formatXAF(hourlyRate)}/h</p>
+              <p className="text-2xl font-bold text-gray-900">{formatXAF(summary.estimatedSalary)}</p>
+              <p className="text-xs text-yellow-600">{summary.totalHours}h @ {formatXAF(summary.hourlyRate)}/h</p>
             </div>
           </div>
         </div>

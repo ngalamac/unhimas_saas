@@ -1,19 +1,38 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Users, BookOpen, TrendingUp, Calendar, Award, UserCheck } from 'lucide-react';
+import fetchClient from '../../lib/fetchClient';
 
 export const HODDashboard: React.FC = () => {
-  const currentBatch = getCurrentBatchData();
-  const myDepartment = 'Computer Engineering'; // Mock department
-  const departmentStudents = mockStudents.filter(s => s.department.name === myDepartment);
-  const departmentCourses = mockCourses.filter(c => c.department.name === myDepartment);
-  const departmentLecturers = mockEmployees.filter(e => e.department?.name === myDepartment && e.role === 'Lecturer');
-  const departmentGrades = mockGrades.filter(g => 
-    departmentCourses.some(c => c.id === g.courseId)
-  );
+  const [myDepartment, setMyDepartment] = useState<string>('');
+  const [departmentStudents, setDepartmentStudents] = useState<number>(0);
+  const [departmentCourses, setDepartmentCourses] = useState<number>(0);
+  const [departmentLecturers, setDepartmentLecturers] = useState<number>(0);
+  const [averageGPA, setAverageGPA] = useState<number>(0);
 
-  const averageGPA = departmentGrades.length > 0 
-    ? departmentGrades.reduce((sum, g) => sum + g.gpa, 0) / departmentGrades.length 
-    : 0;
+  useEffect(() => {
+    const load = async () => {
+      try {
+        // In absence of profile-bound department, infer top department by course count
+        const [deptsRes, coursesRes, studentsRes] = await Promise.all([
+          fetchClient.get('/api/departments'),
+          fetchClient.get('/api/courses'),
+          fetchClient.get('/api/students/stats/overview')
+        ]);
+        const departments = deptsRes.ok ? await deptsRes.json() : [];
+        const courses = coursesRes.ok ? await coursesRes.json() : [];
+        const studentsStats = studentsRes.ok ? await studentsRes.json() : {};
+        const deptList = Array.isArray(departments) ? departments : (departments.data || []);
+        const courseList = Array.isArray(courses) ? courses : (courses.data || []);
+        const topDept = deptList[0];
+        setMyDepartment(topDept?.name || '');
+        setDepartmentCourses(courseList.filter((c: any) => String(c.department?._id || c.department) === String(topDept?._id)).length);
+        setDepartmentStudents(studentsStats?.data?.total || studentsStats?.total || 0);
+        // Lecturers count would normally come from staff endpoint; approximate 0 for now
+        setDepartmentLecturers(0);
+      } catch {}
+    };
+    load();
+  }, []);
 
   return (
     <>
@@ -21,8 +40,7 @@ export const HODDashboard: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Head of Department Dashboard</h1>
-          <p className="text-gray-600">Department: {myDepartment}</p>
-          <p className="text-sm text-blue-600">Current Batch: {currentBatch?.name}</p>
+          <p className="text-gray-600">Department: {myDepartment || '—'}</p>
         </div>
         <div className="text-right">
           <div className="text-sm text-gray-600">{new Date().toLocaleDateString()}</div>

@@ -11,6 +11,7 @@ export const rolePermissionTemplates: Record<RoleType, PermissionMap> = {
   Admin: {
     branches: { read: true },
     students: { read: true, create: true, update: true, delete: true, export: true },
+    staff: { read: true, create: true, update: true },
     tuition: { read: true, update: true },
     accounting: { read: true },
     backup: { read: true, create: true },
@@ -24,22 +25,26 @@ export const rolePermissionTemplates: Record<RoleType, PermissionMap> = {
   Lecturer: {
     students: { read: true },
     grades: { read: true, update: true },
+    staff: { read: true },
   },
   Accountant: {
     accounting: { read: true, create: true, update: true, delete: true, export: true, reports: true },
     students: { read: true },
     tuition: { read: true, update: true },
+    staff: { read: true },
   },
   'Dean of Studies': {
     students: { read: true, update: true, export: true },
     grades: { read: true, update: true },
     programs: { read: true, update: true },
     departments: { read: true },
+    staff: { read: true },
   },
   'Head Of Department': {
     students: { read: true, update: true },
     programs: { read: true },
     grades: { read: true, update: true },
+    staff: { read: true },
   }
 };
 

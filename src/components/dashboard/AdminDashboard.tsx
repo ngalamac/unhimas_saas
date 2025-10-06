@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, GraduationCap, Building2, CreditCard, AlertCircle } from 'lucide-react';
+import { Users, GraduationCap, Building2, CreditCard, AlertCircle, Shield, Database } from 'lucide-react';
 import { formatXAF } from '../../utils/currency';
 import { useBranch } from '../../context/BranchContext';
 import { useAuth } from '../../context/AuthContext';
@@ -68,9 +68,10 @@ export const AdminDashboard: React.FC = () => {
   const isManagerViewingUnassigned = currentBranch && managedBranches.length > 0 && !managedBranches.find(b => (b as any)._id === (currentBranch as any)._id || (b as any).id === (currentBranch as any).id);
 
   // Account Management State
+  // Reduce sensitive admin-only controls from non-superadmin dashboards
   const [resetLoading, setResetLoading] = React.useState(false);
   const [resetMsg, setResetMsg] = React.useState('');
-  const adminEmail = 'superadminunhimas@gmail.com'; // Replace with dynamic value if available
+  const adminEmail = 'superadminunhimas@gmail.com';
 
   const formatCurrency = (amount: number) => formatXAF(amount);
 
@@ -274,26 +275,29 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Account Management Interface */}
-      <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Management</h3>
-        <div className="flex flex-col md:flex-row md:items-center md:space-x-6 space-y-4 md:space-y-0">
-          <div>
-            <span className="font-medium text-gray-700">Admin Email:</span>
-            <span className="ml-2 text-gray-900">{adminEmail}</span>
+      {/* Account Management Interface (SuperAdmin only) */}
+      {user?.isSuperAdmin && (
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Management</h3>
+          <div className="flex flex-col md:flex-row md:items-center md:space-x-6 space-y-4 md:space-y-0">
+            <div>
+              <span className="font-medium text-gray-700">Admin Email:</span>
+              <span className="ml-2 text-gray-900">{adminEmail}</span>
+            </div>
+            <button
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-semibold shadow"
+              onClick={handleAdminPasswordReset}
+              disabled={resetLoading}
+            >
+              {resetLoading ? 'Sending...' : 'Reset Password'}
+            </button>
+            {resetMsg && <span className="text-green-700 font-medium ml-4">{resetMsg}</span>}
           </div>
-          <button
-            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-semibold shadow"
-            onClick={handleAdminPasswordReset}
-            disabled={resetLoading}
-          >
-            {resetLoading ? 'Sending...' : 'Reset Password'}
-          </button>
-          {resetMsg && <span className="text-green-700 font-medium ml-4">{resetMsg}</span>}
         </div>
-      </div>
+      )}
 
-      {/* Branch Overview */}
+      {/* Branch Overview (visible to managers and SuperAdmin only) */}
+      {(user?.isSuperAdmin || managedBranches.length > 0) && (
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Branch Overview</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -322,6 +326,7 @@ export const AdminDashboard: React.FC = () => {
           )}
         </div>
       </div>
+      )}
     </>
   );
 };

@@ -14,7 +14,7 @@ interface QuickStats {
 }
 
 export const QuickStatsBar: React.FC = () => {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const { currentBranch } = useBranch();
   const [stats, setStats] = useState<QuickStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,24 +33,25 @@ export const QuickStatsBar: React.FC = () => {
         params.append('branch', (currentBranch as any)._id);
       }
 
-      const [studentsRes, accountingRes, branchesRes] = await Promise.all([
-        fetchClient.get(`/api/students/stats/overview?${params.toString()}`),
-        fetchClient.get(`/api/accounting/summary?${params.toString()}`),
-        fetchClient.get('/api/branches')
-      ]);
+      const requests: Array<Promise<Response>> = [];
+      // Only fetch what user can see
+      if (can('students','read')) requests.push(fetchClient.get(`/api/students/stats/overview?${params.toString()}`)); else requests.push(Promise.resolve(new Response('{}', { status: 200 })));
+      if (can('accounting','read')) requests.push(fetchClient.get(`/api/transactions/summary?${params.toString()}`)); else requests.push(Promise.resolve(new Response('{}', { status: 200 })));
+      if ((user as any)?.isSuperAdmin && can('branches','read')) requests.push(fetchClient.get('/api/branches')); else requests.push(Promise.resolve(new Response('[]', { status: 200 })));
 
+      const [studentsRes, financeRes, branchesRes] = await Promise.all(requests);
       const studentsData = studentsRes.ok ? await studentsRes.json() : {};
-      const accountingData = accountingRes.ok ? await accountingRes.json() : {};
+      const financeData = financeRes.ok ? await financeRes.json() : {};
       const branchesData = branchesRes.ok ? await branchesRes.json() : {};
 
       const branches = Array.isArray(branchesData) ? branchesData : (branchesData.data || []);
 
       setStats({
-        totalStudents: studentsData.total || 0,
-        totalRevenue: accountingData.summary?.totalIncome || 0,
-        pendingPayments: studentsData.tuition?.pending || 0,
-        activeBranches: branches.filter((b: any) => b.isActive).length,
-        systemHealth: 'good' // This could be calculated based on various factors
+        totalStudents: studentsData.data?.total ?? studentsData.total ?? 0,
+        totalRevenue: financeData.data?.totalIncome ?? financeData.summary?.totalIncome ?? 0,
+        pendingPayments: studentsData.data?.tuition?.pending ?? studentsData.tuition?.pending ?? 0,
+        activeBranches: Array.isArray(branches) ? branches.filter((b: any) => b.isActive).length : 0,
+        systemHealth: 'good'
       });
     } catch (error) {
       console.error('Failed to fetch quick stats:', error);

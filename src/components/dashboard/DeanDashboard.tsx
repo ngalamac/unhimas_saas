@@ -1,12 +1,31 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { GraduationCap, Users, BookOpen, TrendingUp, Award, Calendar } from 'lucide-react';
+import fetchClient from '../../lib/fetchClient';
 
 export const DeanDashboard: React.FC = () => {
-  const currentBatch = getCurrentBatchData();
-  const totalPrograms = mockPrograms.filter(p => p.isActive).length;
-  const totalStudents = mockStudents.length;
-  const totalCourses = mockCourses.filter(c => c.isActive).length;
-  const averageGPA = mockGrades.reduce((sum, g) => sum + g.gpa, 0) / mockGrades.length;
+  const [totalPrograms, setTotalPrograms] = useState(0);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [totalCourses, setTotalCourses] = useState(0);
+  const [averageGPA, setAverageGPA] = useState(0);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [progRes, studRes, coursesRes] = await Promise.all([
+          fetchClient.get('/api/programs'),
+          fetchClient.get('/api/students/stats/overview'),
+          fetchClient.get('/api/courses'),
+        ]);
+        const progs = progRes.ok ? await progRes.json() : [];
+        const studs = studRes.ok ? await studRes.json() : {};
+        const courses = coursesRes.ok ? await coursesRes.json() : [];
+        setTotalPrograms((Array.isArray(progs) ? progs : (progs.data || [])).filter((p: any) => p.isActive !== false).length);
+        setTotalStudents(studs?.data?.total || studs?.total || 0);
+        setTotalCourses((Array.isArray(courses) ? courses : (courses.data || [])).length);
+      } catch {}
+    };
+    load();
+  }, []);
 
   return (
     <>
@@ -15,7 +34,7 @@ export const DeanDashboard: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dean of Studies Dashboard</h1>
           <p className="text-gray-600">Academic oversight and program management</p>
-          <p className="text-sm text-blue-600">Current Batch: {currentBatch?.name}</p>
+          <p className="text-sm text-blue-600">Academic oversight and program management</p>
         </div>
         <div className="text-right">
           <div className="text-sm text-gray-600">{new Date().toLocaleDateString()}</div>
