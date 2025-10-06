@@ -250,8 +250,36 @@ export const AccountantDashboard: React.FC = () => {
                             const a = document.createElement('a'); a.href = url; a.download = 'finance_trends.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
                           } finally { setExporting(null); }
                         }} className={`px-3 py-1 rounded border text-sm ${exporting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100'}`}>CSV</button>
-                        <button disabled className="px-3 py-1 rounded border text-sm opacity-50 cursor-not-allowed" title="XLSX export coming soon">Excel</button>
-                        <button disabled className="px-3 py-1 rounded border text-sm opacity-50 cursor-not-allowed" title="PDF export coming soon">PDF</button>
+                        <button disabled={exporting!==null} onClick={async ()=>{
+                          try {
+                            setExporting('csv');
+                            const qs = new URLSearchParams();
+                            if (department) qs.set('department', department);
+                            if (currentBranch) qs.set('branch', (currentBranch as any)._id || (currentBranch as any).id);
+                            qs.set('format', 'csv');
+                            qs.set('lang', 'fr');
+                            const res = await fetchClient.get(`/api/transactions/export?${qs.toString()}`);
+                            if (!res.ok) { alert('Export failed'); setExporting(null); return; }
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a'); a.href = url; a.download = 'ecritures_fr.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                          } finally { setExporting(null); }
+                        }} className={`px-3 py-1 rounded border text-sm ${exporting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100'}`} title="Export FR CSV">FR CSV</button>
+                        <button disabled={exporting!==null} onClick={async ()=>{
+                          try {
+                            setExporting('xlsx');
+                            const qs = new URLSearchParams();
+                            if (department) qs.set('department', department);
+                            if (currentBranch) qs.set('branch', (currentBranch as any)._id || (currentBranch as any).id);
+                            qs.set('format', 'xlsx');
+                            qs.set('lang', 'en');
+                            const res = await fetchClient.get(`/api/transactions/export?${qs.toString()}`);
+                            if (!res.ok) { alert('Export failed'); setExporting(null); return; }
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a'); a.href = url; a.download = 'journal_entries_en.xlsx'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                          } finally { setExporting(null); }
+                        }} className={`px-3 py-1 rounded border text-sm ${exporting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100'}`} title="Export EN XLSX">EN Excel</button>
                       </div>
                     </div>
                     <div className="space-y-3">

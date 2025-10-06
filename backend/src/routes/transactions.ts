@@ -50,14 +50,65 @@ router.get('/', authMiddleware, requireBranchAccess(), requirePermission('accoun
 // Export journal entries to CSV or XLSX
 router.get('/export', authMiddleware, requireBranchAccess(), requirePermission('accounting:view'), async (req: any, res) => {
     try {
-        const { format = 'csv' } = req.query;
-        const entries = await JournalEntry.find().populate('createdBy', 'name').populate('lines.account', 'name');
+        const { format = 'csv', lang = 'en', from, to, branch, department, status } = req.query as any;
+
+        const t = (key: string) => {
+            const fr: Record<string,string> = {
+                date: 'Date',
+                memo: 'Libellé',
+                status: 'Statut',
+                account: 'Compte',
+                debit: 'Débit',
+                credit: 'Crédit',
+                createdBy: 'Créé par',
+                journalEntries: 'Écritures',
+                approved: 'Approuvé',
+                pending: 'En attente',
+                rejected: 'Rejeté',
+            };
+            const en: Record<string,string> = {
+                date: 'Date',
+                memo: 'Memo',
+                status: 'Status',
+                account: 'Account',
+                debit: 'Debit',
+                credit: 'Credit',
+                createdBy: 'Created By',
+                journalEntries: 'Journal Entries',
+                approved: 'approved',
+                pending: 'pending',
+                rejected: 'rejected',
+            };
+            return (String(lang).toLowerCase() === 'fr' ? fr : en)[key] || key;
+        };
+
+        const translateStatus = (s: string) => {
+            const map: any = { approved: t('approved'), pending: t('pending'), rejected: t('rejected') };
+            return map[String(s).toLowerCase()] || s;
+        };
+
+        const formatDate = (d: any) => {
+            try { return new Date(d).toLocaleDateString(String(lang).toLowerCase() === 'fr' ? 'fr-FR' : 'en-US'); } catch { return String(d); }
+        };
+
+        const filter: any = {};
+        if (!req.user?.isSuperAdmin && req.user?.branch) filter.branch = req.user.branch; else if (branch) filter.branch = branch;
+        if (department) filter.department = department;
+        if (status) filter.status = status;
+        if (from || to) filter.date = {};
+        if (from) filter.date.$gte = new Date(from);
+        if (to) filter.date.$lte = new Date(to);
+
+        const entries = await JournalEntry.find(filter)
+          .sort({ date: -1, createdAt: -1 })
+          .populate('createdBy', 'name')
+          .populate('lines.account', 'name');
 
         const flattened = entries.flatMap(entry =>
             entry.lines.map(line => ({
-                date: entry.date,
+                date: formatDate(entry.date),
                 memo: entry.memo,
-                status: entry.status,
+                status: translateStatus(entry.status),
                 account: (line.account as any)?.name || 'N/A',
                 debit: line.debit,
                 credit: line.credit,
@@ -66,28 +117,37 @@ router.get('/export', authMiddleware, requireBranchAccess(), requirePermission('
         );
 
         if (format === 'csv') {
-            const json2csv = new Json2csvParser();
+            const fields = [
+              { label: t('date'), value: 'date' },
+              { label: t('memo'), value: 'memo' },
+              { label: t('status'), value: 'status' },
+              { label: t('account'), value: 'account' },
+              { label: t('debit'), value: 'debit' },
+              { label: t('credit'), value: 'credit' },
+              { label: t('createdBy'), value: 'createdBy' },
+            ];
+            const json2csv = new Json2csvParser({ fields });
             const csv = json2csv.parse(flattened);
-            res.header('Content-Type', 'text/csv');
-            res.attachment('journal_entries.csv');
-            return res.send(csv);
+            res.header('Content-Type', 'text/csv; charset=utf-8');
+            res.attachment(`${t('journalEntries').toLowerCase().replace(/\s+/g,'_')}_${lang}.csv`);
+            return res.send('\uFEFF' + csv); // prepend BOM for Excel UTF-8 support
         }
 
         if (format === 'xlsx') {
             const workbook = new ExcelJS.Workbook();
-            const sheet = workbook.addWorksheet('Journal Entries');
+            const sheet = workbook.addWorksheet(t('journalEntries'));
             sheet.columns = [
-                { header: 'Date', key: 'date', width: 20 },
-                { header: 'Memo', key: 'memo', width: 40 },
-                { header: 'Status', key: 'status', width: 15 },
-                { header: 'Account', key: 'account', width: 30 },
-                { header: 'Debit', key: 'debit', width: 15 },
-                { header: 'Credit', key: 'credit', width: 15 },
-                { header: 'Created By', key: 'createdBy', width: 30 },
+                { header: t('date'), key: 'date', width: 20 },
+                { header: t('memo'), key: 'memo', width: 40 },
+                { header: t('status'), key: 'status', width: 15 },
+                { header: t('account'), key: 'account', width: 30 },
+                { header: t('debit'), key: 'debit', width: 15 },
+                { header: t('credit'), key: 'credit', width: 15 },
+                { header: t('createdBy'), key: 'createdBy', width: 30 },
             ];
             sheet.addRows(flattened);
             res.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            res.attachment('journal_entries.xlsx');
+            res.attachment(`${t('journalEntries').toLowerCase().replace(/\s+/g,'_')}_${lang}.xlsx`);
             await workbook.xlsx.write(res);
             return res.end();
         }
