@@ -13,6 +13,7 @@ export type Feature =
   | 'accounting'
   | 'grades'
   | 'backup'
+  | 'admissions'
   | 'users';
 
 export type Action = 'read' | 'write' | 'create' | 'update' | 'delete' | 'export' | 'manage' | 'reports' | 'stats' | 'upload';
