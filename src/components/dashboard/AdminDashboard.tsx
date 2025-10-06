@@ -147,7 +147,7 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Admin Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="card p-6">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <Users className="w-6 h-6 text-blue-600" />
@@ -160,7 +160,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="card p-6">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <Building2 className="w-6 h-6 text-green-600" />
@@ -173,7 +173,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="card p-6">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <CreditCard className="w-6 h-6 text-purple-600" />
@@ -186,7 +186,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="card p-6">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
               <AlertCircle className="w-6 h-6 text-orange-600" />
@@ -202,7 +202,7 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="card p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="space-y-3">
             <button 
@@ -231,7 +231,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="card p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activities</h3>
           <div className="space-y-3">
             <div className="flex items-center space-x-3 text-sm">
@@ -252,7 +252,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="card p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -277,7 +277,7 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Account Management Interface (SuperAdmin only) */}
       {user?.isSuperAdmin && (
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+      <div className="card p-6 mb-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Management</h3>
           <div className="flex flex-col md:flex-row md:items-center md:space-x-6 space-y-4 md:space-y-0">
             <div>
@@ -298,7 +298,7 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Branch Overview (visible to managers and SuperAdmin only) */}
       {(user?.isSuperAdmin || managedBranches.length > 0) && (
-      <div className="bg-white rounded-lg shadow-sm border p-6">
+      <div className="card p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Branch Overview</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {managedBranches.length > 0 ? (
