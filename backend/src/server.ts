@@ -28,6 +28,7 @@ import teachingSessionsRouter from './routes/teachingSessions';
 import backupRouter from './routes/backup';
 import ohadaRoutes from './routes/ohada';
 import roleTemplatesRouter from './routes/roleTemplates';
+import admissionsRouter from './routes/admissions';
 import adminRouter from './routes/admin';
 import { eventsHandler } from './lib/events';
 import User from './models/User';
@@ -198,6 +199,7 @@ app.use('/api/uploads', uploadsRouter);
 app.use('/api/communication', communicationRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/role-templates', roleTemplatesRouter);
+app.use('/api/admissions', admissionsRouter);
 
 // Server-Sent Events
 app.get('/api/events', eventsHandler);

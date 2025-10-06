@@ -1,19 +1,23 @@
 import express from 'express';
 import Department from '../models/Department';
 import Program from '../models/Program';
+import authMiddleware, { requirePermission, requireBranchAccess, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, requirePermission(['departments:read','programs:read']), async (req: AuthRequest, res) => {
   try {
     // Fetch departments with program populated
     const depts = await Department.find().populate('program').lean();
 
     // Aggregate student counts by department
     const Student = (await import('../models/Student')).default;
+    const match: any = {};
+    if (req.user && !req.user.isSuperAdmin && req.user.branch) match.branch = req.user.branch;
     const counts = await Student.aggregate([
+      { $match: match },
       { $group: { _id: '$department', studentsCount: { $sum: 1 } } }
-    ]);
+    ] as any);
     const countMap: Record<string, number> = {};
     counts.forEach(c => { if (c && c._id) countMap[c._id.toString()] = c.studentsCount; });
 
@@ -30,7 +34,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, requirePermission(['departments:create','programs:write']), async (req, res) => {
   try {
     const { name, code, program } = req.body;
     if (!name || !program) return res.status(400).json({ message: 'name and program are required' });
@@ -45,7 +49,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, requirePermission(['departments:update','programs:write']), async (req, res) => {
   try {
     const { program } = req.body;
     if (program) {
@@ -59,7 +63,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, requirePermission(['departments:delete','programs:write']), async (req, res) => {
   const dept = await Department.findByIdAndDelete(req.params.id);
   if (dept && dept.program) {
     const Program = (await import('../models/Program')).default;

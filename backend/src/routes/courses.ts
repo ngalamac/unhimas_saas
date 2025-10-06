@@ -1,4 +1,5 @@
 import express from 'express';
+import authMiddleware, { requirePermission, requireBranchAccess, AuthRequest } from '../middleware/auth';
 import Course from '../models/Course';
 import Program from '../models/Program';
 import Department from '../models/Department';
@@ -7,7 +8,7 @@ import Specialty from '../models/Specialty';
 const router = express.Router();
 
 // list courses with optional filters
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, requirePermission(['programs:read','departments:read']), async (req: AuthRequest, res) => {
   const { programId, departmentId, specialtyId, semester } = req.query as any;
   const filter: any = {};
   if (programId) filter.program = programId;
@@ -19,7 +20,7 @@ router.get('/', async (req, res) => {
   res.json(courses);
 });
 
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, requirePermission(['programs:create','departments:read']), async (req: AuthRequest, res) => {
   const { title, code, credit, department, semester, caWeight, examWeight, program: bodyProgram, specialty: bodySpecialty } = req.body;
   if (!title || !code || !department) return res.status(400).json({ message: 'title, code and department are required' });
   try {
@@ -64,7 +65,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, requirePermission(['programs:update']), async (req: AuthRequest, res) => {
   const payload = req.body;
   try {
     const course = await Course.findByIdAndUpdate(req.params.id, payload, { new: true });
@@ -74,7 +75,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, requirePermission(['programs:delete']), async (req, res) => {
   await Course.findByIdAndDelete(req.params.id);
   res.status(204).send();
 });

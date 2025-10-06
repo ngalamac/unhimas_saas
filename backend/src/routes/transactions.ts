@@ -1,5 +1,5 @@
 import express from 'express';
-import { requirePermission } from '../middleware/auth';
+import authMiddleware, { requirePermission, requireBranchAccess, AuthRequest } from '../middleware/auth';
 import { expenseCategories, incomeCategories } from '../data/accountingCategories';
 import ExcelJS from 'exceljs';
 import multer from 'multer';
@@ -19,14 +19,14 @@ const router = express.Router();
 const allAllowedCategories = new Set([...expenseCategories.map(c => c.toLowerCase()), ...incomeCategories.map(c => c.toLowerCase())]);
 
 // GET /api/transactions - List all journal entries with pagination
-router.get('/', requirePermission('accounting:view'), async (req, res) => {
+router.get('/', authMiddleware, requireBranchAccess(), requirePermission('accounting:view'), async (req: AuthRequest, res) => {
     try {
         const { page = '1', limit = '20', from, to, branch } = req.query as any;
         const p = Math.max(1, parseInt(page, 10) || 1);
         const l = Math.min(1000, Math.max(1, parseInt(limit, 10) || 20));
 
         const filter: any = {};
-        if (branch) filter.branch = branch;
+        if (!req.user?.isSuperAdmin && req.user?.branch) filter.branch = req.user.branch; else if (branch) filter.branch = branch;
         if (from || to) filter.date = {};
         if (from) filter.date.$gte = new Date(from);
         if (to) filter.date.$lte = new Date(to);
@@ -48,7 +48,7 @@ router.get('/', requirePermission('accounting:view'), async (req, res) => {
 });
 
 // Export journal entries to CSV or XLSX
-router.get('/export', requirePermission('accounting:view'), async (req: any, res) => {
+router.get('/export', authMiddleware, requireBranchAccess(), requirePermission('accounting:view'), async (req: any, res) => {
     try {
         const { format = 'csv' } = req.query;
         const entries = await JournalEntry.find().populate('createdBy', 'name').populate('lines.account', 'name');
@@ -279,13 +279,14 @@ router.post('/:id/reject', requirePermission('accounting:approve'), async (req: 
 });
 
 // GET /api/transactions/summary - Financial summary
-router.get('/summary', requirePermission('accounting:view'), async (req: any, res) => {
+router.get('/summary', authMiddleware, requireBranchAccess(), requirePermission('accounting:view'), async (req: any, res) => {
     try {
-        const { from, to, branch } = req.query;
+        const { from, to, branch, department } = req.query as any;
         const filter: any = { status: 'approved' }; // Only include approved transactions in summary
         if (from) filter.date = { ...filter.date, $gte: new Date(from as string) };
         if (to) filter.date = { ...filter.date, $lte: new Date(to as string) };
         if (branch) filter.branch = branch;
+        if (department) filter.department = department;
 
         const entries = await JournalEntry.find(filter).populate('lines.account');
 
@@ -315,20 +316,22 @@ router.get('/summary', requirePermission('accounting:view'), async (req: any, re
 });
 
 // GET /api/transactions/summary/trends - Monthly income vs expense (last 6 months)
-router.get('/summary/trends', requirePermission('accounting:view'), async (req: any, res) => {
+router.get('/summary/trends', authMiddleware, requireBranchAccess(), requirePermission('accounting:view'), async (req: any, res) => {
     try {
-        const { branch } = req.query;
+        const { branch, department, period = 'month' } = req.query as any;
         const now = new Date();
-        const results: { month: string; label: string; income: number; expense: number; net: number }[] = [];
+        const results: Array<{ key: string; label: string; income: number; expense: number; net: number }>[] = [] as any;
         for (let i = 5; i >= 0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const monthStart = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
-            const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
-            const monthKey = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`;
-            const label = monthStart.toLocaleString('en-US', { month: 'short' });
+            // compute bucket start/end according to period
+            const start = period === 'day' ? new Date(d.getFullYear(), d.getMonth(), now.getDate() - i) : new Date(d.getFullYear(), d.getMonth(), 1);
+            const end = period === 'day' ? new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1, 0, 0, 0, 0) : new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+            const key = period === 'day' ? start.toISOString().slice(0,10) : `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
+            const label = period === 'day' ? key : start.toLocaleString('en-US', { month: 'short' });
 
-            const filter: any = { status: 'approved', date: { $gte: monthStart, $lte: monthEnd } };
-            if (branch) filter.branch = branch;
+            const filter: any = { status: 'approved', date: { $gte: start, $lte: end } };
+            if (req.user && !req.user.isSuperAdmin && req.user.branch) filter.branch = req.user.branch; else if (branch) filter.branch = branch;
+            if (department) filter.department = department;
             const entries = await JournalEntry.find(filter).populate('lines.account');
             let income = 0;
             let expense = 0;
@@ -341,10 +344,10 @@ router.get('/summary/trends', requirePermission('accounting:view'), async (req: 
                     }
                 }
             }
-            results.push({ month: monthKey, label, income, expense, net: income - expense });
+            results.push({ key, label, income, expense, net: income - expense } as any);
         }
 
-        res.json({ data: { months: results } });
+        res.json({ data: { buckets: results, period } });
     } catch (err: any) {
         console.error('GET /api/transactions/summary/trends error', err);
         res.status(500).json({ error: { message: 'Failed to compute trends', details: err.message } });

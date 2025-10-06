@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DollarSign, CreditCard, TrendingUp, AlertCircle, FileText, Users, Mail, MessageSquare } from 'lucide-react';
 import { formatXAF } from '../../utils/currency';
 import { getJournalEntries } from '../../api/transactions';
@@ -6,26 +6,34 @@ import { getStudents } from '../../api/students';
 import { JournalEntry } from '../../types/accounting';
 import { Student } from '../../types/school';
 import fetchClient from '../../lib/fetchClient';
+import { useBranch } from '../../context/BranchContext';
 
 export const AccountantDashboard: React.FC = () => {
     const [summary, setSummary] = useState<{ totalIncome: number, totalExpense: number, net: number } | null>(null);
     const [recentTransactions, setRecentTransactions] = useState<JournalEntry[]>([]);
     const [unpaidStudents, setUnpaidStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
+    const [period, setPeriod] = useState<'day' | 'month' | 'year'>('month');
+    const [department, setDepartment] = useState<string>('');
+    const [exporting, setExporting] = useState<null | 'csv' | 'xlsx' | 'pdf'>(null);
+    const { currentBranch } = useBranch();
 
     useEffect(() => {
         async function fetchData() {
             try {
                 setLoading(true);
+                const qs = new URLSearchParams();
+                if (department) qs.set('department', department);
+                if (currentBranch) qs.set('branch', (currentBranch as any)._id || (currentBranch as any).id);
                 const [summaryRes, transactionsRes, studentsRes] = await Promise.all([
-                    fetchClient.get('/api/accounting/summary'),
-                    fetchClient.get('/api/accounting?limit=5'),
+                    fetchClient.get(`/api/transactions/summary?${qs.toString()}`),
+                    fetchClient.get(`/api/transactions?limit=5${currentBranch ? `&branch=${encodeURIComponent((currentBranch as any)._id || (currentBranch as any).id)}` : ''}`),
                     getStudents(undefined, 1, 5, { status: 'Overdue' })
                 ]);
 
                 if (summaryRes.ok) {
                     const body = await summaryRes.json();
-                    setSummary(body.summary || body.data || body);
+                    setSummary(body.data || body.summary || body);
                 }
 
                 if (transactionsRes.ok) {
@@ -42,7 +50,7 @@ export const AccountantDashboard: React.FC = () => {
             }
         }
         fetchData();
-    }, []);
+    }, [period, department]);
 
     if (loading) {
         return <div>Loading...</div>;
@@ -55,6 +63,14 @@ export const AccountantDashboard: React.FC = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Accountant Dashboard</h1>
                     <p className="text-gray-600">Financial management and fee tracking</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <select value={period} onChange={e=>setPeriod(e.target.value as any)} className="px-3 py-2 border rounded">
+                    <option value="day">Day</option>
+                    <option value="month">Month</option>
+                    <option value="year">Year</option>
+                  </select>
+                  <input value={department} onChange={e=>setDepartment(e.target.value)} placeholder="Department ID (optional)" className="px-3 py-2 border rounded" />
                 </div>
             </div>
 
@@ -150,7 +166,32 @@ export const AccountantDashboard: React.FC = () => {
                 </div>
 
                 <div className="bg-white p-6 rounded-lg shadow-sm border col-span-2">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Recent Transactions</h3>
+                      <div className="flex items-center gap-2">
+                        <button disabled={exporting!==null} onClick={async ()=>{
+                          try {
+                            setExporting('csv');
+                            // simple export of summary bucket by period using trends
+                            const qs = new URLSearchParams();
+                            if (department) qs.set('department', department);
+                            if (currentBranch) qs.set('branch', (currentBranch as any)._id || (currentBranch as any).id);
+                            qs.set('period', period);
+                            const res = await fetchClient.get(`/api/transactions/summary/trends?${qs.toString()}`);
+                            if (!res.ok) { alert('Export failed'); setExporting(null); return; }
+                            const data = await res.json();
+                            const rows = (data?.data?.buckets || []).map((b: any) => ({ label: b.label, income: b.income, expense: b.expense, net: b.net }));
+                            const header = 'Label,Income,Expense,Net\n';
+                            const csv = header + rows.map((r: any)=>`${r.label},${r.income},${r.expense},${r.net}`).join('\n');
+                            const blob = new Blob([csv], { type: 'text/csv' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a'); a.href = url; a.download = 'finance_trends.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                          } finally { setExporting(null); }
+                        }} className={`px-3 py-1 rounded border text-sm ${exporting ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100'}`}>CSV</button>
+                        <button disabled className="px-3 py-1 rounded border text-sm opacity-50 cursor-not-allowed" title="XLSX export coming soon">Excel</button>
+                        <button disabled className="px-3 py-1 rounded border text-sm opacity-50 cursor-not-allowed" title="PDF export coming soon">PDF</button>
+                      </div>
+                    </div>
                     <div className="space-y-3">
                         {recentTransactions.map((entry) => (
                             <div key={entry._id} className="flex items-center justify-between text-sm">
