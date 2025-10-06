@@ -35,3 +35,46 @@
     @apply bg-gray-500;
   }
 }
+
+/* Dark mode component harmonization */
+@layer components {
+  .card {
+    @apply bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-900 dark:border-gray-700;
+  }
+  .card-header {
+    @apply text-gray-900 dark:text-gray-100;
+  }
+  .card-subtle {
+    @apply text-gray-600 dark:text-gray-300;
+  }
+  .btn {
+    @apply px-3 py-2 rounded-lg border bg-white text-gray-800 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700 dark:hover:bg-gray-700;
+  }
+  .btn-primary {
+    @apply bg-blue-600 text-white border-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500;
+  }
+  .btn-danger {
+    @apply bg-red-600 text-white border-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500;
+  }
+  .input, .select, .textarea {
+    @apply bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 placeholder-gray-400 dark:placeholder-gray-400;
+  }
+  .table {
+    @apply bg-white dark:bg-gray-900;
+  }
+  .thead {
+    @apply bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200;
+  }
+  .tbody {
+    @apply divide-y divide-gray-200 dark:divide-gray-700;
+  }
+  .modal {
+    @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+  }
+  .modal-header {
+    @apply border-b border-gray-200 dark:border-gray-700;
+  }
+  .modal-footer {
+    @apply border-t border-gray-200 dark:border-gray-700;
+  }
+}
