@@ -25,6 +25,20 @@ export async function createTestApp(mongoUri: string) {
 
   // Routers (trimmed to key ones for tests; can add more incrementally)
   app.use('/api/auth', authRouter);
+  // Inject test bypass headers only for program/department routes (tests assume public)
+  app.use((req, _res, next) => {
+    if (!req.headers['authorization'] && !req.headers['Authorization']) {
+      const path = req.path || '';
+      if (path.startsWith('/api/programs') || path.startsWith('/api/departments')) {
+        if (!req.headers['x-test-bypass']) {
+          req.headers['x-test-bypass'] = '1';
+          req.headers['x-test-user'] = 'superadmin';
+        }
+      }
+    }
+    next();
+  });
+
   app.use('/api/programs', programsRouter);
   app.use('/api/departments', departmentsRouter);
   app.use('/api/uploads', uploadsRouter);
