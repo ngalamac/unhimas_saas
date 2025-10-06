@@ -281,38 +281,37 @@ export const DeanDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Program Overview (placeholder; to be wired later) */}
+      {/* Program Overview */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Overview</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {mockPrograms.map((program) => (
-            <div key={program.id} className="border rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-gray-900">{program.name}</h4>
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                  program.type === 'HND' ? 'bg-blue-100 text-blue-800' :
-                  program.type === 'Bachelor' ? 'bg-green-100 text-green-800' :
-                  'bg-purple-100 text-purple-800'
-                }`}>
-                  {program.type}
-                </span>
+          {programs.length ? (
+            programs.map((program: any) => (
+              <div key={program._id || program.id} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-gray-900">{program.name}</h4>
+                  <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                    {program.type || 'Program'}
+                  </span>
+                </div>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <div>Duration: {program.duration ?? 0} years</div>
+                  <div>Semesters/Year: {program.semestersPerYear ?? 2}</div>
+                  <div>Status: {program.isActive === false ? 'Inactive' : 'Active'}</div>
+                </div>
+                <div className="mt-3 flex space-x-2">
+                  <button className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">
+                    View Details
+                  </button>
+                  <button className="flex-1 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">
+                    Edit Program
+                  </button>
+                </div>
               </div>
-              <div className="space-y-1 text-sm text-gray-600">
-                <div>Duration: {program.duration} years</div>
-                <div>Courses: {program.courses.length}</div>
-                <div>Students: {mockStudents.filter(s => s.program.id === program.id).length}</div>
-                <div>HOD: {program.hod ? `${program.hod.firstName} ${program.hod.lastName}` : 'Not assigned'}</div>
-              </div>
-              <div className="mt-3 flex space-x-2">
-                <button className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">
-                  View Details
-                </button>
-                <button className="flex-1 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">
-                  Edit Program
-                </button>
-              </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <div className="text-sm text-gray-500">No programs found.</div>
+          )}
         </div>
       </div>
 
