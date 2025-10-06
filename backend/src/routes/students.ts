@@ -9,7 +9,7 @@ import authMiddleware, { AuthRequest, requirePermission, requireBranchAccess } f
 import { emitEvent } from '../lib/events';
 import { deleteFileFromGridFS } from '../services/fileService';
 import { recordGenericTransaction } from '../services/accountingService';
-import { calculateGpa } from '../services/gradeService';
+import { calculateGpa, calculateSemesterGpa } from '../services/gradeService';
 import { generateTranscript } from '../services/transcriptService';
 
 const router = express.Router();
@@ -1144,6 +1144,19 @@ router.get('/:id/gpa', authMiddleware, requirePermission('students:read'), requi
         console.error('Error calculating GPA:', e);
         return res.status(500).json({ error: { message: 'Failed to calculate GPA' } });
     }
+});
+
+// Semester GPA endpoint
+router.get('/:id/gpa/semester', authMiddleware, requirePermission('students:read'), requireBranchAccess(), async (req: AuthRequest, res) => {
+  try {
+    const semester = req.query.semester != null ? Number(req.query.semester) : undefined;
+    const academicYear = typeof req.query.academicYear === 'string' ? req.query.academicYear : undefined;
+    const data = await calculateSemesterGpa(req.params.id, { semester, academicYear });
+    res.json({ data });
+  } catch (e) {
+    console.error('Error calculating semester GPA:', e);
+    return res.status(500).json({ error: { message: 'Failed to calculate semester GPA' } });
+  }
 });
 
 router.get('/:id/transcript', authMiddleware, requirePermission(['students:read','students:export']), requireBranchAccess(), async (req: AuthRequest, res) => {

@@ -281,11 +281,12 @@ router.post('/:id/reject', requirePermission('accounting:approve'), async (req: 
 // GET /api/transactions/summary - Financial summary
 router.get('/summary', requirePermission('accounting:view'), async (req: any, res) => {
     try {
-        const { from, to, branch } = req.query;
+        const { from, to, branch, department } = req.query as any;
         const filter: any = { status: 'approved' }; // Only include approved transactions in summary
         if (from) filter.date = { ...filter.date, $gte: new Date(from as string) };
         if (to) filter.date = { ...filter.date, $lte: new Date(to as string) };
         if (branch) filter.branch = branch;
+        if (department) filter.department = department;
 
         const entries = await JournalEntry.find(filter).populate('lines.account');
 
@@ -317,18 +318,20 @@ router.get('/summary', requirePermission('accounting:view'), async (req: any, re
 // GET /api/transactions/summary/trends - Monthly income vs expense (last 6 months)
 router.get('/summary/trends', requirePermission('accounting:view'), async (req: any, res) => {
     try {
-        const { branch } = req.query;
+        const { branch, department, period = 'month' } = req.query as any;
         const now = new Date();
-        const results: { month: string; label: string; income: number; expense: number; net: number }[] = [];
+        const results: Array<{ key: string; label: string; income: number; expense: number; net: number }>[] = [] as any;
         for (let i = 5; i >= 0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const monthStart = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
-            const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
-            const monthKey = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`;
-            const label = monthStart.toLocaleString('en-US', { month: 'short' });
+            // compute bucket start/end according to period
+            const start = period === 'day' ? new Date(d.getFullYear(), d.getMonth(), now.getDate() - i) : new Date(d.getFullYear(), d.getMonth(), 1);
+            const end = period === 'day' ? new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1, 0, 0, 0, 0) : new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+            const key = period === 'day' ? start.toISOString().slice(0,10) : `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
+            const label = period === 'day' ? key : start.toLocaleString('en-US', { month: 'short' });
 
-            const filter: any = { status: 'approved', date: { $gte: monthStart, $lte: monthEnd } };
+            const filter: any = { status: 'approved', date: { $gte: start, $lte: end } };
             if (branch) filter.branch = branch;
+            if (department) filter.department = department;
             const entries = await JournalEntry.find(filter).populate('lines.account');
             let income = 0;
             let expense = 0;
@@ -341,10 +344,10 @@ router.get('/summary/trends', requirePermission('accounting:view'), async (req: 
                     }
                 }
             }
-            results.push({ month: monthKey, label, income, expense, net: income - expense });
+            results.push({ key, label, income, expense, net: income - expense } as any);
         }
 
-        res.json({ data: { months: results } });
+        res.json({ data: { buckets: results, period } });
     } catch (err: any) {
         console.error('GET /api/transactions/summary/trends error', err);
         res.status(500).json({ error: { message: 'Failed to compute trends', details: err.message } });
