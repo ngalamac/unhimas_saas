@@ -415,16 +415,16 @@ router.get('/summary/trends', authMiddleware, requireBranchAccess(), requirePerm
 });
 
 // POST /api/transactions - Create a simple transaction (e.g., from a form)
-router.post('/', requirePermission('accounting:create'), async (req: any, res) => {
+router.post('/', authMiddleware, requireBranchAccess(), requirePermission('accounting:create'), async (req: any, res) => {
     try {
-        const { type, category, amount, description, date, currency } = req.body;
-        if (!type || !category || !amount || !description || !date) {
-            return res.status(400).json({ error: { message: 'Missing required fields' } });
-        }
-
-        if (type !== 'income' && type !== 'expense') {
-            return res.status(400).json({ error: { message: 'Invalid type' } });
-        }
+        const { type, category, amount, description, date, currency } = req.body || {};
+        const errors: string[] = [];
+        if (!type || (type !== 'income' && type !== 'expense')) errors.push('type is required and must be income|expense');
+        if (!category || typeof category !== 'string') errors.push('category is required');
+        if (amount === undefined || isNaN(Number(amount)) || Number(amount) <= 0) errors.push('amount must be a positive number');
+        if (!description || typeof description !== 'string') errors.push('description is required');
+        if (!date || isNaN(Date.parse(String(date)))) errors.push('valid date is required');
+        if (errors.length) return res.status(400).json({ error: { message: 'Validation error', details: errors } });
 
         if (!allAllowedCategories.has(String(category).toLowerCase())) {
             return res.status(400).json({ error: { message: 'Invalid category' } });

@@ -11,11 +11,15 @@ const router = express.Router();
 // Create a new grade
 router.post('/', authMiddleware, requirePermission('academics:create'), async (req: AuthRequest, res) => {
     try {
-        const { student, course, semester, academicYear, caScore, examScore } = req.body;
-
-        if (!student || !course || !semester || !academicYear || caScore === undefined || examScore === undefined) {
-            return res.status(400).json({ error: { message: 'Missing required fields' } });
-        }
+        const { student, course, semester, academicYear, caScore, examScore } = req.body || {};
+        const errors: string[] = [];
+        if (!student) errors.push('student is required');
+        if (!course) errors.push('course is required');
+        if (semester === undefined || isNaN(Number(semester))) errors.push('semester is required');
+        if (!academicYear || typeof academicYear !== 'string') errors.push('academicYear is required');
+        if (caScore === undefined || isNaN(Number(caScore))) errors.push('caScore is required');
+        if (examScore === undefined || isNaN(Number(examScore))) errors.push('examScore is required');
+        if (errors.length) return res.status(400).json({ error: { message: 'Validation error', details: errors } });
 
         // Branch isolation: ensure creator can only grade students from their branch (unless SuperAdmin)
         const studentDoc = await Student.findById(student).select('branch');
@@ -29,7 +33,9 @@ router.post('/', authMiddleware, requirePermission('academics:create'), async (r
             return res.status(400).json({ error: { message: 'Invalid course ID' } });
         }
 
-        const totalScore = caScore * (courseDoc.caWeight || 0.3) + examScore * (courseDoc.examWeight || 0.7);
+        const caW = Math.max(0, Math.min(1, Number(courseDoc.caWeight || 0.3)));
+        const exW = Math.max(0, Math.min(1, Number(courseDoc.examWeight || 0.7)));
+        const totalScore = Number(caScore) * caW + Number(examScore) * exW;
 
         let letterGrade: keyof typeof gradingScale = 'F';
         let gradePoints = 0.0;
