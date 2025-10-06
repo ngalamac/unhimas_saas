@@ -403,6 +403,7 @@ const RoleTemplates: React.FC = () => {
   };
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -721,7 +722,6 @@ const RoleTemplates: React.FC = () => {
         </div>
       )}
     </div>
-
     {/* Confirm template delete modal */}
     {confirmDelete.open && (
       <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center">
@@ -735,6 +735,7 @@ const RoleTemplates: React.FC = () => {
         </div>
       </div>
     )}
+  </>
   );
 };
 
