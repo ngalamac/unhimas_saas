@@ -97,7 +97,7 @@ export const DeanDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions and Program Mix */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
@@ -114,6 +114,32 @@ export const DeanDashboard: React.FC = () => {
               <TrendingUp className="w-4 h-4" />
               <span>Academic Report</span>
             </button>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Mix</h3>
+          <div className="space-y-2">
+            {totalPrograms > 0 ? (
+              <>
+                <div className="flex items-center space-x-3">
+                  <span className="w-24 text-sm text-gray-600">Programs</span>
+                  <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-600" style={{ width: '100%' }} />
+                  </div>
+                  <span className="w-12 text-right text-sm text-gray-600">{totalPrograms}</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <span className="w-24 text-sm text-gray-600">Courses</span>
+                  <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-600" style={{ width: '100%' }} />
+                  </div>
+                  <span className="w-12 text-right text-sm text-gray-600">{totalCourses}</span>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-gray-500">No data</div>
+            )}
           </div>
         </div>
 
@@ -156,7 +182,7 @@ export const DeanDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Program Overview */}
+      {/* Program Overview (placeholder; to be wired later) */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Overview</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -76,6 +76,41 @@ const RegistrarDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Tuition status distribution */}
+      <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">Tuition Status Distribution</h3>
+        {stats ? (
+          <div>
+            {(() => {
+              const paid = stats.tuition?.paid || 0;
+              const partial = stats.tuition?.partial || 0;
+              const pending = stats.tuition?.pending || 0;
+              const overdue = stats.tuition?.overdue || 0;
+              const total = Math.max(1, paid + partial + pending + overdue);
+              const pct = (n: number) => Math.round((n / total) * 100);
+              return (
+                <>
+                  <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-green-500" style={{ width: `${pct(paid)}%` }} title={`Paid ${pct(paid)}%`} />
+                    <div className="h-full bg-yellow-500" style={{ width: `${pct(partial)}%` }} title={`Partial ${pct(partial)}%`} />
+                    <div className="h-full bg-blue-500" style={{ width: `${pct(pending)}%` }} title={`Pending ${pct(pending)}%`} />
+                    <div className="h-full bg-red-500" style={{ width: `${pct(overdue)}%` }} title={`Overdue ${pct(overdue)}%`} />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                    <div className="flex items-center space-x-2"><span className="w-3 h-3 bg-green-500 rounded-sm" /><span>Paid: {paid}</span></div>
+                    <div className="flex items-center space-x-2"><span className="w-3 h-3 bg-yellow-500 rounded-sm" /><span>Partial: {partial}</span></div>
+                    <div className="flex items-center space-x-2"><span className="w-3 h-3 bg-blue-500 rounded-sm" /><span>Pending: {pending}</span></div>
+                    <div className="flex items-center space-x-2"><span className="w-3 h-3 bg-red-500 rounded-sm" /><span>Overdue: {overdue}</span></div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500">Loading...</div>
+        )}
+      </div>
+
       {/* Enrollment trend sparkline */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Admissions Trend (6 months)</h3>
