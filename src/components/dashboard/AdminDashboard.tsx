@@ -71,7 +71,7 @@ export const AdminDashboard: React.FC = () => {
   // Reduce sensitive admin-only controls from non-superadmin dashboards
   const [resetLoading, setResetLoading] = React.useState(false);
   const [resetMsg, setResetMsg] = React.useState('');
-  const adminEmail = 'superadminunhimas@gmail.com';
+  const adminEmail = 'youremail'; // Replace with dynamic value if available
 
   const formatCurrency = (amount: number) => formatXAF(amount);
 
