@@ -90,6 +90,15 @@ const RawCourseModal: React.FC<CourseModalProps> = ({
               </select>
             </div>
             <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Specialty (optional)</label>
+              <select disabled={isView || !(formProgramId && formDepartmentId)} value={formSpecialtyId} onChange={e=>setFormSpecialtyId(e.target.value)} className="w-full px-3 py-2 border rounded">
+                <option value="">{!(formProgramId && formDepartmentId) ? 'Select Program & Department first' : 'Select Specialty'}</option>
+                {specialties
+                  .filter(s => (!formProgramId || String(s.program) === String(formProgramId)) && (!formDepartmentId || String(s.department) === String(formDepartmentId)))
+                  .map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">CA Weight *</label>
               <input disabled={isView} type="number" step="0.01" min={0} max={1} value={formCAWeight} onChange={e=>setFormCAWeight(Number(e.target.value) || 0)} className="w-full px-3 py-2 border rounded" />
             </div>
@@ -121,9 +130,11 @@ export const CoursesPage: React.FC = () => {
   const [filterProgram, setFilterProgram] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
   const [filterSemester, setFilterSemester] = useState('');
+  const [filterSpecialty, setFilterSpecialty] = useState('');
   const [search, setSearch] = useState('');
   const [programs, setPrograms] = useState<Program[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [specialties, setSpecialties] = useState<Array<{ _id: string; name: string; program: string; department: string }>>([]);
   // Modal state
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null);
   const [modalCourse, setModalCourse] = useState<Course | null>(null);
@@ -135,6 +146,7 @@ export const CoursesPage: React.FC = () => {
   const [formSemester, setFormSemester] = useState(1);
   const [formCAWeight, setFormCAWeight] = useState(0.3);
   const [formExamWeight, setFormExamWeight] = useState(0.7);
+  const [formSpecialtyId, setFormSpecialtyId] = useState('');
 
   // Initial fetch of programs & departments
   useEffect(() => { 
@@ -155,6 +167,7 @@ export const CoursesPage: React.FC = () => {
       if (filterProgram) params.append('programId', filterProgram);
       if (filterDepartment) params.append('departmentId', filterDepartment);
       if (filterSemester) params.append('semester', filterSemester);
+      if (filterSpecialty) params.append('specialtyId', filterSpecialty);
       const url = '/api/courses' + (params.toString() ? `?${params.toString()}` : '');
       try {
         const res = await fetchClient.get(url);
@@ -164,7 +177,24 @@ export const CoursesPage: React.FC = () => {
       } catch {}
     };
     fetch();
-  }, [filterProgram, filterDepartment, filterSemester]);
+  }, [filterProgram, filterDepartment, filterSemester, filterSpecialty]);
+
+  // Load specialties list when program or department changes
+  useEffect(() => {
+    const load = async () => {
+      const params = new URLSearchParams();
+      if (filterProgram) params.set('program', filterProgram);
+      if (filterDepartment) params.set('department', filterDepartment);
+      try {
+        const res = await fetchClient.get(`/api/specialties${params.toString() ? `?${params.toString()}` : ''}`);
+        if (!res.ok) { setSpecialties([]); return; }
+        const body = await res.json();
+        const list = Array.isArray(body) ? body : (body.data || []);
+        setSpecialties(list);
+      } catch { setSpecialties([]); }
+    };
+    load();
+  }, [filterProgram, filterDepartment]);
 
   // Ensure semester value stays within bounds if program changes
   useEffect(() => {
@@ -186,6 +216,7 @@ export const CoursesPage: React.FC = () => {
       setFormProgramId((course.program as any)?._id || (course.program as any)?.id || '');
       setFormDepartmentId((course.department as any)?._id || (course.department as any)?.id || '');
       setFormSemester(course.semester || 1);
+      setFormSpecialtyId(((course as any).specialty && ((course as any).specialty._id || (course as any).specialty.id)) || '');
       setFormCAWeight(course.caWeight ?? 0.3);
       setFormExamWeight(course.examWeight ?? 0.7);
     } else if (mode === 'create') {
@@ -197,6 +228,7 @@ export const CoursesPage: React.FC = () => {
       setFormSemester(1);
       setFormCAWeight(0.3);
       setFormExamWeight(0.7);
+      setFormSpecialtyId('');
     }
   }, []);
 
@@ -246,6 +278,7 @@ export const CoursesPage: React.FC = () => {
       credit: formCredit,
       program: formProgramId,
       department: formDepartmentId,
+      specialty: formSpecialtyId || undefined,
       semester: formSemester,
       caWeight: formCAWeight,
       examWeight: formExamWeight
@@ -366,6 +399,10 @@ export const CoursesPage: React.FC = () => {
             <select value={filterSemester} onChange={e=>setFilterSemester(e.target.value)} className="px-3 py-2 border rounded text-sm">
               <option value="">All Semesters</option>
               {Array.from({ length: 12 }, (_,i)=>i+1).map(s => <option key={s} value={s}>Semester {s}</option>)}
+            </select>
+            <select value={filterSpecialty} onChange={e=>setFilterSpecialty(e.target.value)} className="px-3 py-2 border rounded text-sm">
+              <option value="">All Specialties</option>
+              {specialties.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
             </select>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search title or code" className="px-3 py-2 border rounded text-sm w-56" />
           </div>

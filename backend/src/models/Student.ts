@@ -19,6 +19,7 @@ export interface IStudent extends Document {
   email?: string;
   program: mongoose.Types.ObjectId;
   department: mongoose.Types.ObjectId;
+  specialty: mongoose.Types.ObjectId;
   profilePicture?: string; // URL or path
   level?: string | number;
   session?: string;
@@ -107,6 +108,7 @@ const StudentSchema: Schema = new Schema({
   },
   program: { type: Schema.Types.ObjectId, ref: 'Program', required: true },
   department: { type: Schema.Types.ObjectId, ref: 'Department', required: true },
+  specialty: { type: Schema.Types.ObjectId, ref: 'Specialty', required: true },
   profilePicture: { type: String },
   level: { type: Schema.Types.Mixed },
   session: { type: String },
@@ -159,6 +161,7 @@ StudentSchema.index({ studentId: 1 });
 StudentSchema.index({ branch: 1 });
 StudentSchema.index({ program: 1 });
 StudentSchema.index({ department: 1 });
+StudentSchema.index({ specialty: 1 });
 StudentSchema.index({ createdBy: 1 });
 StudentSchema.index({ isActive: 1 });
 StudentSchema.index({ enrollmentStatus: 1 });
