@@ -309,6 +309,7 @@ export const CoursesPage: React.FC = () => {
   // edit/save flow not implemented yet for courses; update handler omitted to avoid unused symbol
 
   return (
+    <>
     <div className="p-6">
       <CourseModal
         mode={modalMode}
@@ -492,7 +493,6 @@ export const CoursesPage: React.FC = () => {
         </div>
       </div>
     </div>
-
     {/* Confirm delete modal */}
     {confirmDelete.open && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -523,5 +523,6 @@ export const CoursesPage: React.FC = () => {
         </div>
       </div>
     )}
+  </>
   );
 };
