@@ -10,6 +10,7 @@ import useSSE from '../../../lib/useSSE';
 import { useUI } from '../../../context/UIContext';
 import { getStudentGpa, downloadTranscript } from '../../../api/grades';
 import { GpaData } from '../../../types/grades';
+import fetchClient from '../../../lib/fetchClient';
 
 export const AllStudentsPage: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -926,7 +927,10 @@ export const AllStudentsPage: React.FC = () => {
               <div>
                   <h4 className="text-sm font-semibold">Academic Info</h4>
                   {gpaData ? (
-                      <div className="text-sm text-gray-700">GPA: {gpaData.gpa.toFixed(2)}</div>
+                      <div className="space-y-1">
+                        <div className="text-sm text-gray-700">Overall GPA: {gpaData.gpa.toFixed(2)}</div>
+                        <SemesterGpa studentId={getStudentId(viewStudent)} />
+                      </div>
                   ) : (
                       <div className="text-sm text-gray-500">Loading GPA...</div>
                   )}
@@ -955,6 +959,9 @@ export const AllStudentsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Semester GPA Inline Component */}
+      {/* Keep definition at file end to avoid re-renders */}
 
       {/* Email Composer Modal */}
       {emailModal.open && (
@@ -1288,6 +1295,48 @@ export const AllStudentsPage: React.FC = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+const SemesterGpa: React.FC<{ studentId?: string }> = ({ studentId }) => {
+  const [semester, setSemester] = React.useState<number | ''>('');
+  const [academicYear, setAcademicYear] = React.useState<string>('');
+  const [data, setData] = React.useState<{ gpa: number; totalCredits: number; totalGradePoints: number; count: number } | null>(null);
+  const [loading, setLoading] = React.useState(false);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!studentId) return;
+      if (semester === '' && !academicYear) return;
+      try {
+        setLoading(true);
+        const params = new URLSearchParams();
+        if (semester !== '') params.set('semester', String(semester));
+        if (academicYear) params.set('academicYear', academicYear);
+        const res = await fetchClient.get(`/api/students/${encodeURIComponent(String(studentId))}/gpa/semester?${params.toString()}`);
+        if (res.ok) {
+          const body = await res.json();
+          setData(body?.data || null);
+        }
+      } finally { setLoading(false); }
+    };
+    run();
+  }, [studentId, semester, academicYear]);
+
+  return (
+    <div className="text-xs text-gray-600">
+      <div className="flex items-center gap-2">
+        <select value={semester} onChange={e=>setSemester(e.target.value ? Number(e.target.value) : '')} className="px-2 py-1 border rounded">
+          <option value="">Sem</option>
+          {Array.from({ length: 12 }, (_,i)=>i+1).map(s=> <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={academicYear} onChange={e=>setAcademicYear(e.target.value)} className="px-2 py-1 border rounded">
+          <option value="">Year</option>
+          {(() => { const y = new Date().getFullYear(); return [ `${y-1}-${y}`, `${y}-${y+1}`, `${y+1}-${y+2}` ]; })().map(v => <option key={v} value={v}>{v}</option>)}
+        </select>
+        {loading ? <span>Loading…</span> : data ? <span>Sem GPA: {data.gpa.toFixed(2)}</span> : null}
+      </div>
     </div>
   );
 };
