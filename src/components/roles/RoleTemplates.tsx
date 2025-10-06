@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, GraduationCap, DollarSign, Building2, Copy, Plus, Trash2, X } from 'lucide-react';
+import { Shield, Users, GraduationCap, DollarSign, Building2, Copy, Plus, Trash2, X, Edit } from 'lucide-react';
 import fetchClient from '../../lib/fetchClient';
 import { dispatchPermissionsUpdated } from '../../utils/permissions';
 import { useAuth } from '../../context/AuthContext';
 import { useUI } from '../../context/UIContext';
+import { listRoleTemplates, setRoleDefaultTemplate } from '../../api/roleTemplates';
 
 interface RoleTemplate {
   id: string;
@@ -14,6 +15,7 @@ interface RoleTemplate {
   permissions: Record<string, string[]>;
   userCount: number;
   isDefault: boolean;
+  role?: string;
 }
 
 const defaultRoleTemplates: RoleTemplate[] = [
@@ -43,6 +45,21 @@ const defaultRoleTemplates: RoleTemplate[] = [
       reports: ['read', 'export']
     },
   userCount: 0,
+    isDefault: true
+  },
+  {
+    id: 'registrar',
+    name: 'Registrar',
+    description: 'Admissions and student records',
+    icon: <Users className="w-5 h-5" />,
+    color: 'bg-teal-100 text-teal-800 border-teal-200',
+    permissions: {
+      students: ['create', 'read', 'update', 'delete', 'export'],
+      admissions: ['read', 'update'],
+      departments: ['read'],
+      programs: ['read']
+    },
+    userCount: 0,
     isDefault: true
   },
   {
@@ -123,6 +140,8 @@ const RoleTemplates: React.FC = () => {
   const [detailsTemplate, setDetailsTemplate] = useState<RoleTemplate | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [applying, setApplying] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<RoleTemplate | null>(null);
+  const [editDraft, setEditDraft] = useState<{ name: string; description: string }>({ name: '', description: '' });
   const { showToast } = useUI();
   const { user: currentUser } = useAuth();
 
@@ -134,6 +153,12 @@ const RoleTemplates: React.FC = () => {
           const data = await res.json();
           setUsers(data.data || []);
         }
+        // Load current role defaults from backend and merge into UI templates
+        try {
+          const tpls = await listRoleTemplates();
+          const fromBackend = (tpls.data || []).map(rt => mapBackendTemplateToUI(rt as any));
+          setTemplates(prev => mergeTemplates(prev, fromBackend));
+        } catch (_) {}
       } catch (_) {}
     };
     load();
@@ -143,6 +168,7 @@ const RoleTemplates: React.FC = () => {
   const templateIdToType: Record<string, string> = {
     superadmin: 'SuperAdmin',
     admin: 'Admin',
+    registrar: 'Registrar',
     lecturer: 'Lecturer',
     accountant: 'Accountant',
     dean: 'Dean of Studies',
@@ -156,13 +182,69 @@ const RoleTemplates: React.FC = () => {
   };
 
   const buildPermissionMap = (perm: Record<string, string[]>): Record<string, Record<string, boolean>> => {
-    if (perm.all) return { all: { '*': true } };
+    if (perm.all) return { all: { '*': true } } as any;
     const map: Record<string, Record<string, boolean>> = {};
     Object.entries(perm).forEach(([feature, actions]) => {
       map[feature.toLowerCase()] = {};
       actions.forEach(a => { map[feature.toLowerCase()][a.toLowerCase()] = true; });
     });
     return map;
+  };
+
+  const mapBackendTemplateToUI = (rt: { role: string; permissions: Record<string, Record<string, boolean>>; isDefault: boolean; updatedAt?: string; }): RoleTemplate => {
+    const toStringArrays: Record<string, string[]> = {};
+    Object.entries(rt.permissions || {}).forEach(([feature, actions]) => {
+      const arr = Object.entries(actions || {})
+        .filter(([, v]) => v)
+        .map(([k]) => k);
+      if (arr.length > 0) toStringArrays[feature] = arr;
+    });
+    const id = roleToId(rt.role);
+    const meta = idToMeta(id);
+    return {
+      id,
+      role: rt.role,
+      name: meta.name,
+      description: meta.description,
+      icon: meta.icon,
+      color: meta.color,
+      permissions: toStringArrays,
+      userCount: 0,
+      isDefault: !!rt.isDefault,
+    };
+  };
+
+  const roleToId = (role: string): string => {
+    const map: Record<string, string> = {
+      SuperAdmin: 'superadmin',
+      Admin: 'admin',
+      Registrar: 'registrar',
+      Lecturer: 'lecturer',
+      Accountant: 'accountant',
+      'Dean of Studies': 'dean',
+      'Head Of Department': 'hod',
+    };
+    return map[role] || role.toLowerCase().replace(/\s+/g, '-');
+  };
+
+  const idToMeta = (id: string) => {
+    switch (id) {
+      case 'superadmin': return { name: 'Super Administrator', description: 'Complete system access and control', icon: <Shield className="w-5 h-5" />, color: 'bg-purple-100 text-purple-800 border-purple-200' };
+      case 'admin': return { name: 'Branch Administrator', description: 'Branch-level administrative access', icon: <Building2 className="w-5 h-5" />, color: 'bg-blue-100 text-blue-800 border-blue-200' };
+      case 'registrar': return { name: 'Registrar', description: 'Admissions and student records', icon: <Users className="w-5 h-5" />, color: 'bg-teal-100 text-teal-800 border-teal-200' };
+      case 'lecturer': return { name: 'Academic Lecturer', description: 'Teaching and academic management', icon: <GraduationCap className="w-5 h-5" />, color: 'bg-green-100 text-green-800 border-green-200' };
+      case 'accountant': return { name: 'Financial Officer', description: 'Financial management and accounting', icon: <DollarSign className="w-5 h-5" />, color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+      case 'dean': return { name: 'Dean of Studies', description: 'Academic oversight and program management', icon: <GraduationCap className="w-5 h-5" />, color: 'bg-indigo-100 text-indigo-800 border-indigo-200' };
+      case 'hod': return { name: 'Head of Department', description: 'Department-specific management', icon: <Users className="w-5 h-5" />, color: 'bg-pink-100 text-pink-800 border-pink-200' };
+      default: return { name: id, description: 'Custom role', icon: <Shield className="w-5 h-5" />, color: 'bg-gray-100 text-gray-800 border-gray-200' };
+    }
+  };
+
+  const mergeTemplates = (base: RoleTemplate[], incoming: RoleTemplate[]) => {
+    const byId: Record<string, RoleTemplate> = {};
+    base.forEach(t => { byId[t.id] = t; });
+    incoming.forEach(t => { byId[t.id] = { ...byId[t.id], ...t }; });
+    return Object.values(byId);
   };
 
   const handleApplyTemplate = async () => {
@@ -243,6 +325,31 @@ const RoleTemplates: React.FC = () => {
     showToast('Template deleted successfully', 'success');
   };
 
+  const handleEditTemplate = (template: RoleTemplate) => {
+    setEditingTemplate(template);
+    setEditDraft({ name: template.name, description: template.description });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingTemplate) return;
+    setTemplates(prev => prev.map(t => t.id === editingTemplate.id ? { ...t, name: editDraft.name, description: editDraft.description } : t));
+    setEditingTemplate(null);
+  };
+
+  const handleSetDefault = async (template: RoleTemplate) => {
+    try {
+      const role = template.role || templateIdToType[template.id];
+      if (!role) return;
+      const permissionMap = buildPermissionMap(template.permissions);
+      await setRoleDefaultTemplate(role, permissionMap);
+      setTemplates(prev => prev.map(t => (
+        (templateIdToType[t.id] || t.role) === role
+          ? { ...t, isDefault: t.id === template.id }
+          : t
+      )));
+    } catch (_) {}
+  };
+
   const getPermissionCount = (permissions: Record<string, string[]>) => {
     if (permissions.all) return 'All Permissions';
     return Object.values(permissions).flat().length + ' permissions';
@@ -292,6 +399,13 @@ const RoleTemplates: React.FC = () => {
                   >
                     <Copy className="w-4 h-4" />
                   </button>
+                  <button
+                    onClick={() => handleEditTemplate(template)}
+                    className="text-gray-400 hover:text-gray-600 p-1 rounded"
+                    title="Edit template"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
                   {!template.isDefault && (
                     <>
                       {/* Edit functionality reserved for future implementation */}
@@ -327,6 +441,9 @@ const RoleTemplates: React.FC = () => {
                   </button>
                   <button onClick={() => setDetailsTemplate(template)} className="flex-1 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 text-sm">
                     View Details
+                  </button>
+                  <button onClick={() => handleSetDefault(template)} className={`flex-1 px-3 py-2 rounded-lg text-sm ${template.isDefault ? 'bg-green-100 text-green-700 border border-green-200' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+                    {template.isDefault ? 'Default' : 'Set as Default'}
                   </button>
                 </div>
               </div>
@@ -470,6 +587,32 @@ const RoleTemplates: React.FC = () => {
             </div>
             <div className="p-6 border-t border-gray-200 flex justify-end">
               <button onClick={() => setDetailsTemplate(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Template Modal */}
+      {editingTemplate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Template</h3>
+              <button onClick={() => setEditingTemplate(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                <input value={editDraft.name} onChange={(e)=>setEditDraft(prev=>({...prev, name: e.target.value}))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea value={editDraft.description} onChange={(e)=>setEditDraft(prev=>({...prev, description: e.target.value}))} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <button onClick={()=>setEditingTemplate(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
+              <button onClick={handleSaveEdit} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save</button>
             </div>
           </div>
         </div>
