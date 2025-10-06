@@ -48,6 +48,8 @@ const UserManagementPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [formState, setFormState] = useState<{ name: string; email: string; password?: string; type: string; branch?: string; employeeId?: string }>({ name: '', email: '', password: '', type: 'Lecturer' });
+  const [formError, setFormError] = useState<string | null>(null);
 
   const { user } = useAuth();
   const { currentBranch, managedBranches } = useBranch();
@@ -98,6 +100,14 @@ const UserManagementPage: React.FC = () => {
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
+    setFormError(null);
+    setFormState({
+      name: user.name || '',
+      email: user.email || '',
+      type: user.type || 'Lecturer',
+      branch: user.branch?._id || '',
+      employeeId: user.employeeId || ''
+    });
     setShowForm(true);
   };
 
@@ -181,7 +191,7 @@ const UserManagementPage: React.FC = () => {
         </div>
         <div className="flex items-center space-x-3">
           <button 
-            onClick={() => setShowForm(true)}
+            onClick={() => { setEditingUser(null); setFormError(null); setFormState({ name: '', email: '', password: '', type: 'Lecturer', branch: (currentBranch as any)?._id || '' }); setShowForm(true); }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
           >
             <Plus className="w-4 h-4" />
@@ -470,6 +480,106 @@ const UserManagementPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Create/Edit User Modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">{editingUser ? 'Edit User' : 'Create User'}</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {formError && <div className="p-3 bg-red-50 text-red-700 rounded">{formError}</div>}
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                  <input value={formState.name} onChange={(e)=>setFormState(s=>({ ...s, name: e.target.value }))} className="w-full px-3 py-2 border rounded" placeholder="Jane Doe" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input value={formState.email} onChange={(e)=>setFormState(s=>({ ...s, email: e.target.value }))} className="w-full px-3 py-2 border rounded" placeholder="jane@example.com" />
+                </div>
+                {!editingUser && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" value={formState.password || ''} onChange={(e)=>setFormState(s=>({ ...s, password: e.target.value }))} className="w-full px-3 py-2 border rounded" placeholder="Min 6 characters" />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select value={formState.type} onChange={(e)=>setFormState(s=>({ ...s, type: e.target.value }))} className="w-full px-3 py-2 border rounded">
+                    <option value="SuperAdmin">SuperAdmin</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Registrar">Registrar</option>
+                    <option value="Lecturer">Lecturer</option>
+                    <option value="Accountant">Accountant</option>
+                    <option value="Dean of Studies">Dean of Studies</option>
+                    <option value="Head Of Department">Head Of Department</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                  <select
+                    value={formState.branch || ''}
+                    onChange={(e)=>setFormState(s=>({ ...s, branch: e.target.value }))}
+                    disabled={!((user as any)?.isSuperAdmin || (user as any)?.type === 'SuperAdmin' || (user as any)?.role === 'SuperAdmin')}
+                    className="w-full px-3 py-2 border rounded disabled:bg-gray-100"
+                  >
+                    <option value="">No branch assignment</option>
+                    {managedBranches.map((b: any) => (
+                      <option key={b._id || b.id} value={b._id || b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID (optional)</label>
+                  <input value={formState.employeeId || ''} onChange={(e)=>setFormState(s=>({ ...s, employeeId: e.target.value }))} className="w-full px-3 py-2 border rounded" placeholder="EMP-001" />
+                </div>
+              </div>
+            </div>
+            <div className="p-6 border-t flex justify-end gap-3">
+              <button onClick={() => { setShowForm(false); setEditingUser(null); }} className="px-4 py-2 border rounded">Cancel</button>
+              <button
+                onClick={async () => {
+                  try {
+                    setFormError(null);
+                    if (!formState.name || !formState.email || (!editingUser && !formState.password) || !formState.type) {
+                      setFormError('Please fill required fields');
+                      return;
+                    }
+                    const payload: any = {
+                      name: formState.name,
+                      email: formState.email,
+                      type: formState.type,
+                      employeeId: formState.employeeId || undefined,
+                    };
+                    if ((user as any)?.isSuperAdmin && formState.branch !== undefined) {
+                      payload.branch = formState.branch || '';
+                    }
+                    if (!editingUser) payload.password = formState.password;
+                    const res = editingUser
+                      ? await fetchClient.put(`/api/users/${editingUser._id}`, payload)
+                      : await fetchClient.postJson('/api/users', payload);
+                    if (!res.ok) {
+                      try { const b = await res.json(); setFormError(b?.error?.message || b?.message || 'Request failed'); } catch { setFormError('Request failed'); }
+                      return;
+                    }
+                    setShowForm(false);
+                    setEditingUser(null);
+                    await fetchUsers();
+                    await fetchStats();
+                  } catch (e: any) {
+                    setFormError(e?.message || 'Request failed');
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                {editingUser ? 'Save Changes' : 'Create User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
