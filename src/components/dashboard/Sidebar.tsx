@@ -56,6 +56,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const { currentPage, setCurrentPage, setBreadcrumb } = useNavigation();
   const { user } = useAuth();
   const { currentBranch } = useBranch();
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem('sidebarCollapsed') === 'true'; } catch { return false; }
+  });
 
   // Load user preferences
   useEffect(() => {
@@ -87,6 +90,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       }
     }
   }, []);
+
+  // Persist collapsed
+  useEffect(() => {
+    try { localStorage.setItem('sidebarCollapsed', collapsed ? 'true' : 'false'); } catch {}
+  }, [collapsed]);
 
   // Save expanded state
   useEffect(() => {
@@ -325,7 +333,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       {/* Sidebar */}
       <div className={`fixed left-0 top-0 h-full bg-white dark:bg-gray-800 shadow-lg z-50 transition-all duration-300 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
-      } lg:translate-x-0 lg:static lg:z-auto w-72`}>
+      } lg:translate-x-0 lg:static lg:z-auto ${collapsed ? 'w-16' : 'w-72'}`}>
         
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -337,21 +345,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                 className="w-8 h-8 object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).src = '/unhimas-logo.png'; }}
               />
-              <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Navigation</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Quick Access</div>
-              </div>
+              {!collapsed && (
+                <div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Navigation</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Quick Access</div>
+                </div>
+              )}
             </div>
-            <button
-              onClick={onToggle}
-              className="lg:hidden p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-            </button>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setCollapsed(!collapsed)}
+                className="hidden lg:inline-flex p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                <ChevronRight className={`w-4 h-4 text-gray-600 dark:text-gray-300 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+              </button>
+              <button
+                onClick={onToggle}
+                className="lg:hidden p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                title="Close"
+              >
+                <ChevronRight className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Search */}
+        {!collapsed && (
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -364,9 +385,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
             />
           </div>
         </div>
+        )}
 
         {/* Quick Access Section */}
-        {(favoritePages.length > 0 || recentPages.length > 0) && (
+        {(favoritePages.length > 0 || recentPages.length > 0) && !collapsed && (
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             {/* Favorites */}
             {favoritePages.length > 0 && (
@@ -439,9 +461,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         {/* Main Navigation */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-              Main Navigation
-            </h3>
+            {!collapsed && (
+              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+                Main Navigation
+              </h3>
+            )}
             <div className="space-y-1">
               {filteredItems.map((item) => (
                 <div key={item.id}>
@@ -464,19 +488,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                         <div className={`${currentPage === item.id ? 'text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                           {item.icon}
                         </div>
-                        <span className="font-medium">{item.label}</span>
+                        {!collapsed && <span className="font-medium">{item.label}</span>}
                         {item.badge && (
-                          <span className="px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">
+                          <span className={`px-2 py-0.5 text-xs bg-red-500 text-white rounded-full ${collapsed ? 'hidden' : ''}`}>
                             {item.badge}
                           </span>
                         )}
                         {item.isNew && (
-                          <span className="px-2 py-0.5 text-xs bg-green-500 text-white rounded-full">
+                          <span className={`px-2 py-0.5 text-xs bg-green-500 text-white rounded-full ${collapsed ? 'hidden' : ''}`}>
                             New
                           </span>
                         )}
                       </div>
-                      {item.hasSubmenu && (
+                      {item.hasSubmenu && !collapsed && (
                         <div className={`transition-transform duration-200 ${
                           expandedItems.includes(item.id) ? 'rotate-90' : ''
                         }`}>
@@ -500,7 +524,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                   </div>
 
                   {/* Submenu */}
-                  {item.hasSubmenu && expandedItems.includes(item.id) && item.submenuItems && (
+                  {item.hasSubmenu && !collapsed && expandedItems.includes(item.id) && item.submenuItems && (
                     <div className="ml-6 mt-1 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-4">
                       {item.submenuItems.map((subItem) => (
                         <div key={subItem.id} className="flex items-center">
