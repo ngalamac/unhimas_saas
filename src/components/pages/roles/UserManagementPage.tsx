@@ -181,6 +181,7 @@ const UserManagementPage: React.FC = () => {
   };
 
   return (
+    <>
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -580,7 +581,6 @@ const UserManagementPage: React.FC = () => {
         </div>
       )}
     </div>
-
       {/* Deactivate confirmation modal */}
       {confirmDeactivate.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -598,6 +598,7 @@ const UserManagementPage: React.FC = () => {
           </div>
         </div>
       )}
+  </>
   );
 };
 
