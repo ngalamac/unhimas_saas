@@ -144,20 +144,10 @@ export const DeanDashboard: React.FC = () => {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Performance</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span>HND Programs</span>
-              <span className="font-medium text-green-600">85%</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Bachelor Programs</span>
-              <span className="font-medium text-blue-600">78%</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Masters Programs</span>
-              <span className="font-medium text-purple-600">92%</span>
-            </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Performance (placeholder)</h3>
+          <div className="space-y-3 text-sm text-gray-600">
+            <p>Coming soon: charts from grades breakdown per program.</p>
+            <p>This will use average GPA per program and pass rates.</p>
           </div>
         </div>
 
