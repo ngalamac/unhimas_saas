@@ -81,6 +81,7 @@ export const FeeStructurePage: React.FC = () => {
   }
 
   return (
+    <>
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
