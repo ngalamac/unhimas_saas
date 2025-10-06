@@ -106,19 +106,21 @@ export const QuickStatsBar: React.FC = () => {
     <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 border-b border-gray-200 dark:border-gray-700 px-6 py-3 transition-colors">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-6">
-          {/* Students */}
-          <div className="flex items-center space-x-2">
-            <Users className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Students:</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{stats?.totalStudents || 0}</span>
-          </div>
+          {/* Students (hide when 0) */}
+          {stats && (stats.totalStudents ?? 0) > 0 && (
+            <div className="flex items-center space-x-2">
+              <Users className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Students:</span>
+              <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{stats.totalStudents}</span>
+            </div>
+          )}
 
           {/* Revenue (finance roles only) */}
-          {isFinance && (
+          {isFinance && stats && (stats.totalRevenue ?? 0) > 0 && (
             <div className="flex items-center space-x-2">
               <DollarSign className="w-4 h-4 text-green-600" />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Revenue:</span>
-              <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatXAF(stats?.totalRevenue || 0)}</span>
+              <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatXAF(stats.totalRevenue)}</span>
             </div>
           )}
 
