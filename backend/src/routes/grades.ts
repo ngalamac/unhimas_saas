@@ -1,5 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import ExcelJS from 'exceljs';
 import Grade, { gradingScale } from '../models/Grade';
 import Course from '../models/Course';
 import authMiddleware, { AuthRequest, requirePermission, requireBranchAccess } from '../middleware/auth';
@@ -270,5 +271,87 @@ router.get('/reports/program-performance/detailed', authMiddleware, requirePermi
   } catch (err: any) {
     console.error('GET /api/grades/reports/program-performance/detailed error', err);
     res.status(500).json({ error: { message: 'Failed to compute detailed performance', details: err?.message } });
+  }
+});
+
+// Export program performance with optional filters to CSV or XLSX
+// GET /api/grades/reports/program-performance/export?format=csv|xlsx&from=&to=&program=
+router.get('/reports/program-performance/export', authMiddleware, requirePermission(['grades','grades:read','programs:read']), async (req: AuthRequest, res) => {
+  try {
+    const { format = 'csv', from, to, program } = req.query as any;
+    const match: any = {};
+    if (from || to) {
+      match.createdAt = {} as any;
+      if (from) match.createdAt.$gte = new Date(from);
+      if (to) match.createdAt.$lte = new Date(to);
+    }
+
+    const pipeline: any[] = [
+      { $match: match },
+      { $lookup: { from: 'courses', localField: 'course', foreignField: '_id', as: 'courseInfo' } },
+      { $unwind: '$courseInfo' },
+      { $lookup: { from: 'programs', localField: 'courseInfo.program', foreignField: '_id', as: 'programInfo' } },
+      { $unwind: '$programInfo' },
+    ];
+    if (program && mongoose.Types.ObjectId.isValid(String(program))) {
+      pipeline.push({ $match: { 'programInfo._id': new mongoose.Types.ObjectId(String(program)) } });
+    }
+    pipeline.push({
+      $group: {
+        _id: '$programInfo._id',
+        programName: { $first: '$programInfo.name' },
+        count: { $sum: 1 },
+        avgGpa: { $avg: '$gradePoints' },
+        passCount: { $sum: { $cond: [ { $gte: ['$gradePoints', 2.0] }, 1, 0 ] } },
+        distribution: { $push: '$letterGrade' }
+      }
+    });
+
+    const results = await Grade.aggregate(pipeline);
+    const letterBuckets = ['A','B+','B','C+','C','D+','D','F'];
+    const rows = results.map((r: any) => {
+      const distMap: Record<string, number> = Object.create(null);
+      for (const l of letterBuckets) distMap[l] = 0;
+      for (const l of r.distribution || []) { if (typeof l === 'string' && distMap.hasOwnProperty(l)) distMap[l] += 1; }
+      const count = r.count || 0;
+      const avgGpa = Number((r.avgGpa || 0).toFixed(2));
+      const passRate = count > 0 ? Number(((r.passCount / count) * 100).toFixed(1)) : 0;
+      return {
+        program: r.programName,
+        count,
+        avgGpa,
+        passRate,
+        ...letterBuckets.reduce((acc: any, l) => { acc[l] = distMap[l]; return acc; }, {})
+      };
+    });
+
+    if (String(format).toLowerCase() === 'xlsx') {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Program Performance');
+      const header = ['Program','Count','AvgGPA','PassRate','A','B+','B','C+','C','D+','D','F'];
+      ws.addRow(header);
+      for (const r of rows) {
+        ws.addRow([r.program, r.count, r.avgGpa, r.passRate, r['A'], r['B+'], r['B'], r['C+'], r['C'], r['D+'], r['D'], r['F']]);
+      }
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="program-performance.xlsx"');
+      await wb.xlsx.write(res as any);
+      return res.end();
+    }
+
+    // CSV default
+    const header = ['Program','Count','AvgGPA','PassRate','A','B+','B','C+','C','D+','D','F'];
+    const lines = [header.join(',')];
+    for (const r of rows) {
+      const vals = [r.program, r.count, r.avgGpa, r.passRate, r['A'], r['B+'], r['B'], r['C+'], r['C'], r['D+'], r['D'], r['F']].map((v: any) => JSON.stringify(v ?? ''));
+      lines.push(vals.join(','));
+    }
+    const csv = lines.join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="program-performance.csv"');
+    return res.send(csv);
+  } catch (err: any) {
+    console.error('GET /api/grades/reports/program-performance/export error', err);
+    res.status(500).json({ error: { message: 'Failed to export program performance', details: err?.message } });
   }
 });

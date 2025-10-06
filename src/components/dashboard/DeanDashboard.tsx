@@ -284,7 +284,7 @@ export const DeanDashboard: React.FC = () => {
             <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
           </div>
           <div className="flex items-end">
-            <button onClick={() => { /* triggers useEffect via state already */ }} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Apply</button>
+            <button onClick={() => { /* state already bound triggers fetch */ }} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Apply</button>
           </div>
         </div>
         {/* Letter grade distribution */}
@@ -307,6 +307,17 @@ export const DeanDashboard: React.FC = () => {
           ) : (
             <div className="text-sm text-gray-500">Select a program and optionally a date range to view distribution.</div>
           )}
+        </div>
+        {/* Export */}
+        <div className="mt-6 flex gap-3">
+          <a
+            className="px-4 py-2 bg-gray-100 border rounded-lg text-sm hover:bg-gray-200"
+            href={`/api/grades/reports/program-performance/export?format=csv${selectedProgram ? `&program=${encodeURIComponent(selectedProgram)}` : ''}${filterFrom ? `&from=${encodeURIComponent(filterFrom)}` : ''}${filterTo ? `&to=${encodeURIComponent(filterTo)}` : ''}`}
+          >Export CSV</a>
+          <a
+            className="px-4 py-2 bg-gray-100 border rounded-lg text-sm hover:bg-gray-200"
+            href={`/api/grades/reports/program-performance/export?format=xlsx${selectedProgram ? `&program=${encodeURIComponent(selectedProgram)}` : ''}${filterFrom ? `&from=${encodeURIComponent(filterFrom)}` : ''}${filterTo ? `&to=${encodeURIComponent(filterTo)}` : ''}`}
+          >Export Excel</a>
         </div>
       </div>
     </>
