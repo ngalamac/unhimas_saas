@@ -187,7 +187,7 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-xs text-green-600">↗ +8% this month</p>
             </div>
           </div>
-        </div>)
+        </div>)}
 
         {isFinance && (
         <div className="card p-6">
@@ -201,7 +201,7 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-xs text-orange-600">Requires attention</p>
             </div>
           </div>
-        </div>)
+        </div>)}
       </div>
 
       {/* Quick Actions */}
