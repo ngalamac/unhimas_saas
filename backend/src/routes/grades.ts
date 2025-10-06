@@ -209,3 +209,66 @@ router.get('/reports/program-performance', authMiddleware, requirePermission(['g
     res.status(500).json({ error: { message: 'Failed to compute program performance', details: err?.message } });
   }
 });
+
+// Program performance with filters and detailed grade distribution
+// GET /api/grades/reports/program-performance/detailed?from=YYYY-MM-DD&to=YYYY-MM-DD&program=ID
+router.get('/reports/program-performance/detailed', authMiddleware, requirePermission(['grades','grades:read','programs:read']), async (req: AuthRequest, res) => {
+  try {
+    const { from, to, program } = req.query as any;
+    const match: any = {};
+    if (from || to) {
+      match.createdAt = {} as any;
+      if (from) match.createdAt.$gte = new Date(from);
+      if (to) match.createdAt.$lte = new Date(to);
+    }
+
+    const pipeline: any[] = [
+      { $match: match },
+      { $lookup: { from: 'courses', localField: 'course', foreignField: '_id', as: 'courseInfo' } },
+      { $unwind: '$courseInfo' },
+      { $lookup: { from: 'programs', localField: 'courseInfo.program', foreignField: '_id', as: 'programInfo' } },
+      { $unwind: '$programInfo' },
+    ];
+    if (program && mongoose.Types.ObjectId.isValid(String(program))) {
+      pipeline.push({ $match: { 'programInfo._id': new mongoose.Types.ObjectId(String(program)) } });
+    }
+    pipeline.push(
+      {
+        $group: {
+          _id: '$programInfo._id',
+          programName: { $first: '$programInfo.name' },
+          count: { $sum: 1 },
+          avgGpa: { $avg: '$gradePoints' },
+          passCount: { $sum: { $cond: [ { $gte: ['$gradePoints', 2.0] }, 1, 0 ] } },
+          distribution: {
+            $push: '$letterGrade'
+          }
+        }
+      }
+    );
+
+    const results = await Grade.aggregate(pipeline);
+    const mapped = results.map((r: any) => {
+      const letterBuckets = ['A','B+','B','C+','C','D+','D','F'];
+      const distMap: Record<string, number> = Object.create(null);
+      for (const l of letterBuckets) distMap[l] = 0;
+      for (const l of r.distribution || []) {
+        if (typeof l === 'string' && distMap.hasOwnProperty(l)) distMap[l] += 1;
+      }
+      const count = r.count || 0;
+      const breakdown = letterBuckets.map(l => ({ letter: l, count: distMap[l], pct: count > 0 ? +( (distMap[l] / count) * 100 ).toFixed(1) : 0 }));
+      return {
+        programId: r._id,
+        name: r.programName,
+        count,
+        avgGpa: Number((r.avgGpa || 0).toFixed(2)),
+        passRate: count > 0 ? Number(((r.passCount / count) * 100).toFixed(1)) : 0,
+        breakdown
+      };
+    });
+    res.json({ data: mapped });
+  } catch (err: any) {
+    console.error('GET /api/grades/reports/program-performance/detailed error', err);
+    res.status(500).json({ error: { message: 'Failed to compute detailed performance', details: err?.message } });
+  }
+});

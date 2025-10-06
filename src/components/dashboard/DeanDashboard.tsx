@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { GraduationCap, Users, BookOpen, TrendingUp, Award, Calendar } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import fetchClient from '../../lib/fetchClient';
-import fetchClient from '../../lib/fetchClient';
 
 export const DeanDashboard: React.FC = () => {
   const [totalPrograms, setTotalPrograms] = useState(0);
@@ -10,6 +9,11 @@ export const DeanDashboard: React.FC = () => {
   const [totalCourses, setTotalCourses] = useState(0);
   const [averageGPA, setAverageGPA] = useState(0);
   const [performance, setPerformance] = useState<Array<{ name: string; avgGpa: number; passRate: number }>>([]);
+  const [programs, setPrograms] = useState<Array<{ _id: string; name: string; type?: string }>>([]);
+  const [filterFrom, setFilterFrom] = useState<string>('');
+  const [filterTo, setFilterTo] = useState<string>('');
+  const [selectedProgram, setSelectedProgram] = useState<string>('');
+  const [detailed, setDetailed] = useState<{ name: string; breakdown: Array<{ letter: string; count: number; pct: number }> } | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -22,7 +26,9 @@ export const DeanDashboard: React.FC = () => {
         const progs = progRes.ok ? await progRes.json() : [];
         const studs = studRes.ok ? await studRes.json() : {};
         const courses = coursesRes.ok ? await coursesRes.json() : [];
-        setTotalPrograms((Array.isArray(progs) ? progs : (progs.data || [])).filter((p: any) => p.isActive !== false).length);
+        const progArr = (Array.isArray(progs) ? progs : (progs.data || []));
+        setPrograms(progArr);
+        setTotalPrograms(progArr.filter((p: any) => p.isActive !== false).length);
         setTotalStudents(studs?.data?.total || studs?.total || 0);
         setTotalCourses((Array.isArray(courses) ? courses : (courses.data || [])).length);
       } catch {}
@@ -42,6 +48,25 @@ export const DeanDashboard: React.FC = () => {
     };
     loadPerformance();
   }, []);
+
+  useEffect(() => {
+    const loadDetailed = async () => {
+      if (!selectedProgram) { setDetailed(null); return; }
+      try {
+        const params = new URLSearchParams();
+        if (filterFrom) params.append('from', filterFrom);
+        if (filterTo) params.append('to', filterTo);
+        params.append('program', selectedProgram);
+        const res = await fetchClient.get(`/api/grades/reports/program-performance/detailed?${params.toString()}`);
+        if (res.ok) {
+          const body = await res.json();
+          const item = Array.isArray(body?.data) ? body.data.find((d: any) => String(d.programId) === String(selectedProgram)) || body.data[0] : null;
+          setDetailed(item ? { name: item.name, breakdown: item.breakdown || [] } : null);
+        }
+      } catch {}
+    };
+    loadDetailed();
+  }, [selectedProgram, filterFrom, filterTo]);
 
   return (
     <>
@@ -234,6 +259,54 @@ export const DeanDashboard: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Academic Performance Filters */}
+      <div className="bg-white rounded-lg shadow-sm border p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Academic Performance Filters</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Program</label>
+            <select value={selectedProgram} onChange={(e) => setSelectedProgram(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+              <option value="">Select program</option>
+              {programs.map((p) => (
+                <option key={p._id} value={p._id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">From</label>
+            <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">To</label>
+            <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          </div>
+          <div className="flex items-end">
+            <button onClick={() => { /* triggers useEffect via state already */ }} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Apply</button>
+          </div>
+        </div>
+        {/* Letter grade distribution */}
+        <div className="mt-6">
+          <h4 className="text-md font-semibold text-gray-900 mb-2">Letter Grade Distribution {detailed?.name ? `— ${detailed.name}` : ''}</h4>
+          {detailed?.breakdown?.length ? (
+            <div className="space-y-2">
+              {detailed.breakdown.map((b) => (
+                <div key={b.letter} className="grid grid-cols-6 gap-3 items-center text-sm">
+                  <div className="col-span-1 font-medium text-gray-900">{b.letter}</div>
+                  <div className="col-span-4">
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-indigo-600" style={{ width: `${Math.max(0, Math.min(100, b.pct))}%` }} />
+                    </div>
+                  </div>
+                  <div className="col-span-1 text-right text-gray-600">{b.pct}%</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">Select a program and optionally a date range to view distribution.</div>
+          )}
         </div>
       </div>
     </>
