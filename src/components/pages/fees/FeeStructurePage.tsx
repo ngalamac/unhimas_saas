@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { DollarSign, Plus, Edit, Trash2, Eye, Search, Filter, Copy, Calculator } from 'lucide-react';
 import { formatXAF } from '../../../utils/currency';
+import { useAuth } from '../../../context/AuthContext';
+import { isFinanceRole } from '../../../utils/rolePermissions';
 import { FeeStructure } from '../../../types/school';
 import fetchClient from '../../../lib/fetchClient';
 
 export const FeeStructurePage: React.FC = () => {
+  const { user } = useAuth();
+  const isFinance = isFinanceRole(((user as any)?.role || (user as any)?.type) as string);
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
   const [programs, setPrograms] = useState<Array<{ _id: string; name: string; type?: string }>>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -69,6 +73,10 @@ export const FeeStructurePage: React.FC = () => {
   const calculateTotal = (tuition: number, registration: number, exam: number, library: number) => {
     return tuition + registration + exam + library;
   };
+
+  if (!isFinance) {
+    return <div className="p-6 text-sm text-gray-600">Not authorized</div>;
+  }
 
   return (
     <div className="p-6">

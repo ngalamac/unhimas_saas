@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '../../context/NavigationContext';
+import { isFinanceRole } from '../../utils/rolePermissions';
 import { useBranch } from '../../context/BranchContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useUI } from '../../context/UIContext';
@@ -194,7 +195,8 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
         },
         shortcut: 'Ctrl+N'
       },
-      {
+      // Finance quick action only for finance roles
+      ...(isFinanceRole((user as any)?.role || (user as any)?.type) ? [{
         id: 'add-transaction',
         label: 'Add Transaction',
         icon: <MessageSquare className="w-4 h-4" />,
@@ -204,7 +206,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
           setShowQuickActions(false);
         },
         shortcut: 'Ctrl+T'
-      }
+      } as QuickAction] : [])
     ];
 
     // Add role-specific actions

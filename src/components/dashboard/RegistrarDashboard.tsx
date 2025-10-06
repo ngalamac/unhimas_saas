@@ -4,11 +4,15 @@ import { useUI } from '../../context/UIContext';
 import { useBranch } from '../../context/BranchContext';
 import { useNavigation } from '../../context/NavigationContext';
 import { getAdmissionStats } from '../../api/admissions';
+import { useAuth } from '../../context/AuthContext';
+import { isFinanceRole } from '../../utils/rolePermissions';
 
 const RegistrarDashboard: React.FC = () => {
   const { showToast } = useUI();
   const { currentBranch } = useBranch();
   const { setCurrentPage, setBreadcrumb } = useNavigation();
+  const { user } = useAuth();
+  const isFinance = isFinanceRole(((user as any)?.role || (user as any)?.type) as string);
   const [stats, setStats] = useState<{ total: number; today: number; tuition: { paid: number; partial: number; pending: number; overdue: number } } | null>(null);
   const [trend, setTrend] = useState<Array<{ label: string; newAdmissions: number; totalEnrolled: number }>>([]);
   const [admissions, setAdmissions] = useState<{ total: number; pending: number; approved: number; rejected: number } | null>(null);
@@ -102,10 +106,12 @@ const RegistrarDashboard: React.FC = () => {
           <div className="text-sm text-gray-600">Today Registrations</div>
           <div className="mt-2 text-3xl font-semibold text-gray-900">{stats ? stats.today : '—'}</div>
         </div>
-        <div className="card p-6">
-          <div className="text-sm text-gray-600">Pending Tuition</div>
-          <div className="mt-2 text-3xl font-semibold text-gray-900">{stats ? stats.tuition?.pending || 0 : '—'}</div>
-        </div>
+        {isFinance && (
+          <div className="card p-6">
+            <div className="text-sm text-gray-600">Pending Tuition</div>
+            <div className="mt-2 text-3xl font-semibold text-gray-900">{stats ? stats.tuition?.pending || 0 : '—'}</div>
+          </div>
+        )}
       </div>
 
       {/* Admissions KPIs */}
@@ -146,11 +152,12 @@ const RegistrarDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Tuition status distribution */}
-      <div className="card p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Tuition Status Distribution</h3>
-        {stats ? (
-          <div>
+      {/* Tuition status distribution (finance roles only) */}
+      {isFinance && (
+        <div className="card p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Tuition Status Distribution</h3>
+          {stats ? (
+            <div>
             {(() => {
               const paid = stats.tuition?.paid || 0;
               const partial = stats.tuition?.partial || 0;
@@ -192,11 +199,12 @@ const RegistrarDashboard: React.FC = () => {
                 </>
               );
             })()}
-          </div>
-        ) : (
-          <div className="text-sm text-gray-500">Loading...</div>
-        )}
-      </div>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">Loading...</div>
+          )}
+        </div>
+      )}
 
       {/* Enrollment trend sparkline */}
       <div className="card p-6">

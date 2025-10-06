@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BookOpen, Users, Calendar, TrendingUp, Clock, CheckCircle, DollarSign, Plus } from 'lucide-react';
+import { BookOpen, Users, Calendar, TrendingUp, Clock, CheckCircle, Plus } from 'lucide-react';
 import { useNavigation } from '../../context/NavigationContext';
 import { useAuth } from '../../context/AuthContext';
 import fetchClient from '../../lib/fetchClient';
 import { useBranch } from '../../context/BranchContext';
 import SemesterGpa from '../grades/SemesterGpa';
 import { formatXAF } from '../../utils/currency';
+import { isFinanceRole } from '../../utils/rolePermissions';
 
 export const LecturerDashboard: React.FC = () => {
   const { setCurrentPage, setBreadcrumb } = useNavigation();
@@ -73,6 +74,8 @@ export const LecturerDashboard: React.FC = () => {
     };
     load();
   }, [user?.employeeId, currentBranch]);
+
+  const isFinance = isFinanceRole(((user as any)?.role || (user as any)?.type) as string);
 
   return (
     <>
@@ -143,18 +146,20 @@ export const LecturerDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Est. Monthly Salary</p>
-              <p className="text-2xl font-bold text-gray-900">{formatXAF(summary.estimatedSalary)}</p>
-              <p className="text-xs text-yellow-600">{summary.totalHours}h @ {formatXAF(summary.hourlyRate)}/h</p>
+        {isFinance && (
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <span className="text-yellow-600 font-bold">XAF</span>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Est. Monthly Salary</p>
+                <p className="text-2xl font-bold text-gray-900">{formatXAF(summary.estimatedSalary)}</p>
+                <p className="text-xs text-yellow-600">{summary.totalHours}h @ {formatXAF(summary.hourlyRate)}/h</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Quick Actions */}
@@ -203,18 +208,22 @@ export const LecturerDashboard: React.FC = () => {
               <span className="text-gray-600">Hours Worked</span>
               <span className="font-medium text-gray-900">{currentMonthHours}h</span>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Hourly Rate</span>
-              <span className="font-medium text-gray-900">{formatXAF(hourlyRate)}</span>
-            </div>
+            {isFinance && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Hourly Rate</span>
+                <span className="font-medium text-gray-900">{formatXAF(hourlyRate)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600">Pending Sessions</span>
               <span className="font-medium text-yellow-600">{pendingSessions}</span>
             </div>
-            <div className="flex items-center justify-between text-sm border-t pt-3">
-              <span className="text-gray-900 font-medium">Estimated Salary</span>
-              <span className="font-bold text-green-600">{formatXAF(estimatedSalary)}</span>
-            </div>
+            {isFinance && (
+              <div className="flex items-center justify-between text-sm border-t pt-3">
+                <span className="text-gray-900 font-medium">Estimated Salary</span>
+                <span className="font-bold text-green-600">{formatXAF(estimatedSalary)}</span>
+              </div>
+            )}
           </div>
           <button 
             onClick={() => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, DollarSign, Building2, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { isFinanceRole } from '../../utils/rolePermissions';
 import { useBranch } from '../../context/BranchContext';
 import fetchClient from '../../lib/fetchClient';
 import { formatXAF } from '../../utils/currency';
@@ -16,6 +17,7 @@ interface QuickStats {
 export const QuickStatsBar: React.FC = () => {
   const { user, can } = useAuth();
   const { currentBranch } = useBranch();
+  const isFinance = isFinanceRole(((user as any)?.role || (user as any)?.type) as string);
   const [stats, setStats] = useState<QuickStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -111,15 +113,17 @@ export const QuickStatsBar: React.FC = () => {
             <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{stats?.totalStudents || 0}</span>
           </div>
 
-          {/* Revenue */}
-          <div className="flex items-center space-x-2">
-            <DollarSign className="w-4 h-4 text-green-600" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Revenue:</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatXAF(stats?.totalRevenue || 0)}</span>
-          </div>
+          {/* Revenue (finance roles only) */}
+          {isFinance && (
+            <div className="flex items-center space-x-2">
+              <DollarSign className="w-4 h-4 text-green-600" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Revenue:</span>
+              <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatXAF(stats?.totalRevenue || 0)}</span>
+            </div>
+          )}
 
-          {/* Pending Payments */}
-          {stats && stats.pendingPayments > 0 && (
+          {/* Pending Payments (finance roles only) */}
+          {isFinance && stats && stats.pendingPayments > 0 && (
             <div className="flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-yellow-600" />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Pending:</span>

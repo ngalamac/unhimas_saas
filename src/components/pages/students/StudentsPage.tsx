@@ -36,6 +36,8 @@ import { getTuitionPlans } from '../../../api/tuition';
 import { getTuitionStructures } from '../../../api/tuitionManagement';
 import StudentLedgerModal from '../../students/StudentLedgerModal';
 import StudentFinanceModal from '../../students/StudentFinanceModal';
+import { useAuth } from '../../../context/AuthContext';
+import { isFinanceRole } from '../../../utils/rolePermissions';
 import { formatXAF } from '../../../utils/currency';
 
 // Map status + category to tailwind classes for consistent pill styling
@@ -153,6 +155,8 @@ interface StudentStats {
 }
 
 export const StudentsPage: React.FC = () => {
+  const { user } = useAuth();
+  const isFinance = isFinanceRole(((user as any)?.role || (user as any)?.type) as string);
   // Example filter dropdown for programs (add to your filter UI):
   // <select value={filterProgram} onChange={e => setFilterProgram(e.target.value)}>
   //   <option value="">All Programs</option>
@@ -588,6 +592,7 @@ export const StudentsPage: React.FC = () => {
               </div>
             </div>
             
+            {isFinance && (
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow">
               <div className="p-6">
                 <div className="flex items-center justify-between">
@@ -613,7 +618,9 @@ export const StudentsPage: React.FC = () => {
                 </div>
               </div>
             </div>
+            )}
             
+            {isFinance && (
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow">
               <div className="p-6">
                 <div className="flex items-center justify-between">
@@ -639,6 +646,7 @@ export const StudentsPage: React.FC = () => {
                 </div>
               </div>
             </div>
+            )}
           </div>
         )}
 
@@ -1054,21 +1062,25 @@ export const StudentsPage: React.FC = () => {
                           >
                             <Edit size={16} />
                           </button>
-                          <button
-                            onClick={() => { setLedgerStudent(student); setShowLedger(true); }}
-                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                            title="Ledger"
-                          >
-                            <FileText size={16} />
-                          </button>
-                          <button
-                            onClick={() => { setSelectedStudent(student); setShowPaymentDialog(true); }}
-                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                            title="Record Payment"
-                          >
-                            <CreditCard size={16} />
-                          </button>
-                          <button onClick={() => setFinanceStudentId(student._id)} className="text-xs px-2 py-1 rounded bg-indigo-100 hover:bg-indigo-200">Finance</button>
+                          {isFinance && (
+                            <>
+                              <button
+                                onClick={() => { setLedgerStudent(student); setShowLedger(true); }}
+                                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                                title="Ledger"
+                              >
+                                <FileText size={16} />
+                              </button>
+                              <button
+                                onClick={() => { setSelectedStudent(student); setShowPaymentDialog(true); }}
+                                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                                title="Record Payment"
+                              >
+                                <CreditCard size={16} />
+                              </button>
+                              <button onClick={() => setFinanceStudentId(student._id)} className="text-xs px-2 py-1 rounded bg-indigo-100 hover:bg-indigo-200">Finance</button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1399,8 +1411,10 @@ export const StudentsPage: React.FC = () => {
           onClose={() => { setShowLedger(false); setLedgerStudent(null); }}
         />
 
-        {/* Student Finance Modal */}
-        <StudentFinanceModal open={Boolean(financeStudentId)} studentId={financeStudentId} onClose={() => setFinanceStudentId(null)} />
+        {/* Student Finance Modal (finance roles only) */}
+        {isFinance && (
+          <StudentFinanceModal open={Boolean(financeStudentId)} studentId={financeStudentId} onClose={() => setFinanceStudentId(null)} />
+        )}
       </div>
     </div>
   );
