@@ -885,7 +885,7 @@ export const StudentRegistrationPage: React.FC = () => {
             <select value={region} onChange={(e) => { setRegion(e.target.value); setFormData(prev => ({ ...prev, regionOfOrigin: e.target.value })); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
               <option value="">Select Region</option>
               {[
-                'Adamawa','Centre','East','Far North','Littoral','North','Northwest','West','South','Southwest','Centre-Region','Extreme North'
+                'Adamawa','Centre','East','Far North','Littoral','North','Northwest','West','South','Southwest','Centre-Region','Extreme North', 'Not Cameroonian'
               ].map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
