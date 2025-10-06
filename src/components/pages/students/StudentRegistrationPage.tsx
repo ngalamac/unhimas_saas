@@ -62,6 +62,7 @@ export const StudentRegistrationPage: React.FC = () => {
 
   const [programs, setPrograms] = useState<Program[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [specialties, setSpecialties] = useState<Array<{ _id: string; name: string; program: string; department: string }>>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [tuitionPlans, setTuitionPlans] = useState<Array<any>>([]);
   const [paymentPlans, setPaymentPlans] = useState<Array<any>>([]);
@@ -111,6 +112,28 @@ export const StudentRegistrationPage: React.FC = () => {
       setFormData(prev => ({ ...prev, branchId: (currentBranch as any)._id || (currentBranch as any).id || '' }));
     }
   }, []);
+
+  // Load specialties when program or department changes
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (formData.programId) params.set('program', formData.programId);
+        if (formData.departmentId) params.set('department', formData.departmentId);
+        const res = await fetchClient.get(`/api/specialties${params.toString() ? `?${params.toString()}` : ''}`);
+        if (res.ok) {
+          const body = await res.json();
+          const list = Array.isArray(body) ? body : (body.data || []);
+          setSpecialties(list);
+        } else {
+          setSpecialties([]);
+        }
+      } catch {
+        setSpecialties([]);
+      }
+    };
+    load();
+  }, [formData.programId, formData.departmentId]);
 
   // persist draft whenever formData or thumbnail changes
   useEffect(() => {
@@ -227,6 +250,11 @@ export const StudentRegistrationPage: React.FC = () => {
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errs.email = 'A valid email is required';
     if (!formData.programId) errs.programId = 'Program is required';
     if (!formData.departmentId) errs.departmentId = 'Department is required';
+    if (!formData.programId || !formData.departmentId) {
+      // skip specialty requirement until parents chosen
+    } else if (!((formData as any).specialtyId)) {
+      errs['specialtyId'] = 'Specialty is required';
+    }
   if (!formData.branchId) errs.branchId = 'Branch is required';
     if (!formData.session) errs.session = 'Session is required';
   if (!formData.academicYear) errs.academicYear = 'Academic year is required';
@@ -280,6 +308,7 @@ export const StudentRegistrationPage: React.FC = () => {
       email: formData.email,
       program: formData.programId,
       department: formData.departmentId,
+      specialty: (formData as any).specialtyId,
       profilePicture: formData.profilePicture,
       // include academicYear; fallback to current batch range if not provided
       academicYear: (formData as any).academicYear || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
@@ -668,6 +697,23 @@ export const StudentRegistrationPage: React.FC = () => {
                 ))}
               </select>
               {errors.departmentId && <p className="text-sm text-red-600 mt-1">{errors.departmentId}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Specialty *</label>
+              <select
+                name="specialtyId"
+                value={(formData as any).specialtyId || ''}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+                disabled={!formData.programId || !formData.departmentId}
+              >
+                <option value="">{!formData.programId || !formData.departmentId ? 'Select Program & Department first' : 'Select Specialty'}</option>
+                {specialties.map(s => (
+                  <option key={s._id} value={s._id}>{s.name}</option>
+                ))}
+              </select>
+              {errors['specialtyId'] && <p className="text-sm text-red-600 mt-1">{errors['specialtyId']}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tuition Plan (optional)</label>

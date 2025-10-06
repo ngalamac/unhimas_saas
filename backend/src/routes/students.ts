@@ -80,7 +80,7 @@ router.get('/', authMiddleware, requirePermission('students:read'), requireBranc
     const [total, data, paidCount, partialCount, pendingCount, overdueCount] = await Promise.all([
       Student.countDocuments(query),
       Student.find(query)
-        .populate('program department branch createdBy lastModifiedBy')
+        .populate('program department specialty branch createdBy lastModifiedBy')
         .skip(skip)
         .limit(pageSize)
         .sort({ createdAt: -1 }),
@@ -314,7 +314,7 @@ router.post('/export', authMiddleware, async (req: AuthRequest, res) => {
 router.post('/', authMiddleware, requirePermission(['students:create','students:write']), requireBranchAccess(), async (req: AuthRequest, res) => {
   const {
     firstName, lastName, dateOfBirth, placeOfBirth, regionOfOrigin, phoneNumber, gender, email,
-    program, department, guardian, emergencyContact, address, notes, academicYear, level, session
+      program, department, specialty, guardian, emergencyContact, address, notes, academicYear, level, session
   } = req.body;
   // Normalize gender shorthand for tests / legacy payloads
   if (req.body && req.body.gender) {
@@ -350,6 +350,7 @@ router.post('/', authMiddleware, requirePermission(['students:create','students:
   if (!program) missing.push('program');
   if (!department) missing.push('department');
   if (!guardian || !guardian.name) missing.push('guardian.name');
+  if (!specialty) missing.push('specialty');
   if (!academicYear) missing.push('academicYear');
   if (missing.length) return res.status(400).json({ message: 'Missing required fields', missing });
 
@@ -595,7 +596,7 @@ router.post('/', authMiddleware, requirePermission(['students:create','students:
 router.get('/:id', authMiddleware, requirePermission('students:read'), requireBranchAccess(), async (req: AuthRequest, res) => {
   try {
     const student = await Student.findById(req.params.id)
-      .populate('program department branch createdBy lastModifiedBy');
+      .populate('program department specialty branch createdBy lastModifiedBy');
     if (!student) return res.status(404).json({ error: { message: 'Student not found' } });
     
     // Branch access is handled by requireBranchAccess middleware
@@ -933,7 +934,7 @@ router.put('/:id', authMiddleware, requirePermission(['students:update','student
     }
 
     const student = await Student.findByIdAndUpdate(req.params.id, updateData, { new: true })
-      .populate('program department branch createdBy lastModifiedBy');
+      .populate('program department specialty branch createdBy lastModifiedBy');
     
     if (!student) {
       return res.status(404).json({ error: { message: 'Student not found' } });
