@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useUI } from '../../context/UIContext';
 import fetchClient from '../../lib/fetchClient';
 import { normalizePermissions, dispatchPermissionsUpdated } from '../../utils/permissions';
+import { setRoleDefaultTemplate } from '../../api/roleTemplates';
 
 interface Permission {
   feature: string;
@@ -231,6 +232,20 @@ const PermissionMatrix: React.FC = () => {
     }
   };
 
+  const saveAsRoleDefault = async (user: User) => {
+    try {
+      const normalized = normalizePermissions(user.permissions);
+      const res = await setRoleDefaultTemplate(user.type, normalized);
+      if (res && res.data) {
+        showToast(`Saved ${user.type} defaults`, 'success');
+      } else {
+        showToast('Failed to save default template', 'error');
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'Failed to save default template', 'error');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -356,6 +371,17 @@ const PermissionMatrix: React.FC = () => {
                         {user.branch && (
                           <div className="text-xs text-gray-400 mt-1">{user.branch.name}</div>
                         )}
+                      </div>
+                      {/* Save as default for this role */}
+                      <div className="mt-2">
+                        <button
+                          onClick={() => saveAsRoleDefault(user)}
+                          className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
+                          disabled={user.type === 'SuperAdmin'}
+                          title="Set current permissions as default for this role"
+                        >
+                          Set {user.type} default
+                        </button>
                       </div>
                     </div>
                   </td>

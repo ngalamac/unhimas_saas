@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { getTemplateForRole, RoleType } from '../lib/rolePermissions';
+import RoleTemplate from './RoleTemplate';
 
 export interface IUser extends Document {
   name: string;
@@ -42,7 +43,7 @@ const UserSchema: Schema = new Schema({
 // Auto-assign default permissions only when a new user is created AND
 // no explicit permissions object was provided. This prevents later saves
 // with an intentionally reduced permission set from being re-expanded.
-UserSchema.pre('save', function(next) {
+UserSchema.pre('save', async function(next) {
   try {
     const doc = this as any;
     const isNew: boolean = doc.isNew;
@@ -50,7 +51,9 @@ UserSchema.pre('save', function(next) {
     if (isNew && !hasExplicitPermissions) {
       if (!doc.permissions || Object.keys(doc.permissions || {}).length === 0) {
         if (doc.type) {
-          doc.permissions = getTemplateForRole(doc.type as RoleType);
+          // Try DB template first; fallback to code defaults
+          const tpl = await RoleTemplate.findOne({ role: doc.type }).lean();
+          doc.permissions = (tpl && tpl.permissions) ? tpl.permissions : getTemplateForRole(doc.type as RoleType);
         }
       }
     }
