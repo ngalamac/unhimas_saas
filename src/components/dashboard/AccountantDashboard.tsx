@@ -18,6 +18,7 @@ export const AccountantDashboard: React.FC = () => {
     const [exporting, setExporting] = useState<null | 'csv' | 'xlsx' | 'pdf'>(null);
     const [trendBuckets, setTrendBuckets] = useState<Array<{ label: string; income: number; expense: number; net: number }>>([]);
     const { currentBranch } = useBranch();
+    const [modal, setModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
 
     useEffect(() => {
         async function fetchData() {
@@ -240,7 +241,7 @@ export const AccountantDashboard: React.FC = () => {
                             if (currentBranch) qs.set('branch', (currentBranch as any)._id || (currentBranch as any).id);
                             qs.set('period', period);
                             const res = await fetchClient.get(`/api/transactions/summary/trends?${qs.toString()}`);
-                            if (!res.ok) { alert('Export failed'); setExporting(null); return; }
+                            if (!res.ok) { setModal({ open: true, title: 'Export failed', message: 'Could not export trends CSV.' }); setExporting(null); return; }
                             const data = await res.json();
                             const rows = (data?.data?.buckets || []).map((b: any) => ({ label: b.label, income: b.income, expense: b.expense, net: b.net }));
                             const header = 'Label,Income,Expense,Net\n';
@@ -259,7 +260,7 @@ export const AccountantDashboard: React.FC = () => {
                             qs.set('format', 'csv');
                             qs.set('lang', 'fr');
                             const res = await fetchClient.get(`/api/transactions/export?${qs.toString()}`);
-                            if (!res.ok) { alert('Export failed'); setExporting(null); return; }
+                            if (!res.ok) { setModal({ open: true, title: 'Export failed', message: 'Could not export FR CSV.' }); setExporting(null); return; }
                             const blob = await res.blob();
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a'); a.href = url; a.download = 'ecritures_fr.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
@@ -274,7 +275,7 @@ export const AccountantDashboard: React.FC = () => {
                             qs.set('format', 'xlsx');
                             qs.set('lang', 'en');
                             const res = await fetchClient.get(`/api/transactions/export?${qs.toString()}`);
-                            if (!res.ok) { alert('Export failed'); setExporting(null); return; }
+                            if (!res.ok) { setModal({ open: true, title: 'Export failed', message: 'Could not export EN Excel.' }); setExporting(null); return; }
                             const blob = await res.blob();
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a'); a.href = url; a.download = 'journal_entries_en.xlsx'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
@@ -344,8 +345,8 @@ export const AccountantDashboard: React.FC = () => {
                                               subject: 'Tuition Payment Reminder',
                                               text: `Dear ${student.firstName},\n\nOur records show an outstanding tuition balance of ${formatXAF(student.balanceDue)}. Please make payment at your earliest convenience.\n\nThank you.`,
                                             });
-                                            alert('Reminder queued');
-                                          } catch (e) { alert('Failed to send'); }
+                                            setModal({ open: true, title: 'Reminder queued', message: 'Email reminder has been queued.' });
+                                          } catch (e) { setModal({ open: true, title: 'Send failed', message: 'Failed to send reminder.' }); }
                                         }}>
                                             Send Reminder
                                         </button>
@@ -356,6 +357,20 @@ export const AccountantDashboard: React.FC = () => {
                     </table>
                 </div>
             </div>
+        {/* Simple modal */}
+        {modal?.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-lg shadow-xl w-[95%] max-w-sm">
+              <div className="px-5 py-4 border-b">
+                <h3 className="text-lg font-semibold">{modal.title}</h3>
+              </div>
+              <div className="px-5 py-4 text-sm text-gray-700">{modal.message}</div>
+              <div className="px-5 py-4 border-t flex justify-end">
+                <button onClick={()=>setModal(null)} className="px-4 py-2 rounded bg-blue-600 text-white">OK</button>
+              </div>
+            </div>
+          </div>
+        )}
         </>
     );
 };

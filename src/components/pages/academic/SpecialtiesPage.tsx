@@ -89,11 +89,14 @@ const SpecialtiesPage: React.FC = () => {
     }
   };
 
+  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; id?: string }>({ open: false });
   const remove = async (sp: Specialty) => {
     if (!sp._id && !(sp as any).id) return;
-    if (!confirm('Delete this specialty?')) return;
+    setConfirmDelete({ open: true, id: (sp._id || (sp as any).id) as string });
+  };
+  const doDelete = async (id: string) => {
     try {
-      await deleteSpecialty((sp._id || (sp as any).id) as string);
+      await deleteSpecialty(id);
       showToast('Specialty deleted', 'success');
       load();
     } catch (e: any) {
@@ -202,6 +205,20 @@ const SpecialtiesPage: React.FC = () => {
             <div className="mt-6 flex justify-end gap-2">
               <button onClick={() => setModalOpen(false)} className="btn">Cancel</button>
               <button onClick={save} className="btn-primary">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm delete modal */}
+      {confirmDelete.open && (
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-sm p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete specialty</h3>
+            <p className="text-sm text-gray-700 mb-4">Are you sure you want to delete this specialty?</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmDelete({ open: false })} className="btn">Cancel</button>
+              <button onClick={() => { const id = confirmDelete.id!; setConfirmDelete({ open: false }); doDelete(id); }} className="btn-danger">Delete</button>
             </div>
           </div>
         </div>

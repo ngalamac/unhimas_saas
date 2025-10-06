@@ -361,17 +361,14 @@ const RoleTemplates: React.FC = () => {
     showToast('Template duplicated successfully', 'success');
   };
 
+  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; id?: string; name?: string }>({ open: false });
   const handleDeleteTemplate = (templateId: string) => {
     const template = templates.find(t => t.id === templateId);
     if (template?.isDefault) {
       showToast('Cannot delete default templates', 'error');
       return;
     }
-
-    if (!confirm('Are you sure you want to delete this role template?')) return;
-
-    setTemplates(prev => prev.filter(t => t.id !== templateId));
-    showToast('Template deleted successfully', 'success');
+    setConfirmDelete({ open: true, id: templateId, name: template?.name });
   };
 
   const handleEditTemplate = (template: RoleTemplate) => {
@@ -724,6 +721,20 @@ const RoleTemplates: React.FC = () => {
         </div>
       )}
     </div>
+
+    {/* Confirm template delete modal */}
+    {confirmDelete.open && (
+      <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg w-full max-w-sm p-6 shadow-xl">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete role template</h3>
+          <p className="text-sm text-gray-700 mb-4">Are you sure you want to delete {confirmDelete.name || 'this template'}?</p>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setConfirmDelete({ open: false })} className="px-4 py-2 border rounded">Cancel</button>
+            <button onClick={() => { const id = confirmDelete.id!; setConfirmDelete({ open: false }); setTemplates(prev => prev.filter(t => t.id !== id)); showToast('Template deleted successfully', 'success'); }} className="px-4 py-2 rounded bg-red-600 text-white">Delete</button>
+          </div>
+        </div>
+      </div>
+    )}
   );
 };
 
