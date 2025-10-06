@@ -60,6 +60,7 @@ export const FeeStructurePage: React.FC = () => {
     setShowEditModal(true);
   };
 
+  const [toast, setToast] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
   const handleDuplicateFee = (fee: FeeStructure) => {
     const newFee: FeeStructure = {
       ...fee,
@@ -67,7 +68,8 @@ export const FeeStructurePage: React.FC = () => {
       createdDate: new Date().toISOString().split('T')[0]
     };
     setFeeStructures(prev => [...prev, newFee]);
-    alert('Fee structure duplicated successfully!');
+    setToast({ open: true, message: 'Fee structure duplicated successfully!' });
+    setTimeout(() => setToast({ open: false, message: '' }), 2500);
   };
 
   const calculateTotal = (tuition: number, registration: number, exam: number, library: number) => {
@@ -87,7 +89,7 @@ export const FeeStructurePage: React.FC = () => {
           <p className="text-gray-600">Manage tuition and other fees for different programs</p>
         </div>
         <div className="flex space-x-3">
-          <button onClick={() => window.alert('Fee Calculator coming soon.')} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
+          <button onClick={() => setToast({ open: true, message: 'Fee Calculator coming soon.' })} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
             <Calculator className="w-4 h-4" />
             <span>Fee Calculator</span>
           </button>
@@ -363,10 +365,7 @@ export const FeeStructurePage: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  alert('Fee structure created successfully!');
-                  setShowCreateModal(false);
-                }}
+                onClick={() => { setToast({ open: true, message: 'Fee structure created successfully!' }); setShowCreateModal(false); setTimeout(() => setToast({ open: false, message: '' }), 2500); }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Create Fee Structure
@@ -439,10 +438,7 @@ export const FeeStructurePage: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  alert('Fee structure updated successfully!');
-                  setShowEditModal(false);
-                }}
+                onClick={() => { setToast({ open: true, message: 'Fee structure updated successfully!' }); setShowEditModal(false); setTimeout(() => setToast({ open: false, message: '' }), 2500); }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Save Changes
@@ -480,5 +476,10 @@ export const FeeStructurePage: React.FC = () => {
         </div>
       )}
     </div>
+
+    {/* lightweight toast */}
+    {toast.open && (
+      <div className="fixed bottom-4 right-4 z-50 bg-gray-900 text-white px-4 py-2 rounded shadow-lg">{toast.message}</div>
+    )}
   );
 };

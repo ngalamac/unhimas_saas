@@ -48,6 +48,7 @@ const UserManagementPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ open: boolean; userId?: string }>(() => ({ open: false }));
   const [formState, setFormState] = useState<{ name: string; email: string; password?: string; type: string; branch?: string; employeeId?: string }>({ name: '', email: '', password: '', type: 'Lecturer' });
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -112,8 +113,6 @@ const UserManagementPage: React.FC = () => {
   };
 
   const handleDelete = async (userId: string) => {
-    if (!confirm('Are you sure you want to deactivate this user?')) return;
-    
     try {
       const response = await fetchClient.delete(`/api/users/${userId}`);
       if (response.ok) {
@@ -438,7 +437,7 @@ const UserManagementPage: React.FC = () => {
                         </button>
                         {user.type !== 'SuperAdmin' && (
                           <button
-                            onClick={() => handleDelete(user._id)}
+                            onClick={() => setConfirmDeactivate({ open: true, userId: user._id })}
                             className="text-red-600 hover:text-red-900"
                             title="Deactivate User"
                           >
@@ -581,6 +580,24 @@ const UserManagementPage: React.FC = () => {
         </div>
       )}
     </div>
+
+      {/* Deactivate confirmation modal */}
+      {confirmDeactivate.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-xl w-[95%] max-w-sm">
+            <div className="px-5 py-4 border-b">
+              <h3 className="text-lg font-semibold">Deactivate user</h3>
+            </div>
+            <div className="px-5 py-4 text-sm text-gray-700">
+              Are you sure you want to deactivate this user?
+            </div>
+            <div className="px-5 py-4 border-t flex justify-end gap-3">
+              <button onClick={() => setConfirmDeactivate({ open: false })} className="px-4 py-2 rounded border">Cancel</button>
+              <button onClick={() => { const id = confirmDeactivate.userId!; setConfirmDeactivate({ open: false }); handleDelete(id); }} className="px-4 py-2 rounded bg-red-600 text-white">Deactivate</button>
+            </div>
+          </div>
+        </div>
+      )}
   );
 };
 

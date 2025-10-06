@@ -254,6 +254,7 @@ export const CoursesPage: React.FC = () => {
     return true;
   };
 
+  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; id?: string }>({ open: false });
   const handleDelete = async (id?: string) => {
     if (!id) return;
     const original = courses;
@@ -263,13 +264,14 @@ export const CoursesPage: React.FC = () => {
       try { (window as any).__UI_BRIDGE__?.showToast?.('Course deleted'); } catch {}
     } catch (e) {
       setCourses(original); // rollback
-      alert('Failed to delete course');
+      try { (window as any).__UI_BRIDGE__?.showToast?.('Failed to delete course'); } catch {}
     }
   };
 
+  const [errorModal, setErrorModal] = useState<string | null>(null);
   const handleSaveCourse = async () => {
     if (!isFormValid()) {
-      alert('Please fill all required fields and ensure CA + Exam weights sum to 1.');
+      setErrorModal('Please fill all required fields and ensure CA + Exam weights sum to 1.');
       return;
     }
     const payload: any = {
@@ -298,7 +300,7 @@ export const CoursesPage: React.FC = () => {
       const errAny = e as any;
       const msg = (errAny && errAny.message) ? errAny.message : 'Failed to save course';
       try { (window as any).__UI_BRIDGE__?.showToast?.(msg); } catch {}
-      alert(msg);
+      setErrorModal(msg);
     }
   };
 
@@ -478,7 +480,7 @@ export const CoursesPage: React.FC = () => {
                       <button className="text-green-600 hover:text-green-900" onClick={()=>openModal('edit', course)}>
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDelete(course._id || course.id)} className="text-red-600 hover:text-red-900">
+                      <button onClick={() => setConfirmDelete({ open: true, id: (course._id || course.id) as string })} className="text-red-600 hover:text-red-900">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -490,5 +492,36 @@ export const CoursesPage: React.FC = () => {
         </div>
       </div>
     </div>
+
+    {/* Confirm delete modal */}
+    {confirmDelete.open && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white rounded-lg shadow-xl w-[95%] max-w-sm">
+          <div className="px-5 py-4 border-b">
+            <h3 className="text-lg font-semibold">Delete course</h3>
+          </div>
+          <div className="px-5 py-4 text-sm text-gray-700">Are you sure you want to delete this course?</div>
+          <div className="px-5 py-4 border-t flex justify-end gap-3">
+            <button onClick={() => setConfirmDelete({ open: false })} className="px-4 py-2 rounded border">Cancel</button>
+            <button onClick={() => { const id = confirmDelete.id!; setConfirmDelete({ open: false }); handleDelete(id); }} className="px-4 py-2 rounded bg-red-600 text-white">Delete</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Error modal */}
+    {errorModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white rounded-lg shadow-xl w-[95%] max-w-sm">
+          <div className="px-5 py-4 border-b">
+            <h3 className="text-lg font-semibold">Cannot save course</h3>
+          </div>
+          <div className="px-5 py-4 text-sm text-gray-700">{errorModal}</div>
+          <div className="px-5 py-4 border-t flex justify-end">
+            <button onClick={() => setErrorModal(null)} className="px-4 py-2 rounded bg-blue-600 text-white">OK</button>
+          </div>
+        </div>
+      </div>
+    )}
   );
 };
