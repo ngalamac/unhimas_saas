@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { GraduationCap, Users, BookOpen, TrendingUp, Award, Calendar } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import fetchClient from '../../lib/fetchClient';
 import fetchClient from '../../lib/fetchClient';
 
 export const DeanDashboard: React.FC = () => {
@@ -7,6 +9,7 @@ export const DeanDashboard: React.FC = () => {
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalCourses, setTotalCourses] = useState(0);
   const [averageGPA, setAverageGPA] = useState(0);
+  const [performance, setPerformance] = useState<Array<{ name: string; avgGpa: number; passRate: number }>>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -25,6 +28,19 @@ export const DeanDashboard: React.FC = () => {
       } catch {}
     };
     load();
+  }, []);
+
+  useEffect(() => {
+    const loadPerformance = async () => {
+      try {
+        const res = await fetchClient.get('/api/grades/reports/program-performance');
+        if (res.ok) {
+          const body = await res.json();
+          setPerformance(Array.isArray(body?.data) ? body.data.slice(0, 6) : []);
+        }
+      } catch {}
+    };
+    loadPerformance();
   }, []);
 
   return (
@@ -144,11 +160,25 @@ export const DeanDashboard: React.FC = () => {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Performance (placeholder)</h3>
-          <div className="space-y-3 text-sm text-gray-600">
-            <p>Coming soon: charts from grades breakdown per program.</p>
-            <p>This will use average GPA per program and pass rates.</p>
-          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Program Performance</h3>
+          {performance.length ? (
+            <div className="space-y-3">
+              {performance.map((p) => (
+                <div key={p.name} className="grid grid-cols-5 gap-3 items-center text-sm">
+                  <div className="col-span-2 font-medium text-gray-900 truncate">{p.name}</div>
+                  <div className="col-span-1 text-gray-600">GPA {p.avgGpa.toFixed(2)}</div>
+                  <div className="col-span-2">
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-600" style={{ width: `${Math.max(0, Math.min(100, p.passRate))}%` }} />
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">Pass {p.passRate}%</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">No performance data yet</div>
+          )}
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border">
