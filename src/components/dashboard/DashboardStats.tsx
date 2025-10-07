@@ -106,33 +106,49 @@ export const DashboardStats: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {blueStats.map((stat, index) => (
-                    <div key={index} className={`${stat.color} rounded-lg p-6 text-white`}>
-                        <div className="flex items-center justify-between mb-4">
-                            {stat.icon}
+                    <div
+                        key={index}
+                        className="group relative overflow-hidden rounded-2xl p-6 text-white shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600"
+                    >
+                        <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+
+                        <div className="relative flex items-center justify-between mb-4">
+                            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                                {stat.icon}
+                            </div>
                             <div className="text-right">
-                                <div className="text-3xl font-bold text-yellow-400">{stat.value}</div>
-                                <div className="text-sm font-medium">{stat.title}</div>
+                                <div className="text-4xl font-bold text-white drop-shadow-lg">{stat.value}</div>
+                                <div className="text-sm font-semibold mt-1 opacity-90">{stat.title}</div>
                             </div>
                         </div>
-                        <div className="text-xs font-medium opacity-90 border-t border-white/20 pt-2">
+                        <div className="relative text-xs font-medium opacity-90 border-t border-white/20 pt-3 mt-3">
                             {stat.subtitle}
                         </div>
                     </div>
                 ))}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {redStats.map((stat, index) => (
-                    <div key={index} className={`${stat.color} rounded-lg p-6 text-white`}>
-                        <div className="flex items-center justify-between mb-4">
-                            {stat.icon}
+                    <div
+                        key={index}
+                        className="group relative overflow-hidden rounded-2xl p-6 text-white shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600"
+                    >
+                        <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+
+                        <div className="relative flex items-center justify-between mb-4">
+                            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                                {stat.icon}
+                            </div>
                             <div className="text-right">
-                                <div className="text-3xl font-bold text-yellow-400">{stat.value}</div>
-                                <div className="text-sm font-medium">{stat.title}</div>
+                                <div className="text-4xl font-bold text-white drop-shadow-lg">{stat.value}</div>
+                                <div className="text-sm font-semibold mt-1 opacity-90">{stat.title}</div>
                             </div>
                         </div>
-                        <div className="text-xs font-medium opacity-90 border-t border-white/20 pt-2">
+                        <div className="relative text-xs font-medium opacity-90 border-t border-white/20 pt-3 mt-3">
                             {stat.subtitle}
                         </div>
                     </div>

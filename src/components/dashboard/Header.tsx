@@ -253,29 +253,30 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
 
   return (
     <>
-    <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 transition-colors">
-      <div className="px-4 py-3">
+    <header className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-sm border-b border-gray-200/50 dark:border-gray-800/50 sticky top-0 z-40 transition-all duration-200">
+      <div className="px-4 py-3.5">
         <div className="flex items-center justify-between">
           {/* Left Section */}
           <div className="flex items-center space-x-4">
-            {/* Brand */}
-            <div className="flex items-center space-x-3">
-              <img 
-                src="/unhimas-logo.png" 
-                alt="UNHIMAS" 
-                className="w-8 h-8 object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).src = '/unhimas-logo.png'; }}
-              />
+            <div className="flex items-center space-x-3 group">
+              <div className="relative">
+                <div className="absolute inset-0 bg-blue-500/20 rounded-lg blur-md group-hover:blur-lg transition-all duration-300"></div>
+                <img
+                  src="/unhimas-logo.png"
+                  alt="UNHIMAS"
+                  className="relative w-9 h-9 object-contain transform group-hover:scale-105 transition-transform duration-200"
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/unhimas-logo.png'; }}
+                />
+              </div>
               <div className="hidden sm:block">
-                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">UNHIMAS</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">School Management</div>
+                <div className="text-sm font-bold text-gray-900 dark:text-gray-100">UNHIMAS</div>
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400">School Management</div>
               </div>
             </div>
 
-            {/* Mobile menu toggle */}
             <button
               onClick={onMenuToggle}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 active:scale-95"
               title="Toggle Menu"
             >
               <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
@@ -298,19 +299,17 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
               </div>
             )}
 
-            {/* Current Branch Display */}
             {currentBranch && managedBranches.length <= 1 && (
-              <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900 rounded-lg">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{(currentBranch as any).name}</span>
+              <div className="hidden md:flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 border border-blue-200 dark:border-blue-800 rounded-xl shadow-sm">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">{(currentBranch as any).name}</span>
               </div>
             )}
           </div>
 
-          {/* Center Section - Search */}
-          <div className="flex-1 max-w-md mx-4 relative">
+          <div className="flex-1 max-w-md mx-4 relative group">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
               <input
                 type="text"
                 placeholder="Search students, staff, transactions..."
@@ -320,7 +319,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
                   handleSearch(e.target.value);
                 }}
                 onFocus={() => setShowSearch(true)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                className="w-full pl-11 pr-4 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 transition-all duration-200 shadow-sm hover:shadow-md"
               />
             </div>
 

@@ -494,11 +494,10 @@ export const AllStudentsPage: React.FC = () => {
 
   return (
     <div className="p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">All Students</h1>
-          <p className="text-gray-600">Manage and view all registered students</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">All Students</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage and view all registered students</p>
         </div>
   <div className="flex space-x-3 relative items-center">
             <div className="relative">
@@ -529,56 +528,54 @@ export const AllStudentsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-600" />
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+              <Users className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Students</p>
-              <p className="text-xl font-bold text-gray-900">{total}</p>
+              <p className="text-sm text-white/80 font-medium">Total Students</p>
+              <p className="text-2xl font-bold text-white">{total}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-green-600" />
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+              <Users className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Fees Paid</p>
-              <p className="text-xl font-bold text-gray-900">{aggregates ? aggregates.paid : students.filter(s => s.tuitionStatus === 'Paid').length}</p>
+              <p className="text-sm text-white/80 font-medium">Fees Paid</p>
+              <p className="text-2xl font-bold text-white">{aggregates ? aggregates.paid : students.filter(s => s.tuitionStatus === 'Paid').length}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-yellow-600" />
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+              <Users className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Partial Payment</p>
-              <p className="text-xl font-bold text-gray-900">{aggregates ? aggregates.partial : students.filter(s => s.tuitionStatus === 'Partial').length}</p>
+              <p className="text-sm text-white/80 font-medium">Partial Payment</p>
+              <p className="text-2xl font-bold text-white">{aggregates ? aggregates.partial : students.filter(s => s.tuitionStatus === 'Partial').length}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <div className="bg-gradient-to-br from-red-500 to-red-600 p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-red-600" />
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+              <Users className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Unpaid</p>
-              <p className="text-xl font-bold text-gray-900">{aggregates ? aggregates.unpaid : students.filter(s => s.tuitionStatus === 'Unpaid').length}</p>
+              <p className="text-sm text-white/80 font-medium">Unpaid</p>
+              <p className="text-2xl font-bold text-white">{aggregates ? aggregates.unpaid : students.filter(s => s.tuitionStatus === 'Unpaid').length}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Filters and Bulk Actions */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
+      <div className="bg-white dark:bg-gray-900 p-5 rounded-2xl shadow-md border border-gray-200 dark:border-gray-800 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -677,11 +674,10 @@ export const AllStudentsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Students Table */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-md border border-gray-200 dark:border-gray-800 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-gray-800/50">
               <tr>
                 <th className="px-6 py-3 text-left">
                   <input
@@ -703,9 +699,9 @@ export const AllStudentsPage: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
               {paginated.map((student, i) => (
-                <tr key={(student as any)._id || student.id || student.studentId || i} className="hover:bg-gray-50">
+                <tr key={(student as any)._id || student.id || student.studentId || i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors duration-150">
                   <td className="px-6 py-4 whitespace-nowrap">
                       <input
                       type="checkbox"

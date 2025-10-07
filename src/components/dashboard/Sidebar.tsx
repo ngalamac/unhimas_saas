@@ -347,24 +347,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         />
       )}
 
-      {/* Sidebar */}
-      <div className={`fixed left-0 top-0 h-full bg-white dark:bg-gray-800 shadow-lg z-50 transition-all duration-300 ${
+      <div className={`fixed left-0 top-0 h-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-r border-gray-200/50 dark:border-gray-800/50 shadow-xl z-50 transition-all duration-300 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0 lg:static lg:z-auto ${collapsed ? 'w-16' : 'w-72'}`}>
         
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-200/50 dark:border-gray-800/50">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <img 
-                src="/unhimas-logo.png" 
-                alt="UNHIMAS" 
-                className="w-8 h-8 object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).src = '/unhimas-logo.png'; }}
-              />
+            <div className="flex items-center space-x-3 group">
+              <div className="relative">
+                <div className="absolute inset-0 bg-blue-500/20 rounded-lg blur-md group-hover:blur-lg transition-all duration-300"></div>
+                <img
+                  src="/unhimas-logo.png"
+                  alt="UNHIMAS"
+                  className="relative w-8 h-8 object-contain transform group-hover:scale-105 transition-transform duration-200"
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/unhimas-logo.png'; }}
+                />
+              </div>
               {!collapsed && (
                 <div>
-                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Navigation</div>
+                  <div className="text-sm font-bold text-gray-900 dark:text-gray-100">Navigation</div>
                 </div>
               )}
             </div>
@@ -458,10 +459,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                           handleNavigation(item.id, [item.label]);
                         }
                       }}
-                      className={`flex-1 flex items-center justify-between px-3 py-2.5 text-sm rounded-lg transition-all duration-200 ${
-                        currentPage === item.id 
-                          ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md' 
-                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
+                      className={`flex-1 flex items-center justify-between px-3 py-2.5 text-sm rounded-xl transition-all duration-200 transform ${
+                        currentPage === item.id
+                          ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg scale-[1.02]'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 hover:scale-[1.01]'
                       }`}
                     >
                       <div className="flex items-center space-x-3">
@@ -503,17 +504,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                     </button>
                   </div>
 
-                  {/* Submenu */}
                   {item.hasSubmenu && !collapsed && expandedItems.includes(item.id) && item.submenuItems && (
-                    <div className="ml-6 mt-1 space-y-1 border-l-2 border-gray-100 dark:border-gray-700 pl-4">
+                    <div className="ml-6 mt-1 space-y-1 border-l-2 border-gray-200 dark:border-gray-800 pl-4">
                       {item.submenuItems.map((subItem) => (
                         <div key={subItem.id} className="flex items-center">
                           <button
                             onClick={() => handleNavigation(subItem.id, [item.label, subItem.label])}
-                            className={`flex-1 flex items-center space-x-2 px-3 py-2 text-xs rounded-lg transition-all duration-200 ${
+                            className={`flex-1 flex items-center space-x-2 px-3 py-2 text-xs rounded-lg transition-all duration-200 transform ${
                               currentPage === subItem.id
-                                ? 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 font-medium shadow-sm'
-                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200'
+                                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold shadow-sm border border-blue-200 dark:border-blue-800 scale-[1.02]'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-800 dark:hover:text-gray-200 hover:scale-[1.01]'
                             }`}
                           >
                             <div className={`${currentPage === subItem.id ? 'text-orange-600 dark:text-orange-400' : 'text-gray-400 dark:text-gray-500'}`}>

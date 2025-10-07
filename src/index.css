@@ -2,79 +2,188 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Dark mode base styles */
 @layer base {
   html {
     @apply transition-colors duration-300;
   }
-  
+
   .dark {
     color-scheme: dark;
   }
+
+  body {
+    @apply antialiased;
+  }
 }
 
-/* Custom scrollbar for dark mode */
 @layer utilities {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-500;
+  }
+
   .dark {
-    scrollbar-color: #374151 #1f2937;
+    scrollbar-color: #4b5563 #1f2937;
   }
-  
-  .dark::-webkit-scrollbar {
-    width: 8px;
+
+  .glassmorphism {
+    @apply backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 border border-gray-200/50 dark:border-gray-700/50;
   }
-  
-  .dark::-webkit-scrollbar-track {
-    @apply bg-gray-800;
+
+  .gradient-primary {
+    @apply bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600;
   }
-  
-  .dark::-webkit-scrollbar-thumb {
-    @apply bg-gray-600 rounded;
+
+  .gradient-secondary {
+    @apply bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600;
   }
-  
-  .dark::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-500;
+
+  .gradient-accent {
+    @apply bg-gradient-to-r from-orange-500 via-red-500 to-pink-500;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-600 dark:from-blue-400 dark:to-cyan-400;
   }
 }
 
-/* Dark mode component harmonization */
 @layer components {
   .card {
-    @apply bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-900 dark:border-gray-700;
+    @apply bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm transition-all duration-200;
   }
+
+  .card-elevated {
+    @apply card shadow-lg hover:shadow-2xl;
+  }
+
   .card-header {
-    @apply text-gray-900 dark:text-gray-100;
+    @apply text-gray-900 dark:text-gray-100 font-semibold;
   }
+
   .card-subtle {
-    @apply text-gray-600 dark:text-gray-300;
+    @apply text-gray-600 dark:text-gray-400;
   }
+
   .btn {
-    @apply px-3 py-2 rounded-lg border bg-white text-gray-800 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700 dark:hover:bg-gray-700;
+    @apply px-4 py-2.5 rounded-lg font-medium transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-offset-2
+           active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
+           shadow-sm hover:shadow-md;
   }
+
   .btn-primary {
-    @apply bg-blue-600 text-white border-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500;
+    @apply btn bg-blue-600 text-white hover:bg-blue-700
+           focus:ring-blue-500 dark:bg-blue-600 dark:hover:bg-blue-500;
   }
+
+  .btn-secondary {
+    @apply btn bg-gray-100 text-gray-700 hover:bg-gray-200
+           focus:ring-gray-500 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700;
+  }
+
+  .btn-success {
+    @apply btn bg-emerald-600 text-white hover:bg-emerald-700
+           focus:ring-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500;
+  }
+
   .btn-danger {
-    @apply bg-red-600 text-white border-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500;
+    @apply btn bg-red-600 text-white hover:bg-red-700
+           focus:ring-red-500 dark:bg-red-600 dark:hover:bg-red-500;
   }
+
+  .btn-warning {
+    @apply btn bg-amber-600 text-white hover:bg-amber-700
+           focus:ring-amber-500 dark:bg-amber-600 dark:hover:bg-amber-500;
+  }
+
   .input, .select, .textarea {
-    @apply bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 placeholder-gray-400 dark:placeholder-gray-400;
+    @apply w-full px-4 py-2.5 bg-white dark:bg-gray-900
+           text-gray-900 dark:text-gray-100
+           border border-gray-300 dark:border-gray-700
+           rounded-lg shadow-sm
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+           placeholder-gray-400 dark:placeholder-gray-500
+           transition-all duration-200;
   }
+
   .table {
-    @apply bg-white dark:bg-gray-900;
+    @apply w-full bg-white dark:bg-gray-900;
   }
+
   .thead {
-    @apply bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200;
+    @apply bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 font-semibold;
   }
+
   .tbody {
-    @apply divide-y divide-gray-200 dark:divide-gray-700;
+    @apply divide-y divide-gray-200 dark:divide-gray-800;
   }
+
+  .tr-hover {
+    @apply transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-gray-800/50;
+  }
+
   .modal {
-    @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+    @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-xl shadow-2xl;
   }
+
   .modal-header {
-    @apply border-b border-gray-200 dark:border-gray-700;
+    @apply px-6 py-4 border-b border-gray-200 dark:border-gray-800;
   }
+
+  .modal-body {
+    @apply px-6 py-4;
+  }
+
   .modal-footer {
-    @apply border-t border-gray-200 dark:border-gray-700;
+    @apply px-6 py-4 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-3;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply badge bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400;
+  }
+
+  .badge-success {
+    @apply badge bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400;
+  }
+
+  .badge-warning {
+    @apply badge bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400;
+  }
+
+  .badge-danger {
+    @apply badge bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+  }
+
+  .stat-card {
+    @apply p-6 rounded-xl shadow-lg transition-all duration-300
+           hover:shadow-xl hover:-translate-y-1 cursor-pointer
+           bg-gradient-to-br relative overflow-hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    @apply absolute inset-0 opacity-10 bg-white dark:bg-black;
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+  }
+
+  .stat-card:hover::before {
+    transform: translateX(0);
   }
 }

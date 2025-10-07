@@ -9,19 +9,30 @@ interface LoginSectionProps {
 
 export const LoginSection: React.FC<LoginSectionProps> = ({ selectedRole }) => {
   return (
-  <div className="lg:flex-1 bg-white dark:bg-gray-800 p-6 sm:p-8 lg:p-12 text-black dark:text-white transition-colors">
+    <div className="lg:flex-1 p-6 sm:p-8 lg:p-12 text-black dark:text-white transition-all duration-300">
       <div className="flex flex-col items-center justify-center h-full min-h-[400px] lg:min-h-[500px]">
-  {/* Logo and title */}
-  <img src={unhimasLogo} alt="UNHIMAS Logo" className="mb-4 sm:mb-5 lg:mb-6 w-24 h-24 lg:w-32 lg:h-32 object-contain mx-auto" onError={e => { (e.target as HTMLImageElement).src = '/unhimas-logo.png'; }} />
-  <h2 className="text-2xl lg:text-3xl font-extrabold mb-2 text-center text-black dark:text-white tracking-wide">UNHIMAS</h2>
-  <h3 className="text-base lg:text-lg font-semibold mb-8 sm:mb-10 lg:mb-12 text-center w-full text-[#a02c2c] dark:text-red-400">Universal Higher Institute Of Management And Sciences</h3>
+        <div className="relative mb-6 transform hover:scale-105 transition-transform duration-300">
+          <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-2xl"></div>
+          <img
+            src={unhimasLogo}
+            alt="UNHIMAS Logo"
+            className="relative w-24 h-24 lg:w-32 lg:h-32 object-contain mx-auto drop-shadow-2xl"
+            onError={e => { (e.target as HTMLImageElement).src = '/unhimas-logo.png'; }}
+          />
+        </div>
 
-        {/* Login form */}
+        <h2 className="text-3xl lg:text-4xl font-bold mb-2 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-600 dark:from-blue-400 dark:via-cyan-400 dark:to-blue-400 tracking-wide">
+          UNHIMAS
+        </h2>
+
+        <h3 className="text-sm lg:text-base font-medium mb-8 sm:mb-10 lg:mb-12 text-center w-full text-gray-600 dark:text-gray-400 max-w-md">
+          Universal Higher Institute Of Management And Sciences
+        </h3>
+
         <LoginForm selectedRole={selectedRole} />
 
-        {/* Footer */}
-  <p className="text-xs text-gray-700 dark:text-gray-300 mt-8 sm:mt-10 lg:mt-12 text-center px-4">
-          © 2025 UNHIMAS School Management - Developed by Codegisoft
+        <p className="text-xs text-gray-500 dark:text-gray-500 mt-8 sm:mt-10 lg:mt-12 text-center px-4">
+          © 2025 UNHIMAS School Management · Developed by Codegisoft
         </p>
       </div>
     </div>

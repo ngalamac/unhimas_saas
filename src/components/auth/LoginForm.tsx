@@ -95,88 +95,92 @@ export const LoginForm: React.FC<LoginFormProps> = ({ selectedRole }) => {
 
   return (
     <div className="flex flex-col items-center justify-center w-full">
-      <h2 className="text-lg font-semibold text-[#a02c2c] mb-6">Login</h2>
-      <form onSubmit={handleSubmit} className="w-full max-w-xs sm:max-w-sm space-y-4 sm:space-y-5 lg:space-y-6 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 drop-shadow-2xl transition-colors">
+      <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Sign In to Your Account</h2>
+      <form onSubmit={handleSubmit} className="w-full max-w-xs sm:max-w-sm space-y-5 lg:space-y-6">
         {error && (
-          <div className="p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-300">{error}</p>
+          <div className="p-4 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-800 rounded-xl animate-shake">
+            <p className="text-sm text-red-600 dark:text-red-400 font-medium">{error}</p>
           </div>
         )}
-        {/* Username field */}
-        <div className="relative">
-          <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+
+        <div className="relative group">
+          <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
           <input
             type="text"
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full bg-gray-800 dark:bg-gray-700 border border-gray-700 dark:border-gray-600 rounded-lg pl-10 sm:pl-12 pr-4 py-2.5 sm:py-3 text-sm sm:text-base text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-red-500 transition-colors"
+            className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl pl-12 pr-4 py-3 text-sm sm:text-base text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             required
             disabled={isLoading}
           />
         </div>
-        {/* Password field with eye icon */}
-        <div className="relative">
-          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+
+        <div className="relative group">
+          <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
           <input
             type={showPassword ? "text" : "password"}
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-gray-800 dark:bg-gray-700 border border-gray-700 dark:border-gray-600 rounded-lg pl-10 sm:pl-12 pr-10 py-2.5 sm:py-3 text-sm sm:text-base text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-red-500 transition-colors"
+            className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl pl-12 pr-12 py-3 text-sm sm:text-base text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             required
             disabled={isLoading}
           />
           <button
             type="button"
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 focus:outline-none"
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-500 focus:outline-none transition-colors duration-200"
             onClick={() => setShowPassword((prev) => !prev)}
             tabIndex={-1}
           >
             {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
           </button>
         </div>
-        {/* Remember me and forgot password */}
         <div className="flex items-center justify-between">
-          <label className="flex items-center space-x-2 cursor-pointer">
+          <label className="flex items-center space-x-2 cursor-pointer group">
             <input
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-500 bg-gray-800 dark:bg-gray-700 border-gray-600 dark:border-gray-500 rounded focus:ring-red-500"
+              className="w-4 h-4 text-blue-600 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 transition-all duration-200"
               disabled={isLoading}
             />
-            <span className="text-xs sm:text-sm text-gray-300 dark:text-gray-400">Keep me Logged in</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-200 transition-colors duration-200">Keep me signed in</span>
           </label>
           <button
             type="button"
-            className="text-xs sm:text-sm text-blue-700 dark:text-blue-400 underline hover:text-blue-900 dark:hover:text-blue-300 transition-colors"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors duration-200"
             onClick={() => window.open('/password-reset', '_blank')}
           >
             Forgot Password?
           </button>
         </div>
-        {/* Login button */}
-        <button 
+
+        <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold py-2.5 sm:py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 text-sm sm:text-base"
+          className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 text-sm sm:text-base shadow-lg hover:shadow-xl active:scale-[0.98] transform"
         >
           {isLoading ? (
-            <Loader className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+            <>
+              <Loader className="w-5 h-5 animate-spin" />
+              <span>Signing in...</span>
+            </>
           ) : (
-            <User className="w-4 h-4 sm:w-5 sm:h-5" />
+            <>
+              <User className="w-5 h-5" />
+              <span>Sign In</span>
+            </>
           )}
-          <span>{isLoading ? 'Logging in...' : 'Login'}</span>
         </button>
-        {/* Demo credentials */}
-        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
+
+        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl">
           <button
             type="button"
-            className="text-xs text-blue-800 dark:text-blue-300 text-center underline hover:text-blue-900 dark:hover:text-blue-200 w-full"
+            className="text-xs text-blue-700 dark:text-blue-400 text-center hover:text-blue-900 dark:hover:text-blue-300 w-full font-medium transition-colors duration-200"
             onClick={() => setShowHelp(true)}
           >
-            Can't login? Click here for help
+            Need help signing in? Click here
           </button>
         </div>
         <LoginHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
