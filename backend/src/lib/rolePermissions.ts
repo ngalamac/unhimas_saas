@@ -6,21 +6,36 @@ export type RoleType = 'SuperAdmin' | 'Admin' | 'Registrar' | 'Lecturer' | 'Acco
 // SuperAdmin bypasses checks via isSuperAdmin flag; template mainly for UI reference.
 export const rolePermissionTemplates: Record<RoleType, PermissionMap> = {
   SuperAdmin: {
-    all: { read: true, write: true, create: true, update: true, delete: true, export: true, manage: true }
+    all: {
+      read: true,
+      write: true,
+      create: true,
+      update: true,
+      delete: true,
+      export: true,
+      manage: true,
+      reports: true,
+      stats: true,
+      upload: true,
+      approve: true
+    }
   },
   Admin: {
-    branches: { read: true },
+    // Branch manager: single-branch scope enforced by middleware
+    branches: { read: true, update: true },
     students: { read: true, create: true, update: true, delete: true, export: true },
     staff: { read: true, create: true, update: true },
-    tuition: { read: true, update: true },
-    accounting: { read: true },
-    backup: { read: true, create: true },
+    accounting: { read: true, export: true, reports: true },
+    grades: { read: true },
+    programs: { read: true },
+    departments: { read: true }
   },
   Registrar: {
     students: { read: true, create: true, update: true, delete: true, export: true },
-    admissions: { read: true, update: true },
-    departments: { read: true },
+    admissions: { read: true, create: true, update: true },
+    grades: { read: true, update: true },
     programs: { read: true },
+    departments: { read: true }
   },
   Lecturer: {
     students: { read: true },
@@ -28,7 +43,7 @@ export const rolePermissionTemplates: Record<RoleType, PermissionMap> = {
     staff: { read: true },
   },
   Accountant: {
-    accounting: { read: true, create: true, update: true, delete: true, export: true, reports: true },
+    accounting: { read: true, create: true, update: true, delete: true, export: true, reports: true, approve: true },
     students: { read: true },
     tuition: { read: true, update: true },
     staff: { read: true },
@@ -38,12 +53,14 @@ export const rolePermissionTemplates: Record<RoleType, PermissionMap> = {
     grades: { read: true, update: true },
     programs: { read: true, update: true },
     departments: { read: true },
-    staff: { read: true },
+    courses: { read: true, update: true },
+    staff: { read: true }
   },
   'Head Of Department': {
     students: { read: true, update: true },
     programs: { read: true },
     grades: { read: true, update: true },
+    courses: { read: true, update: true },
     staff: { read: true },
   }
 };

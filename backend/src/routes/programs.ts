@@ -9,7 +9,7 @@ router.get('/', authMiddleware, requirePermission(['programs:read','students:rea
   res.json(programs);
 });
 
-router.post('/', authMiddleware, requirePermission(['programs:create','programs:write']), async (req, res) => {
+router.post('/', authMiddleware, requirePermission(['programs:create','programs:write','students:create']), async (req, res) => {
   const { name, type, subType, isActive, duration, semestersPerYear } = req.body;
   if (!name || !type) return res.status(400).json({ message: 'name and type are required' });
   const allowed = ['Undergraduate', 'Postgraduate'];

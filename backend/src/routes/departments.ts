@@ -34,7 +34,7 @@ router.get('/', authMiddleware, requirePermission(['departments:read','programs:
   }
 });
 
-router.post('/', authMiddleware, requirePermission(['departments:create','programs:write']), async (req, res) => {
+router.post('/', authMiddleware, requirePermission(['departments:create','programs:write','students:create']), async (req, res) => {
   try {
     const { name, code, program } = req.body;
     if (!name || !program) return res.status(400).json({ message: 'name and program are required' });

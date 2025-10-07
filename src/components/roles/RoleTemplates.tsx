@@ -55,7 +55,7 @@ const defaultRoleTemplates: RoleTemplate[] = [
     color: 'bg-blue-100 text-blue-800 border-blue-200',
     permissions: {
       students: ['create', 'read', 'update', 'delete', 'export'],
-      accounting: ['create', 'read', 'update', 'export'],
+      accounting: ['read', 'export'],
       staff: ['read', 'update'],
       programs: ['read', 'update'],
       departments: ['read', 'update'],
@@ -73,7 +73,7 @@ const defaultRoleTemplates: RoleTemplate[] = [
     color: 'bg-teal-100 text-teal-800 border-teal-200',
     permissions: {
       students: ['create', 'read', 'update', 'delete', 'export'],
-      admissions: ['read', 'update'],
+      admissions: ['create','read', 'update'],
       departments: ['read'],
       programs: ['read']
     },

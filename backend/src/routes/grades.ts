@@ -9,7 +9,7 @@ import authMiddleware, { AuthRequest, requirePermission, requireBranchAccess } f
 const router = express.Router();
 
 // Create a new grade
-router.post('/', authMiddleware, requirePermission('academics:create'), async (req: AuthRequest, res) => {
+router.post('/', authMiddleware, requirePermission('grades:create'), async (req: AuthRequest, res) => {
     try {
         const { student, course, semester, academicYear, caScore, examScore } = req.body || {};
         const errors: string[] = [];
@@ -86,7 +86,7 @@ router.post('/', authMiddleware, requirePermission('academics:create'), async (r
 });
 
 // Get all grades
-router.get('/', authMiddleware, requirePermission('academics'), async (req: AuthRequest, res) => {
+router.get('/', authMiddleware, requirePermission('grades:read'), async (req: AuthRequest, res) => {
     try {
         const { student, course, academicYear, semester } = req.query as any;
         const isSuper = !!req.user?.isSuperAdmin;
@@ -124,7 +124,7 @@ router.get('/', authMiddleware, requirePermission('academics'), async (req: Auth
 });
 
 // Get a single grade
-router.get('/:id', authMiddleware, requirePermission('academics'), async (req, res) => {
+router.get('/:id', authMiddleware, requirePermission('grades:read'), async (req, res) => {
     try {
         const grade = await Grade.findById(req.params.id).populate('student course createdBy');
         if (!grade) {
@@ -138,7 +138,7 @@ router.get('/:id', authMiddleware, requirePermission('academics'), async (req, r
 });
 
 // Update a grade
-router.put('/:id', authMiddleware, requirePermission('academics:edit'), async (req, res) => {
+router.put('/:id', authMiddleware, requirePermission('grades:update'), async (req, res) => {
     try {
         const { caScore, examScore } = req.body;
         const grade = await Grade.findById(req.params.id).populate('course');
@@ -191,7 +191,7 @@ router.put('/:id', authMiddleware, requirePermission('academics:edit'), async (r
 });
 
 // Delete a grade
-router.delete('/:id', authMiddleware, requirePermission('academics:delete'), async (req, res) => {
+router.delete('/:id', authMiddleware, requirePermission('grades:delete'), async (req, res) => {
     try {
         const grade = await Grade.findByIdAndDelete(req.params.id);
         if (!grade) {
