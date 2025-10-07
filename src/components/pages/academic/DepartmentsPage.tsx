@@ -135,7 +135,6 @@ export const DepartmentsPage: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       <DepartmentModal />
-
       <PageHeader
         title="Academic Departments"
         description="Manage all academic departments and their programs"
@@ -151,7 +150,6 @@ export const DepartmentsPage: React.FC = () => {
           </button>
         )}
       />
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <ModernStatsCard
           title="Total Departments"
@@ -175,46 +173,43 @@ export const DepartmentsPage: React.FC = () => {
           gradient="purple"
         />
       </div>
-
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-md border border-gray-200 dark:border-gray-800 p-1">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Departments</p>
-              <p className="text-xl font-bold text-gray-900">{departments.length}</p>
-            </div>
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <Building2 className="w-5 h-5 text-blue-600" />
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">With HODs</p>
-              <p className="text-xl font-bold text-gray-900">
-                {departments.filter(d => d.hod).length}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Departments</p>
-              <p className="text-xl font-bold text-gray-900">
-                {departments.length}
-              </p>
-            </div>
+          <div>
+            <p className="text-sm text-gray-600">Total Departments</p>
+            <p className="text-xl font-bold text-gray-900">{departments.length}</p>
           </div>
         </div>
       </div>
-
+      <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+            <Users className="w-5 h-5 text-green-600" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">With HODs</p>
+            <p className="text-xl font-bold text-gray-900">
+              {departments.filter(d => d.hod).length}
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+            <BookOpen className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Total Departments</p>
+            <p className="text-xl font-bold text-gray-900">
+              {departments.length}
+            </p>
+          </div>
+        </div>
+      </div>
       {/* Departments Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {departments.map((department) => (
@@ -231,7 +226,6 @@ export const DepartmentsPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-
               <div className="space-y-3 mb-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Program:</span>
@@ -258,7 +252,6 @@ export const DepartmentsPage: React.FC = () => {
                   </span>
                 </div>
               </div>
-
               <div className="pt-4 border-t border-gray-200">
                 <div className="flex items-center space-x-2">
                   <Users className="w-4 h-4 text-gray-400" />
@@ -276,7 +269,6 @@ export const DepartmentsPage: React.FC = () => {
                 </div>
               </div>
             </div>
-
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -300,8 +292,8 @@ export const DepartmentsPage: React.FC = () => {
         ))}
       </div>
       <div className="mt-6 flex items-center space-x-2">
-  {/* Use modal for create instead of inline */}
-  <button onClick={() => openModal('create')} className="bg-blue-600 text-white px-4 py-2 rounded">Add Department</button>
+        {/* Use modal for create instead of inline */}
+        <button onClick={() => openModal('create')} className="bg-blue-600 text-white px-4 py-2 rounded">Add Department</button>
       </div>
     </div>
   );
