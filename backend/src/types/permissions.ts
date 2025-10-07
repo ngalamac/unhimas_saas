@@ -15,9 +15,25 @@ export type Feature =
   | 'grades'
   | 'backup'
   | 'admissions'
-  | 'users';
+  | 'users'
+  // Additional features used across UI/routes
+  | 'courses'
+  | 'attendance'
+  | 'communication'
+  | 'reports';
 
-export type Action = 'read' | 'write' | 'create' | 'update' | 'delete' | 'export' | 'manage' | 'reports' | 'stats' | 'upload';
+export type Action =
+  | 'read'
+  | 'write'
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'export'
+  | 'manage'
+  | 'reports'
+  | 'stats'
+  | 'upload'
+  | 'approve';
 
 export type PermissionMap = {
   [F in Feature]?: Partial<Record<Action, boolean>>;

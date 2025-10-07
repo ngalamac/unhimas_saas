@@ -19,7 +19,7 @@ const router = express.Router();
 const allAllowedCategories = new Set([...expenseCategories.map(c => c.toLowerCase()), ...incomeCategories.map(c => c.toLowerCase())]);
 
 // GET /api/transactions - List all journal entries with pagination
-router.get('/', authMiddleware, requireBranchAccess(), requirePermission('accounting:view'), async (req: AuthRequest, res) => {
+router.get('/', authMiddleware, requireBranchAccess(), requirePermission('accounting:read'), async (req: AuthRequest, res) => {
     try {
         const { page = '1', limit = '20', from, to, branch } = req.query as any;
         const p = Math.max(1, parseInt(page, 10) || 1);
@@ -48,7 +48,7 @@ router.get('/', authMiddleware, requireBranchAccess(), requirePermission('accoun
 });
 
 // Export journal entries to CSV or XLSX
-router.get('/export', authMiddleware, requireBranchAccess(), requirePermission('accounting:view'), async (req: any, res) => {
+router.get('/export', authMiddleware, requireBranchAccess(), requirePermission(['accounting:read','accounting:export']), async (req: any, res) => {
     try {
         const { format = 'csv', lang = 'en', from, to, branch, department, status } = req.query as any;
 
@@ -161,7 +161,7 @@ router.get('/export', authMiddleware, requireBranchAccess(), requirePermission('
 });
 
 // Import journal entries from a CSV file
-router.post('/import', requirePermission('accounting:create'), upload.single('file'), async (req: any, res) => {
+router.post('/import', authMiddleware, requireBranchAccess(), requirePermission('accounting:create'), upload.single('file'), async (req: any, res) => {
     if (!req.file) {
         return res.status(400).json({ error: { message: 'No file uploaded' } });
     }
@@ -227,7 +227,7 @@ router.post('/import', requirePermission('accounting:create'), upload.single('fi
 });
 
 // Update a journal entry (only memo and date can be updated)
-router.put('/:id', requirePermission('accounting:edit'), async (req: any, res) => {
+router.put('/:id', authMiddleware, requireBranchAccess(), requirePermission('accounting:update'), async (req: any, res) => {
     try {
         const { memo, date } = req.body;
         const entry = await JournalEntry.findById(req.params.id);
@@ -252,7 +252,7 @@ router.put('/:id', requirePermission('accounting:edit'), async (req: any, res) =
 });
 
 // Delete a journal entry (only if pending)
-router.delete('/:id', requirePermission('accounting:delete'), async (req: any, res) => {
+router.delete('/:id', authMiddleware, requireBranchAccess(), requirePermission('accounting:delete'), async (req: any, res) => {
     try {
         const entry = await JournalEntry.findById(req.params.id);
         if (!entry) {
@@ -273,7 +273,7 @@ router.delete('/:id', requirePermission('accounting:delete'), async (req: any, r
 });
 
 // GET /api/transactions/:id - Get a single journal entry
-router.get('/:id', requirePermission('accounting:view'), async (req, res) => {
+router.get('/:id', authMiddleware, requireBranchAccess(), requirePermission('accounting:read'), async (req, res) => {
     try {
         const entry = await JournalEntry.findById(req.params.id)
             .populate('createdBy', 'name email')
@@ -288,7 +288,7 @@ router.get('/:id', requirePermission('accounting:view'), async (req, res) => {
 });
 
 // Approve a journal entry
-router.post('/:id/approve', requirePermission('accounting:approve'), async (req: any, res) => {
+router.post('/:id/approve', authMiddleware, requireBranchAccess(), requirePermission('accounting:approve'), async (req: any, res) => {
     try {
         const entry = await JournalEntry.findById(req.params.id);
         if (!entry) {
@@ -311,7 +311,7 @@ router.post('/:id/approve', requirePermission('accounting:approve'), async (req:
 });
 
 // Reject a journal entry
-router.post('/:id/reject', requirePermission('accounting:approve'), async (req: any, res) => {
+router.post('/:id/reject', authMiddleware, requireBranchAccess(), requirePermission('accounting:approve'), async (req: any, res) => {
     try {
         const { reason } = req.body;
         if (!reason) {
@@ -339,7 +339,7 @@ router.post('/:id/reject', requirePermission('accounting:approve'), async (req: 
 });
 
 // GET /api/transactions/summary - Financial summary
-router.get('/summary', authMiddleware, requireBranchAccess(), requirePermission('accounting:view'), async (req: any, res) => {
+router.get('/summary', authMiddleware, requireBranchAccess(), requirePermission('accounting:read'), async (req: any, res) => {
     try {
         const { from, to, branch, department } = req.query as any;
         const filter: any = { status: 'approved' }; // Only include approved transactions in summary
@@ -376,7 +376,7 @@ router.get('/summary', authMiddleware, requireBranchAccess(), requirePermission(
 });
 
 // GET /api/transactions/summary/trends - Monthly income vs expense (last 6 months)
-router.get('/summary/trends', authMiddleware, requireBranchAccess(), requirePermission('accounting:view'), async (req: any, res) => {
+router.get('/summary/trends', authMiddleware, requireBranchAccess(), requirePermission('accounting:read'), async (req: any, res) => {
     try {
         const { branch, department, period = 'month' } = req.query as any;
         const now = new Date();

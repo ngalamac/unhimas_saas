@@ -244,7 +244,7 @@ export const roleDefinitions: RoleDefinition[] = [
     icon: 'building',
     defaultPermissions: {
       students: ['create', 'read', 'update', 'delete', 'export'],
-      accounting: ['create', 'read', 'update', 'export'],
+      accounting: ['read', 'export'],
       staff: ['read', 'update'],
       programs: ['read', 'update'],
       departments: ['read', 'update'],
