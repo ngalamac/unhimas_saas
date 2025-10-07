@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Users, GraduationCap, Building2, CreditCard, AlertCircle, Shield, Database } from 'lucide-react';
+import { Users, GraduationCap, Building2, CreditCard, AlertCircle, Shield, Database, UserPlus, PlusCircle, Settings } from 'lucide-react';
 import { formatXAF } from '../../utils/currency';
 import { useBranch } from '../../context/BranchContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '../../context/NavigationContext';
 import { isFinanceRole } from '../../utils/rolePermissions';
 import fetchClient from '../../lib/fetchClient';
+import { ModernStatsCard } from './modern/ModernStatsCard';
+import { QuickActionCard, QuickAction } from './modern/QuickActionCard';
+import { ActivityFeed, Activity } from './modern/ActivityFeed';
+import { SystemStatusCard, SystemStatus } from './modern/SystemStatusCard';
 
 export const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -109,18 +113,120 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const quickActions: QuickAction[] = [
+    {
+      id: 'add-student',
+      title: 'Add New Student',
+      description: 'Register a new student in the system',
+      icon: UserPlus,
+      onClick: () => setCurrentPage('student-registration'),
+      gradient: 'blue'
+    },
+    ...(user?.isSuperAdmin ? [{
+      id: 'create-branch',
+      title: 'Create Branch',
+      description: 'Add a new branch location',
+      icon: Building2,
+      onClick: () => setCurrentPage('create-branch'),
+      gradient: 'green' as const
+    }] : []),
+    {
+      id: 'add-program',
+      title: 'Add Program',
+      description: 'Create new academic program',
+      icon: GraduationCap,
+      onClick: () => setCurrentPage('programs'),
+      gradient: 'purple'
+    },
+    {
+      id: 'manage-users',
+      title: 'Manage Users',
+      description: 'User roles and permissions',
+      icon: Settings,
+      onClick: () => setCurrentPage('user-management'),
+      gradient: 'orange'
+    }
+  ];
+
+  const recentActivities: Activity[] = [
+    {
+      id: '1',
+      title: 'New Student Registered',
+      description: 'John Doe enrolled in Computer Engineering',
+      timestamp: '2 minutes ago',
+      type: 'success',
+      icon: Users,
+      user: 'Admin'
+    },
+    {
+      id: '2',
+      title: 'Payment Received',
+      description: 'Tuition payment of 525,000 XAF processed',
+      timestamp: '5 minutes ago',
+      type: 'success',
+      icon: CreditCard
+    },
+    {
+      id: '3',
+      title: 'Announcement Sent',
+      description: 'Campus event notification sent to all students',
+      timestamp: '10 minutes ago',
+      type: 'info',
+      icon: AlertCircle
+    }
+  ];
+
+  const systemStatuses: SystemStatus[] = [
+    {
+      id: 'db',
+      name: 'Database',
+      status: 'online',
+      lastChecked: 'Just now',
+      details: 'PostgreSQL cluster healthy'
+    },
+    {
+      id: 'payment',
+      name: 'Payment Gateway',
+      status: 'online',
+      lastChecked: '1 min ago',
+      details: 'All transactions processing'
+    },
+    {
+      id: 'sms',
+      name: 'SMS Service',
+      status: 'online',
+      lastChecked: '2 min ago',
+      details: 'Message queue: 0'
+    },
+    {
+      id: 'email',
+      name: 'Email Service',
+      status: 'online',
+      lastChecked: '30 sec ago',
+      details: 'SMTP server connected'
+    }
+  ];
+
   return (
-    <>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-600">Administrative overview and management</p>
-          <p className="text-sm text-blue-600">Branch: {currentBranch?.name || 'All Branches'}</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Admin Dashboard</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Administrative overview and management</p>
+          <div className="flex items-center space-x-2 mt-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+              {currentBranch?.name || 'All Branches'}
+            </p>
+          </div>
         </div>
-        <div className="text-right">
-          <div className="text-sm text-gray-600">{new Date().toLocaleDateString()}</div>
-          <div className="text-xs text-gray-500">{new Date().toLocaleTimeString()}</div>
+        <div className="flex flex-col sm:items-end">
+          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+            {new Date().toLocaleTimeString()}
+          </div>
         </div>
       </div>
 
@@ -147,140 +253,54 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Admin Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div className="card p-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Students</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalStudents}</p>
-              <p className="text-xs text-green-600">↗ +12% this month</p>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <ModernStatsCard
+          title="Total Students"
+          value={stats.totalStudents}
+          subtitle="Active enrollments"
+          icon={Users}
+          gradient="blue"
+          trend={{ value: '+12%', isPositive: true }}
+          onClick={() => setCurrentPage('all-students')}
+        />
 
-        <div className="card p-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Active Branches</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeBranches}</p>
-              <p className="text-xs text-blue-600">All operational</p>
-            </div>
-          </div>
-        </div>
+        <ModernStatsCard
+          title="Active Branches"
+          value={stats.activeBranches}
+          subtitle="All operational"
+          icon={Building2}
+          gradient="emerald"
+          onClick={() => setCurrentPage('view-branches')}
+        />
 
         {isFinance && (
-        <div className="card p-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <CreditCard className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Revenue</p>
-              {stats.totalRevenue > 0 && (
-                <>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
-                  <p className="text-xs text-green-600">↗ +8% this month</p>
-                </>
-              )}
-            </div>
-          </div>
-        </div>)}
+          <ModernStatsCard
+            title="Total Revenue"
+            value={formatCurrency(stats.totalRevenue)}
+            subtitle="This month"
+            icon={CreditCard}
+            gradient="purple"
+            trend={{ value: '+8%', isPositive: true }}
+            onClick={() => setCurrentPage('accounting-overview')}
+          />
+        )}
 
         {isFinance && (
-        <div className="card p-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Pending Payments</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.pendingPayments}</p>
-              <p className="text-xs text-orange-600">Requires attention</p>
-            </div>
-          </div>
-        </div>)}
+          <ModernStatsCard
+            title="Pending Payments"
+            value={stats.pendingPayments}
+            subtitle="Requires attention"
+            icon={AlertCircle}
+            gradient="orange"
+            onClick={() => setCurrentPage('transactions')}
+          />
+        )}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-        <div className="card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="space-y-3">
-            <button 
-              onClick={() => setCurrentPage('student-registration')}
-              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-            >
-              <Users className="w-4 h-4" />
-              <span>Add New Student</span>
-            </button>
-            {user?.isSuperAdmin && (
-              <button 
-                onClick={() => setCurrentPage('create-branch')}
-                className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
-              >
-                <Building2 className="w-4 h-4" />
-                <span>Create Branch</span>
-              </button>
-            )}
-            <button 
-              onClick={() => setCurrentPage('programs')}
-              className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
-            >
-              <GraduationCap className="w-4 h-4" />
-              <span>Add Program</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activities</h3>
-          <div className="space-y-3">
-            <div className="flex items-center space-x-3 text-sm">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>New student registered</span>
-              <span className="text-gray-500 ml-auto">2 min ago</span>
-            </div>
-            <div className="flex items-center space-x-3 text-sm">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span>Payment processed</span>
-              <span className="text-gray-500 ml-auto">5 min ago</span>
-            </div>
-            <div className="flex items-center space-x-3 text-sm">
-              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-              <span>Announcement sent</span>
-              <span className="text-gray-500 ml-auto">10 min ago</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Database</span>
-              <span className="text-sm text-green-600 font-medium">Online</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Payment Gateway</span>
-              <span className="text-sm text-green-600 font-medium">Active</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">SMS Service</span>
-              <span className="text-sm text-green-600 font-medium">Running</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Email Service</span>
-              <span className="text-sm text-green-600 font-medium">Running</span>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <QuickActionCard actions={quickActions} />
+        <ActivityFeed activities={recentActivities} />
+        <SystemStatusCard statuses={systemStatuses} />
       </div>
 
       {/* Account Management Interface (SuperAdmin only) */}

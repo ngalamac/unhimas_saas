@@ -74,41 +74,46 @@ export const Charts: React.FC = () => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-      {/* Fee Collection vs Expenses (Dynamic) */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Fee Collection vs Expenses (Last 6 Mo)</h3>
-        {error && <div className="text-sm text-red-600 mb-2">{error}</div>}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-md border border-gray-200 dark:border-gray-800 p-6 hover:shadow-xl transition-all duration-300 group">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Fee Collection vs Expenses</h3>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">Last 6 Months</span>
+        </div>
+        {error && <div className="text-sm text-red-600 dark:text-red-400 mb-2 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">{error}</div>}
         <div className="flex items-center justify-center h-64">
-          <div className="relative w-48 h-48">
+          <div className="relative w-48 h-48 group-hover:scale-105 transition-transform duration-300">
             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="40" fill="none" stroke="#f3f4f6" strokeWidth="8" />
               <circle cx="50" cy="50" r="40" fill="none" stroke="#3b82f6" strokeWidth="8" strokeDasharray={donut.incomeStroke} strokeLinecap="round" />
               <circle cx="50" cy="50" r="40" fill="none" stroke="#ef4444" strokeWidth="8" strokeDasharray={donut.expenseStroke} strokeDashoffset={`-${donut.incomeStroke.split(' ')[0]}`} strokeLinecap="round" />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-14 h-14 bg-gray-800 rounded-full flex flex-col items-center justify-center">
-                <span className="text-[10px] text-gray-300">NET</span>
-                <span className="text-white font-semibold text-xs">{(summary?.net || 0).toLocaleString()}</span>
+              <div className="w-16 h-16 bg-gradient-to-br from-gray-800 to-gray-900 dark:from-gray-700 dark:to-gray-800 rounded-full flex flex-col items-center justify-center shadow-lg">
+                <span className="text-[10px] text-gray-400 font-medium">NET</span>
+                <span className="text-white font-bold text-sm">{(summary?.net || 0).toLocaleString()}</span>
               </div>
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-center space-x-6 mt-4 flex-wrap">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-            <span className="text-sm text-gray-600">Income ({(donut.income || 0).toLocaleString()})</span>
+        <div className="flex items-center justify-center space-x-6 mt-6 flex-wrap">
+          <div className="flex items-center space-x-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="w-3 h-3 bg-blue-500 rounded-full shadow-sm"></div>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Income</span>
+            <span className="text-sm font-bold text-blue-600 dark:text-blue-400">({(donut.income || 0).toLocaleString()})</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-            <span className="text-sm text-gray-600">Expense ({(donut.expense || 0).toLocaleString()})</span>
+          <div className="flex items-center space-x-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+            <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Expense</span>
+            <span className="text-sm font-bold text-red-600 dark:text-red-400">({(donut.expense || 0).toLocaleString()})</span>
           </div>
         </div>
       </div>
 
-      {/* Student Enrollment Trends (Dynamic) */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-1">Student Enrollment Trends</h3>
-        <p className="text-xs text-gray-500 mb-4">Last 6 months</p>
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-md border border-gray-200 dark:border-gray-800 p-6 hover:shadow-xl transition-all duration-300 group">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Student Enrollment Trends</h3>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">Last 6 Months</span>
+        </div>
         <div className="h-64">
           <svg className="w-full h-full" viewBox="0 0 400 200">
             <defs>
@@ -134,14 +139,14 @@ export const Charts: React.FC = () => {
             )}
           </svg>
         </div>
-        <div className="flex items-center justify-center space-x-6 mt-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-            <span className="text-sm text-gray-600">New Admissions</span>
+        <div className="flex items-center justify-center space-x-6 mt-6">
+          <div className="flex items-center space-x-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="w-3 h-3 bg-blue-500 rounded-full shadow-sm"></div>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">New Admissions</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            <span className="text-sm text-gray-600">Total Enrolled</span>
+          <div className="flex items-center space-x-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+            <div className="w-3 h-3 bg-emerald-500 rounded-full shadow-sm"></div>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Enrolled</span>
           </div>
         </div>
       </div>

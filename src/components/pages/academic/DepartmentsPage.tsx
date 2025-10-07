@@ -3,6 +3,8 @@ import fetchClient from '../../../lib/fetchClient';
 import { Building2, Plus, Edit, Trash2, Eye, Users, BookOpen } from 'lucide-react';
 import { Department } from '../../../types/school';
 import { getDepartments, deleteDepartment } from '../../../api/departments';
+import { PageHeader } from '../../UI/PageHeader';
+import { ModernStatsCard } from '../../dashboard/modern/ModernStatsCard';
 
 export const DepartmentsPage: React.FC = () => {
   // Modal state for create/edit/view
@@ -131,23 +133,50 @@ export const DepartmentsPage: React.FC = () => {
   // edit/save flow not implemented yet for departments; update handler omitted to avoid unused symbol
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-6">
       <DepartmentModal />
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Academic Departments</h1>
-          <p className="text-gray-600">Manage all academic departments and their programs</p>
-        </div>
-  <button type="button" onClick={() => openModal('create')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
-          <Plus className="w-4 h-4" />
-          <span>Add New Department</span>
-        </button>
+
+      <PageHeader
+        title="Academic Departments"
+        description="Manage all academic departments and their programs"
+        icon={Building2}
+        actions={(
+          <button
+            type="button"
+            onClick={() => openModal('create')}
+            className="btn-primary flex items-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Department</span>
+          </button>
+        )}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <ModernStatsCard
+          title="Total Departments"
+          value={departments.length}
+          subtitle="Across all programs"
+          icon={Building2}
+          gradient="blue"
+        />
+        <ModernStatsCard
+          title="Active Departments"
+          value={departments.filter(d => d.isActive).length}
+          subtitle="Currently operational"
+          icon={Users}
+          gradient="emerald"
+        />
+        <ModernStatsCard
+          title="Programs"
+          value={new Set(departments.map(d => typeof d.program === 'object' ? (d.program as any)?._id || (d.program as any)?.id : d.program)).size}
+          subtitle="Unique programs"
+          icon={BookOpen}
+          gradient="purple"
+        />
       </div>
 
-      {/* Stats */}
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-  <div className="bg-white p-4 rounded-lg shadow-sm border">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-md border border-gray-200 dark:border-gray-800 p-1">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
               <Building2 className="w-5 h-5 text-blue-600" />
