@@ -94,13 +94,6 @@ export const DashboardStats: React.FC = () => {
             subtitle: 'OPERATIONAL',
             color: 'bg-red-600',
             icon: <Building2 className="w-8 h-8 text-white" />
-        },
-        {
-            title: 'Active Branches',
-            value: stats.activeBranches.toString(),
-            subtitle: 'OPERATIONAL',
-            color: 'bg-red-600',
-            icon: <Building2 className="w-8 h-8 text-white" />
         }
     ];
 
