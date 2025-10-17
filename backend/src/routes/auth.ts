@@ -1,7 +1,6 @@
 
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
@@ -52,7 +51,8 @@ router.post('/reset-password', async (req, res) => {
     });
 
     res.json({ message: 'Password reset link sent to your email.' });
-  } catch (err) {
+  } catch (error) {
+    console.error('Password reset error:', error);
     res.status(500).json({ error: 'Failed to process password reset.' });
   }
 });
