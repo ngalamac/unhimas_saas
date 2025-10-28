@@ -14,7 +14,17 @@ export async function getJournalEntries(params: { page?: number, limit?: number,
         throw new Error('Failed to fetch journal entries');
     }
     const body = await res.json();
-    return body.data as { data: JournalEntry[], meta: any };
+    // Backend returns { data: entries, meta: {...} }
+    // Normalize to a consistent shape: { data, meta }
+    if (body && body.data && body.meta) {
+        return { data: body.data as JournalEntry[], meta: body.meta };
+    }
+    // Fallback: some earlier endpoints returned nested under data
+    const nested = body?.data;
+    if (nested && nested.data && nested.meta) {
+        return { data: nested.data as JournalEntry[], meta: nested.meta };
+    }
+    return { data: (Array.isArray(body?.data) ? body.data : []) as JournalEntry[], meta: body?.meta || {} };
 }
 
 export async function createJournalEntry(entry: Partial<JournalEntry>) {
